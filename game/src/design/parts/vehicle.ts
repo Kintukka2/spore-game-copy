@@ -203,7 +203,7 @@ const V = (d: Omit<PartDef, 'kind'> & { kind?: PartDef['kind'] }): PartDef => ({
 type WheelStyle = 'roller' | 'big' | 'spike';
 
 function drawWheel(g: CanvasRenderingContext2D, c: PartDrawCtx, cx: number, cy: number, R: number, style: WheelStyle) {
-  const spin = c.t * (60 / R);
+  const spin = (c.travel ?? c.t) * (60 / R) * 0.6;
   if (style === 'spike') {
     g.save();
     g.translate(cx, cy);
@@ -293,7 +293,7 @@ export const VEHICLE_PARTS: PartDef[] = [
       // Links crawl around the loop.
       g.save();
       g.setLineDash([2.4, 2.2]);
-      g.lineDashOffset = -c.t * 26;
+      g.lineDashOffset = -(c.travel ?? c.t) * 16;
       g.strokeStyle = '#5a5664';
       g.lineWidth = 2.2;
       g.stroke(trackLoop(-L, L, cy, r - 1.2));
@@ -301,7 +301,7 @@ export const VEHICLE_PARTS: PartDef[] = [
       g.fillStyle = '#1d1b22';
       g.fill(trackLoop(-L, L, cy, r - 2.6));
       // Road wheels and drive sprockets.
-      const spin = c.t * 8;
+      const spin = (c.travel ?? c.t) * 5;
       for (const [x, rr] of [[-L, 4.4], [-L / 3, 3.4], [L / 3, 3.4], [L, 4.4]] as [number, number][]) {
         fillShaded(g, circlePath(x, cy, rr), mix(STEEL, c.colors.detail, 0.3), { y0: cy - rr, y1: cy + rr, lw: 1.4 });
         g.strokeStyle = shade(STEEL, -0.55);
@@ -351,7 +351,7 @@ export const VEHICLE_PARTS: PartDef[] = [
     id: 'v-mech-legs', name: 'Strider Legs', category: 'locomotion', tier: 3, cost: 280, snap: 'bottom', layer: 'front', paired: true, radius: 28,
     stats: { move: 3 }, desc: 'Stompy walker legs. Steps over anything.',
     draw(g, c) {
-      const ph = c.t * 3.4 + (c.far ? Math.PI : 0);
+      const ph = (c.travel ?? c.t) * 2.2 + (c.far ? Math.PI : 0);
       const fx = Math.sin(ph) * 7, lift = Math.max(0, Math.cos(ph)) * 4;
       const ax = fx, ay = 22.5 - lift;
       const k = ik(0, 1, ax, ay, 13, 13, 1);

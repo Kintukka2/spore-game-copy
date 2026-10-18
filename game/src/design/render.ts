@@ -742,6 +742,7 @@ function drawPartInstance(g: CanvasRenderingContext2D, d: Design, pi: PartInstan
   const n = nodes[pi.node];
   if (!n) return;
   const ctx: PartDrawCtx = {
+    travel: pose.phase ?? 0,
     colors: far ? farPalette(d.colors) : d.colors,
     t: pose.t,
     act: actIntensity(p, pose),
@@ -971,7 +972,7 @@ export function drawThumb(canvas: HTMLCanvasElement, d: Design, opts: { bg?: str
   if (d.kind === 'cell') {
     renderCell(g, d, cw / 2 - (L.cx) * s, ch / 2, 0, s, { t: opts.t ?? 0 });
   } else {
-    const groundScreen = ch / 2 + (L.height / 2) * s;
+    const groundScreen = ch / 2 + (L.groundY - (L.top + L.height / 2)) * s;
     renderDesign(g, d, cw / 2, groundScreen, s, { t: opts.t ?? 0 }, { shadow: false });
   }
 }

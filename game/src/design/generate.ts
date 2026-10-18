@@ -170,10 +170,20 @@ export function generateVehicle(r: RNG, role: VehicleRole, medium: VehicleMedium
   for (let i = 0; i < n; i++) spine.push({ x: Math.round((i - (n - 1) / 2) * r.range(16, 22)), y: Math.round(i === n - 1 ? -r.range(0, 6) : 0), r: Math.round(r.range(9, 15)) });
   const d: Design = { v: 1, kind: 'vehicle', name: speciesName(r) + ' ' + r.pick(['Mk I', 'Rover', 'Runner', 'Hauler', 'Strider', 'Wing', 'Skiff']), spine, parts: [], colors: colors ?? randomPalette(r, { vivid: true }), meta: { role, medium } };
   const medTag = (p: PartDef) => (medium === 'land' ? !/sea|air|prop|hull|wing|jet/.test(p.id) : medium === 'sea' ? /sea|hull|prop|motor/.test(p.id) : /air|wing|jet|rotor|prop/.test(p.id));
-  if (medium === 'land' || medium === 'sea') {
-    for (const ni of medium === 'land' ? [0, n - 1] : [Math.floor(n / 2)]) addByCat(r, d, 'vehicle', 'locomotion', ni, 0, spine[ni].r * 0.85, {}, medTag);
-  } else {
-    addByCat(r, d, 'vehicle', 'locomotion', Math.floor(n / 2), 0, -spine[Math.floor(n / 2)].r * 0.6, {}, medTag);
+  // One locomotion style per vehicle, repeated on each axle.
+  const locos = partsFor('vehicle', 'locomotion').filter(medTag);
+  const loco = locos.length ? r.pick(locos) : null;
+  if (loco) {
+    const mid = Math.floor(n / 2);
+    if (medium === 'land') {
+      const axles = loco.paired || /leg|tread|hover/.test(loco.id) ? [mid] : [0, n - 1];
+      for (const ni of axles) d.parts.push(inst(loco, ni, 0, spine[ni].r * 0.85));
+    } else if (medium === 'sea') {
+      d.parts.push(inst(loco, mid, 0, spine[mid].r * 0.85));
+    } else {
+      const top = loco.snap === 'top';
+      d.parts.push(inst(loco, mid, 0, top ? -spine[mid].r * 0.9 : spine[mid].r * 0.2));
+    }
   }
   const roleTag = (p: PartDef) => p.id.includes(role.slice(0, 3)) || p.id.includes(role);
   addByCat(r, d, 'vehicle', role === 'military' ? 'v-weapon' : 'v-tool', n - 1, 0, -spine[n - 1].r * 0.8, {}, (p) => role === 'military' || roleTag(p));

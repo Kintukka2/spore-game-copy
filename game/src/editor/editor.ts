@@ -554,10 +554,16 @@ export class EditorScene implements Scene {
       case 'shoulder': { const i = Math.max(0, head - 1); return { node: i, ox: 0, oy: -n(i).r * 0.7, rot: 0 }; }
       case 'trinket': { const i = Math.max(0, head - 1); return { node: i, ox: n(i).r * 0.5, oy: n(i).r * 0.3, rot: 0 }; }
       case 'locomotion': {
+        if (p.snap === 'top') { const i = Math.floor(head / 2); return { node: i, ox: 0, oy: -n(i).r * 0.9, rot: 0 }; }
+        if (p.snap !== 'bottom') { const i = Math.floor(head / 2); return { node: i, ox: (k % 2 ? -1 : 1) * n(i).r * 0.3, oy: n(i).r * 0.1, rot: 0 }; }
         const nodes = [0, head, Math.floor(head / 2)];
         const i = nodes[k % nodes.length];
         return { node: i, ox: 0, oy: n(i).r * 0.85, rot: 0 };
       }
+      case 'b-detail':
+        if (p.snap === 'bottom') return { node: 0, ox: (k % 2 ? -1 : 1) * n(0).r * 0.9, oy: n(0).r * 0.6, rot: 0 };
+        return { node: head, ox: (k % 3 - 1) * n(head).r * 0.6, oy: -n(head).r * 0.95, rot: 0 };
+      case 'wall': { const i = clamp(Math.floor(head / 2) + (k % 2), 0, head); return { node: i, ox: (k % 2 ? -1 : 1) * n(i).r * 1.1, oy: 0, rot: 0 }; }
       case 'roof': return { node: head, ox: 0, oy: -n(head).r * 1.0, rot: 0 };
       case 'door': return { node: 0, ox: 0, oy: n(0).r * 0.35, rot: 0 };
       case 's-engine': return { node: 0, ox: -n(0).r * 1.2, oy: (k % 2 ? 1 : -1) * k * 3, rot: 0 };

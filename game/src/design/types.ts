@@ -99,6 +99,8 @@ export interface PartDrawCtx {
   limb?: LimbPose;
   /** True when rendering an editor palette thumbnail. */
   thumb?: boolean;
+  /** Distance-like clock that only advances while the design moves (wheels, treads, walker legs). */
+  travel?: number;
 }
 
 export interface LimbPose {

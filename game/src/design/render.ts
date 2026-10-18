@@ -116,25 +116,42 @@ function animateSpine(d: Design, pose: Pose): SpineNode[] {
 
 function bodyPath(nodes: SpineNode[], kind: Design['kind'], pad = 0): Path2D {
   const p = new Path2D();
-  if (kind === 'vehicle' || kind === 'building') {
+  if (kind === 'vehicle') {
+    // Chunky toy chassis: one rounded box per node (nose and tail corners swept), joined by bands.
+    // Every sub-shape is wound clockwise so overlaps union under the nonzero rule.
+    const head = nodes.length - 1;
     for (let i = 0; i < nodes.length; i++) {
       const a = nodes[i];
-      const w = kind === 'building' ? a.r * 2.6 : a.r * 2.3;
-      const hh = a.r + pad;
-      roundRectPath(p, a.x - w / 2 - pad, a.y - hh, w + pad * 2, hh * 2, Math.min(a.r * (kind === 'building' ? 0.15 : 0.45), hh));
-      if (i > 0) {
-        const b = nodes[i - 1];
-        const r = Math.min(a.r, b.r) * 0.85 + pad;
-        p.moveTo(a.x, a.y - r);
-        p.lineTo(b.x, b.y - r);
-        p.lineTo(b.x, b.y + r);
-        p.lineTo(a.x, a.y + r);
-        p.closePath();
-      }
+      const hw = a.r * 1.05 + pad, hh = a.r + pad;
+      // Only the outer corners are rounded (a swept nose, a softer tail) so the nodes read as one chassis.
+      const solo = head === 0, nose = i === head || solo, tail = i === 0 || solo;
+      const inner = a.r * 0.16 + pad;
+      roundRect4(p, a.x - hw, a.y - hh, hw * 2, hh * 2, tail ? a.r * 0.6 + pad : inner, nose ? a.r * 0.9 + pad : inner, nose ? a.r * 0.35 + pad : inner, tail ? a.r * 0.35 + pad : inner);
+      if (i > 0) bandCW(p, nodes[i - 1], a, Math.min(a.r, nodes[i - 1].r) * 0.85 + pad);
     }
     return p;
   }
-  const sx = kind === 'ship' ? 1.45 : 1;
+  if (kind === 'building') {
+    // Floors with a cornice ledge on top of each, and a plinth under the ground floor.
+    let gi = 0;
+    for (let i = 1; i < nodes.length; i++) if (nodes[i].y + nodes[i].r > nodes[gi].y + nodes[gi].r) gi = i;
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      const hw = a.r * BLD_W + pad, hh = a.r + pad;
+      roundRect4(p, a.x - hw, a.y - hh, hw * 2, hh * 2, 1.5, 1.5, 1, 1);
+      const cw = hw + 2.5, ct = a.y - a.r - 1 - pad;
+      roundRect4(p, a.x - cw, ct, cw * 2, 4.5 + pad * 2, 1.2, 1.2, 1.2, 1.2);
+      if (i > 0) bandCW(p, nodes[i - 1], a, Math.min(a.r, nodes[i - 1].r) * 0.85 + pad);
+    }
+    const gn = nodes[gi];
+    if (gn) {
+      const pw = gn.r * BLD_W + 4 + pad;
+      roundRect4(p, gn.x - pw, gn.y + gn.r - 5 - pad, pw * 2, 5 + pad * 2, 1.5, 1.5, 0.5, 0.5);
+    }
+    return p;
+  }
+  if (kind === 'ship') return shipHullPath(nodes, pad);
+  const sx = 1;
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i];
     p.moveTo(a.x + (a.r + pad) * sx, a.y);
@@ -153,6 +170,89 @@ function bodyPath(nodes: SpineNode[], kind: Design['kind'], pad = 0): Path2D {
     }
   }
   return p;
+}
+
+/** Half-width of a building floor, as a multiple of the node radius. */
+const BLD_W = 1.25;
+
+/** Sleek starship hull: a smooth ribbon along the spine, blunt at the tail (engines) and pointed at the nose. */
+function shipHullPath(nodes: SpineNode[], pad: number): Path2D {
+  const n = nodes.length;
+  if (n === 1) {
+    const a = nodes[0];
+    const p = new Path2D();
+    p.ellipse(a.x, a.y, a.r * 1.2 + pad, a.r * 0.82 + pad, 0, 0, TAU);
+    return p;
+  }
+  const tan = (i: number): [number, number] => {
+    const a = nodes[Math.max(0, i - 1)], b = nodes[Math.min(n - 1, i + 1)];
+    const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+    return [dx / l, dy / l];
+  };
+  const top: [number, number][] = [], bot: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const a = nodes[i];
+    const [tx, ty] = tan(i);
+    const nx = -ty, ny = tx;
+    const ru = a.r + pad, rd = a.r * 0.9 + pad;
+    top.push([a.x - nx * ru, a.y - ny * ru]);
+    bot.push([a.x + nx * rd, a.y + ny * rd]);
+  }
+  const at = (a: SpineNode, t: [number, number], along: number, side: number): [number, number] => [a.x + t[0] * along - t[1] * side, a.y + t[1] * along + t[0] * side];
+  const a0 = nodes[0], t0 = tan(0), z = nodes[n - 1], tz = tan(n - 1);
+  const pts: [number, number][] = [
+    at(a0, t0, -(a0.r * 0.92 + pad), -(a0.r * 0.52 + pad * 0.7)),
+    ...top,
+    at(z, tz, z.r * 0.72 + pad * 0.7, -(z.r * 0.62 + pad * 0.8)),
+    at(z, tz, z.r * 1.32 + pad, 0),
+    at(z, tz, z.r * 0.72 + pad * 0.7, z.r * 0.55 + pad * 0.8),
+    ...bot.reverse(),
+    at(a0, t0, -(a0.r * 0.92 + pad), a0.r * 0.46 + pad * 0.7),
+  ];
+  return smoothClosed(pts);
+}
+
+/** Closed Catmull-Rom spline through points. */
+function smoothClosed(pts: [number, number][]): Path2D {
+  const p = new Path2D();
+  const n = pts.length;
+  p.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    p.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]);
+  }
+  p.closePath();
+  return p;
+}
+
+/** A band joining two nodes, wound clockwise (screen space) to union with the node shapes. */
+function bandCW(p: Path2D, a: SpineNode, b: SpineNode, k: number) {
+  const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy);
+  if (l < 0.5) return;
+  const nx = -dy / l * k, ny = dx / l * k;
+  const q: [number, number][] = [[a.x - nx, a.y - ny], [b.x - nx, b.y - ny], [b.x + nx, b.y + ny], [a.x + nx, a.y + ny]];
+  let area = 0;
+  for (let i = 0; i < 4; i++) area += q[i][0] * q[(i + 1) % 4][1] - q[(i + 1) % 4][0] * q[i][1];
+  if (area < 0) q.reverse();
+  p.moveTo(q[0][0], q[0][1]);
+  for (let i = 1; i < 4; i++) p.lineTo(q[i][0], q[i][1]);
+  p.closePath();
+}
+
+/** Clockwise rounded rect with per-corner radii (top-left, top-right, bottom-right, bottom-left). */
+function roundRect4(p: Path2D, x: number, y: number, w: number, h: number, tl: number, tr: number, br: number, bl: number) {
+  const m = Math.max(0, Math.min(w, h) / 2);
+  tl = Math.max(0, Math.min(tl, m)); tr = Math.max(0, Math.min(tr, m)); br = Math.max(0, Math.min(br, m)); bl = Math.max(0, Math.min(bl, m));
+  p.moveTo(x + tl, y);
+  p.lineTo(x + w - tr, y);
+  if (tr) p.arcTo(x + w, y, x + w, y + tr, tr);
+  p.lineTo(x + w, y + h - br);
+  if (br) p.arcTo(x + w, y + h, x + w - br, y + h, br);
+  p.lineTo(x + bl, y + h);
+  if (bl) p.arcTo(x, y + h, x, y + h - bl, bl);
+  p.lineTo(x, y + tl);
+  if (tl) p.arcTo(x, y, x + tl, y, tl);
+  p.closePath();
 }
 
 function roundRectPath(p: Path2D, x: number, y: number, w: number, h: number, r: number) {
@@ -284,53 +384,255 @@ function drawBody(g: CanvasRenderingContext2D, d: Design, nodes: SpineNode[], L:
   const path = bodyPath(nodes, d.kind);
   g.save();
   g.clip(path);
+  if (d.kind === 'vehicle' || d.kind === 'ship' || d.kind === 'building') {
+    decorateMechBody(g, d, c, nodes, L);
+    g.restore();
+    return;
+  }
   // Base with vertical light falloff.
   const top = L.top, bot = Math.max(...nodes.map((n) => n.y + n.r));
   const grad = g.createLinearGradient(0, top, 0, bot);
-  if (d.kind === 'vehicle' || d.kind === 'ship') {
-    grad.addColorStop(0, shade(c.base, 0.45));
-    grad.addColorStop(0.35, c.base);
-    grad.addColorStop(0.55, shade(c.base, -0.12));
-    grad.addColorStop(1, shade(c.base, -0.35));
-  } else {
-    grad.addColorStop(0, shade(c.base, 0.18));
-    grad.addColorStop(0.6, c.base);
-    grad.addColorStop(1, shade(c.base, -0.28));
-  }
+  grad.addColorStop(0, shade(c.base, 0.18));
+  grad.addColorStop(0.6, c.base);
+  grad.addColorStop(1, shade(c.base, -0.28));
   g.fillStyle = grad;
   g.fillRect(L.left - 50, top - 50, L.width + 100, bot - top + 100);
   drawPattern(g, d, nodes, L);
-  if (d.kind === 'building') {
-    // Windows grid.
-    g.fillStyle = rgba('#fff3c4', 0.85);
-    for (const n of nodes) {
-      const w = n.r * 2.6;
-      const cols = Math.max(1, Math.floor(w / 16));
-      for (let k = 0; k < cols; k++) {
-        const wx = n.x - w / 2 + (k + 0.5) * (w / cols);
-        g.fillStyle = (k + Math.round(n.y)) % 3 === 0 ? rgba('#1d2b44', 0.8) : rgba('#ffe7a3', 0.9);
-        g.fillRect(wx - 3.5, n.y - n.r * 0.45, 7, n.r * 0.6);
-      }
-    }
-  }
-  if (d.kind === 'vehicle' || d.kind === 'ship') {
-    g.strokeStyle = rgba(shade(c.base, -0.5), 0.5);
-    g.lineWidth = 1;
-    for (const n of nodes) {
-      g.beginPath();
-      g.moveTo(n.x - n.r * 1.1, n.y + n.r * 0.15);
-      g.lineTo(n.x + n.r * 1.1, n.y + n.r * 0.15);
-      g.stroke();
-    }
-  }
   // Rim light / gloss.
   g.fillStyle = 'rgba(255,255,255,0.16)';
   for (const n of nodes) {
     g.beginPath();
-    g.ellipse(n.x - n.r * 0.15, n.y - n.r * 0.55, n.r * 0.55 * (d.kind === 'ship' ? 1.4 : 1), n.r * 0.2, -0.1, 0, TAU);
+    g.ellipse(n.x - n.r * 0.15, n.y - n.r * 0.55, n.r * 0.55, n.r * 0.2, -0.1, 0, TAU);
     g.fill();
   }
   g.restore();
+}
+
+/** Body surface for the mechanical kinds (already clipped to the body path). */
+function decorateMechBody(g: CanvasRenderingContext2D, d: Design, c: Palette, nodes: SpineNode[], L: Layout) {
+  const top = Math.min(...nodes.map((n) => n.y - n.r)), bot = Math.max(...nodes.map((n) => n.y + n.r));
+  const x0 = L.left - 50, w = L.width + 100;
+  if (d.kind === 'building') {
+    // Each floor is its own lit block: bright under the cornice, darker toward the floor below.
+    // Upper floors first, so each lower floor's cornice sits in front of the floor above it.
+    const floors = [...nodes].sort((a, b) => a.y - b.y);
+    for (const n of floors) {
+      const gr = g.createLinearGradient(0, n.y - n.r, 0, n.y + n.r);
+      gr.addColorStop(0, shade(c.base, 0.22));
+      gr.addColorStop(0.5, c.base);
+      gr.addColorStop(1, shade(c.base, -0.22));
+      g.fillStyle = gr;
+      g.fillRect(n.x - n.r * 2, n.y - n.r - 6, n.r * 4, n.r * 2 + 12);
+    }
+    drawPattern(g, d, nodes, L);
+    decorateBuilding(g, c, floors);
+    return;
+  }
+  // Metal: a bright top sheen, a crisp shadow line just below the middle, a dark underside.
+  const grad = g.createLinearGradient(0, top, 0, bot);
+  grad.addColorStop(0, shade(c.base, 0.5));
+  grad.addColorStop(0.3, shade(c.base, 0.1));
+  grad.addColorStop(0.52, c.base);
+  grad.addColorStop(0.56, shade(c.base, -0.12));
+  grad.addColorStop(1, shade(c.base, -0.38));
+  g.fillStyle = grad;
+  g.fillRect(x0, top - 50, w, bot - top + 100);
+  drawPattern(g, d, nodes, L);
+  if (d.kind === 'vehicle') decorateVehicle(g, c, nodes);
+  else decorateShip(g, c, nodes);
+}
+
+/** A polyline through each node at height n.y + k*n.r, extended past both ends (nodes sorted by x). */
+function nodeLine(p: Path2D | CanvasRenderingContext2D, ns: SpineNode[], k: number) {
+  const a = ns[0], z = ns[ns.length - 1];
+  p.moveTo(a.x - a.r * 1.4, a.y + a.r * k);
+  for (const n of ns) p.lineTo(n.x, n.y + n.r * k);
+  p.lineTo(z.x + z.r * 1.4, z.y + z.r * k);
+}
+
+function decorateVehicle(g: CanvasRenderingContext2D, c: Palette, nodes: SpineNode[]) {
+  const dark = shade(c.base, -0.6);
+  const ns = [...nodes].sort((a, b) => a.x - b.x);
+  // Undercarriage skirt below a continuous seam.
+  const skirt = new Path2D();
+  nodeLine(skirt, ns, 0.45);
+  const z = ns[ns.length - 1], a0 = ns[0];
+  skirt.lineTo(z.x + z.r * 1.4, z.y + z.r * 3);
+  skirt.lineTo(a0.x - a0.r * 1.4, a0.y + a0.r * 3);
+  skirt.closePath();
+  g.fillStyle = rgba(dark, 0.3);
+  g.fill(skirt);
+  // Panel seams: the skirt line plus a vertical seam between neighbouring nodes.
+  g.strokeStyle = rgba(dark, 0.6);
+  g.lineWidth = 1;
+  g.beginPath();
+  nodeLine(g, ns, 0.45);
+  for (let i = 1; i < ns.length; i++) {
+    const a = ns[i - 1], b = ns[i];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, rr = Math.max(a.r, b.r);
+    g.moveTo(mx, my - rr * 1.2); g.lineTo(mx, my + rr * 0.45);
+  }
+  g.stroke();
+  // Accent pinstripe.
+  g.strokeStyle = rgba(c.detail, 0.9);
+  g.lineWidth = 1.5;
+  g.beginPath();
+  nodeLine(g, ns, 0.16);
+  g.stroke();
+  // Rivets along the skirt.
+  g.fillStyle = rgba(shade(c.base, 0.55), 0.85);
+  g.beginPath();
+  for (const n of ns) for (let k = -1; k <= 1; k++) { const x = n.x + k * n.r * 0.6, y = n.y + n.r * 0.7; g.moveTo(x + 1, y); g.arc(x, y, 1, 0, TAU); }
+  g.fill();
+  // Specular streaks.
+  g.fillStyle = 'rgba(255,255,255,0.3)';
+  g.beginPath();
+  for (const n of nodes) { g.moveTo(n.x + n.r * 0.65, n.y - n.r * 0.66); g.ellipse(n.x - n.r * 0.05, n.y - n.r * 0.66, n.r * 0.7, n.r * 0.13, 0, 0, TAU); }
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.7)';
+  g.beginPath();
+  for (const n of nodes) { const x = n.x - n.r * 0.62, y = n.y - n.r * 0.6; g.moveTo(x + 1.6, y); g.ellipse(x, y, 1.6, 1, -0.4, 0, TAU); }
+  g.fill();
+}
+
+function decorateShip(g: CanvasRenderingContext2D, c: Palette, nodes: SpineNode[]) {
+  const n = nodes.length;
+  const dark = shade(c.base, -0.6);
+  // Hull plate seams across the body between nodes.
+  g.strokeStyle = rgba(dark, 0.45);
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let i = 1; i < n; i++) {
+    const a = nodes[i - 1], b = nodes[i];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, rr = Math.max(a.r, b.r) * 1.2;
+    g.moveTo(mx, my - rr); g.quadraticCurveTo(mx + rr * 0.18, my, mx, my + rr);
+  }
+  g.stroke();
+  // Glowing seam along the flank: a soft wide glow under a bright core line.
+  const seam = new Path2D();
+  const pt = (i: number) => {
+    const a = nodes[i], b = nodes[Math.min(n - 1, i + 1)], z = nodes[Math.max(0, i - 1)];
+    const dx = b.x - z.x, dy = b.y - z.y, l = Math.hypot(dx, dy) || 1;
+    return { x: a.x - (dy / l) * a.r * 0.36, y: a.y + (dx / l) * a.r * 0.36 };
+  };
+  if (n === 1) {
+    const a = nodes[0];
+    seam.ellipse(a.x, a.y + a.r * 0.1, a.r * 1.05, a.r * 0.22, 0, 0.15 * Math.PI, 0.85 * Math.PI);
+  } else {
+    const first = pt(0), last = pt(n - 1);
+    seam.moveTo(first.x - nodes[0].r * 1.2, first.y);
+    let prev = first;
+    seam.lineTo(first.x, first.y);
+    for (let i = 1; i < n; i++) {
+      const q = pt(i);
+      seam.quadraticCurveTo(prev.x, prev.y, (prev.x + q.x) / 2, (prev.y + q.y) / 2);
+      prev = q;
+    }
+    seam.lineTo(last.x, last.y);
+    seam.lineTo(last.x + nodes[n - 1].r * 0.95, last.y - nodes[n - 1].r * 0.1);
+  }
+  g.lineCap = 'round';
+  g.strokeStyle = rgba(c.detail, 0.32);
+  g.lineWidth = 4;
+  g.stroke(seam);
+  g.strokeStyle = shade(c.detail, 0.45);
+  g.lineWidth = 1.3;
+  g.stroke(seam);
+  // A row of tiny lit portholes on the upper flank, evenly spaced between tail and head.
+  const lights: [number, number][] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const a = nodes[i], b = nodes[i + 1];
+    for (let k = 0; k < 3; k++) {
+      const f = (k + 0.5) / 3;
+      lights.push([a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - (a.r + (b.r - a.r) * f) * 0.18]);
+    }
+  }
+  g.fillStyle = rgba(dark, 0.85);
+  g.beginPath();
+  for (const [x, y] of lights) { g.moveTo(x + 1.5, y); g.arc(x, y, 1.5, 0, TAU); }
+  g.fill();
+  g.fillStyle = shade(c.detail, 0.6);
+  g.beginPath();
+  for (const [x, y] of lights) { g.moveTo(x + 0.85, y); g.arc(x, y, 0.85, 0, TAU); }
+  g.fill();
+  // Dorsal sheen.
+  g.fillStyle = 'rgba(255,255,255,0.28)';
+  g.beginPath();
+  for (const a of nodes) { g.moveTo(a.x + a.r * 0.9, a.y - a.r * 0.62); g.ellipse(a.x, a.y - a.r * 0.62, a.r * 0.9, a.r * 0.14, 0, 0, TAU); }
+  g.fill();
+}
+
+function decorateBuilding(g: CanvasRenderingContext2D, c: Palette, nodes: SpineNode[]) {
+  let gi = 0;
+  for (let i = 1; i < nodes.length; i++) if (nodes[i].y + nodes[i].r > nodes[gi].y + nodes[gi].r) gi = i;
+  for (let ni = 0; ni < nodes.length; ni++) {
+    const n = nodes[ni];
+    const hw = n.r * BLD_W;
+    // Side face in shade gives each block some depth.
+    g.fillStyle = rgba(shade(c.base, -0.55), 0.18);
+    g.fillRect(n.x + hw * 0.78, n.y - n.r + 3, hw * 0.3, n.r * 2 - 3);
+    // Masonry courses.
+    g.strokeStyle = rgba(shade(c.base, -0.5), 0.12);
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let y = n.y - n.r + 9; y < n.y + n.r - 2; y += 6) { g.moveTo(n.x - hw, y); g.lineTo(n.x + hw, y); }
+    g.stroke();
+    // Windows: arched frames, warm lit panes or cool dark glass, a sill below.
+    const cols = Math.max(1, Math.round((hw * 2) / 15));
+    const ww = Math.min(7.5, (hw * 2) / cols - 5), wh = Math.max(6, n.r * 0.85);
+    const wy = n.y - n.r * 0.42 + (ni === gi ? -n.r * 0.08 : 0);
+    const frame = new Path2D(), glassLit = new Path2D(), glassDark = new Path2D();
+    for (let k = 0; k < cols; k++) {
+      const wx = n.x - hw + (k + 0.5) * ((hw * 2) / cols);
+      const lit = (k * 7 + ni * 3 + Math.round(n.y)) % 5 > 1;
+      roundRect4(frame, wx - ww / 2 - 1.3, wy - 1.3, ww + 2.6, wh + 2.6, ww / 2 + 1.3, ww / 2 + 1.3, 0.6, 0.6);
+      roundRect4(lit ? glassLit : glassDark, wx - ww / 2, wy, ww, wh, ww / 2, ww / 2, 0, 0);
+    }
+    g.fillStyle = shade(c.base, -0.6);
+    g.fill(frame);
+    const gl = g.createLinearGradient(0, wy, 0, wy + wh);
+    gl.addColorStop(0, '#fff6cf');
+    gl.addColorStop(1, '#ffc65a');
+    g.fillStyle = gl;
+    g.fill(glassLit);
+    const gd = g.createLinearGradient(0, wy, 0, wy + wh);
+    gd.addColorStop(0, '#6f90b8');
+    gd.addColorStop(1, '#1f2f4c');
+    g.fillStyle = gd;
+    g.fill(glassDark);
+    // Sills and a glint.
+    g.fillStyle = shade(c.base, 0.45);
+    g.beginPath();
+    for (let k = 0; k < cols; k++) {
+      const wx = n.x - hw + (k + 0.5) * ((hw * 2) / cols);
+      g.rect(wx - ww / 2 - 2.2, wy + wh + 1, ww + 4.4, 1.8);
+    }
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.45)';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let k = 0; k < cols; k++) {
+      const wx = n.x - hw + (k + 0.5) * ((hw * 2) / cols);
+      g.moveTo(wx - ww * 0.25, wy + wh * 0.55); g.lineTo(wx + ww * 0.15, wy + wh * 0.25);
+    }
+    g.stroke();
+    // Cornice trim.
+    g.fillStyle = shade(c.base, 0.5);
+    g.fillRect(n.x - hw - 3, n.y - n.r - 1, hw * 2 + 6, 2.2);
+    g.fillStyle = rgba(shade(c.base, -0.5), 0.35);
+    g.fillRect(n.x - hw - 3, n.y - n.r + 2.2, hw * 2 + 6, 1.4);
+  }
+  // Plinth: darker stone under the ground floor.
+  const gn = nodes[gi];
+  const pw = gn.r * BLD_W + 4;
+  g.fillStyle = mixStone(c.base);
+  g.fillRect(gn.x - pw - 2, gn.y + gn.r - 5, pw * 2 + 4, 6);
+  g.fillStyle = 'rgba(255,255,255,0.25)';
+  g.fillRect(gn.x - pw - 2, gn.y + gn.r - 5, pw * 2 + 4, 1.2);
+}
+
+function mixStone(base: string): string {
+  return shade(base, -0.38);
 }
 
 /** Two-bone IK. Returns knee position. bend = +1/-1 chooses elbow side. */

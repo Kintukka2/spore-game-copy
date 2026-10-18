@@ -38,6 +38,7 @@ type Intent =
   | { kind: 'goto'; x: number; y: number; r: number; then?: () => void };
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+const PETALS = ['#ff9ec7', '#ffffff', '#9fd86b', '#ffd166', '#c6f08a'];
 const LACK: Partial<Record<AbilityId, string>> = { ...AB_SOURCE, sprint: 'fast legs', glide: 'wings', jump: 'springy legs' };
 
 export class CreatureStage implements Scene {
@@ -119,6 +120,7 @@ export class CreatureStage implements Scene {
   private titanSpots: { x: number; y: number }[] = [];
   private lonerSpots: { x: number; y: number }[] = [];
   private corpseId = 1;
+  private ambT = 1;
   private hintQ: { id: string; text: string; icon: string }[] = [];
   private hintT = 2;
 
@@ -384,14 +386,15 @@ export class CreatureStage implements Scene {
         this.critters.push(c);
       }
     }
-    // A carcass beside the first nest, so meat-eaters have an early meal.
-    if (!saved && this.migration === 0) {
-      const sp = this.species.find((s) => s.kind === 'nest' && s.level === 1) ?? this.species[1];
-      if (sp) {
-        const p = this.world.randomLand(this.game.rng('creature-carcass'), this.homeNest, 110, 170);
-        this.corpses.push({ id: this.corpseId++, x: p.x, y: p.y, sp, size: sp.size, facing: 1, meat: 6, age: 0, life: 400 });
-      }
-    }
+  }
+
+  /** A carcass beside the first nest, so meat-eaters have an early meal. */
+  private spawnStarterCarcass() {
+    if (this.own.diet === 'herbivore' || this.migration > 0 || this.corpses.length) return;
+    const sp = this.species.find((s) => s.kind === 'nest' && s.level === 1) ?? this.species[1];
+    if (!sp) return;
+    const p = this.world.randomLand(this.game.rng('creature-carcass'), this.homeNest, 120, 180);
+    this.corpses.push({ id: this.corpseId++, x: p.x, y: p.y, sp, size: sp.size, facing: 1, meat: 6, age: 0, life: 400 });
   }
 
   spawnNest(n: Nest) {
@@ -524,6 +527,7 @@ export class CreatureStage implements Scene {
     this.player.walk = 0;
     this.hud.setVisible(true);
     this.ctrl.enabled = true;
+    this.spawnStarterCarcass();
     this.game.history('Walked ashore onto land', '🏝️');
     this.speak(this.player, 'Land!', 2);
     this.hintQ.unshift(
@@ -1080,6 +1084,17 @@ export class CreatureStage implements Scene {
     // Migration arrival.
     const mt = this.migrating ? this.migTarget() : null;
     if (mt && dist(p, mt) < 110) P.completeMigration(this);
+    // Ambient petals and leaves drifting on the wind.
+    this.ambT -= dt;
+    if (this.ambT <= 0 && !this.game.settings.reducedMotion) {
+      this.ambT = 0.45 + Math.random() * 0.6;
+      const b = this.cam.bounds(0);
+      const x = b.x0 + Math.random() * (b.x1 - b.x0), y = b.y0 + Math.random() * (b.y1 - b.y0);
+      if (this.world.hAt(x, y) > 0.06) {
+        const col = PETALS[Math.floor(Math.random() * PETALS.length)];
+        this.fx.spawn('leaf', x, y, { z: 50 + Math.random() * 70, vx: 16 + Math.random() * 14, vy: 3, grav: 10, life: 4.5, size: 2.4, color: col, vr: 2.5 });
+      }
+    }
     // Throttled scans: discovery, context, music.
     this.scanT -= dt;
     if (this.scanT <= 0) { this.scanT = 0.4; this.scan(); }
@@ -1582,7 +1597,7 @@ export class CreatureStage implements Scene {
     if (key >= '1' && key <= '4') this.pressStanceAbility(Number(key) - 1);
     else if (key === ' ') this.jump();
     else if (key === 'shift') this.sprint();
-    else if (key === 'q' || key === 'tab') this.toggleStance();
+    else if (key === 'q') this.toggleStance();
     else if (key === 'e') this.useSpecial();
     else if (key === 'c') this.callMate();
     else if (key === 'x' || key === 'enter') this.contextAction();

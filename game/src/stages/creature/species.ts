@@ -45,7 +45,8 @@ export function refreshSpecies(sp: Species, len: number) {
 }
 
 export function startRelation(diet: Diet, level: number, diff: Difficulty, r: RNG): Relation {
-  if (level <= 1) return diet === 'carnivore' ? 'neutral' : r.chance(0.7) ? 'curious' : 'neutral';
+  // Level 1 is never hostile; meat-eaters are merely territorial.
+  if (level <= 1) return diet === 'carnivore' ? 'annoyed' : r.chance(0.7) ? 'curious' : 'neutral';
   if (diet === 'herbivore') return r.chance(0.55) ? 'curious' : 'neutral';
   if (diet === 'omnivore') {
     if (diff === 'hard' && level >= 3) return 'hostile';

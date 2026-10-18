@@ -111,6 +111,8 @@ export class CreatureHud {
     this.base = createStageHud(game, 'creature', { onPause: () => (S.paused = true), onResume: () => (S.paused = false) });
     this.root = this.base.root;
     this.root.classList.add('cr-hud');
+    // Don't leave HUD buttons focused: Space (jump) would otherwise also "click" them.
+    this.root.addEventListener('click', () => requestAnimationFrame(() => (document.activeElement as HTMLElement | null)?.blur?.()), true);
     this.base.progress.marks([BRAIN_AT[2], BRAIN_AT[3], BRAIN_AT[4], BRAIN_AT[5]].map((v) => v / BRAIN_FULL));
     this.base.right.append(this.dnaChip.el);
     // Top-left column: vitals, pack, objective.

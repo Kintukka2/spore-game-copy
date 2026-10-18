@@ -4,9 +4,14 @@ import { registerParts } from '../registry';
 import { shade } from '../color';
 import { drawEye, ellipsePath, fillShaded, gloss, polyPath, smoothPath, teeth } from '../partkit';
 import type { PartDef } from '../types';
+import { fitThumb, type PartBox } from './creature-extra';
 import { TAU } from '../../engine/math';
 
-const C = (d: Omit<PartDef, 'kind'>): PartDef => ({ kind: 'cell', ...d });
+// `box` (drawn bounds) re-centres one-sided parts in editor thumbnails; see fitThumb in creature-extra.ts.
+const C = (d: Omit<PartDef, 'kind'> & { box?: PartBox }): PartDef => {
+  const { box, ...rest } = d;
+  return fitThumb({ kind: 'cell', ...rest }, box);
+};
 
 export const CELL_PARTS: PartDef[] = [
   C({
@@ -20,7 +25,7 @@ export const CELL_PARTS: PartDef[] = [
     },
   }),
   C({
-    id: 'c-jaw', name: 'Jaw', category: 'cell-mouth', tier: 1, cost: 15, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 9,
+    id: 'c-jaw', name: 'Jaw', category: 'cell-mouth', tier: 1, cost: 15, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 9, box: [-4, -11, 12, 10],
     stats: { bite: 1, sing: 1 }, desc: 'Chomps meat and small cells.',
     draw(g, c) {
       const o = 0.35 + c.act * 0.5 + Math.sin(c.t * 5) * 0.08;
@@ -34,7 +39,7 @@ export const CELL_PARTS: PartDef[] = [
     },
   }),
   C({
-    id: 'c-proboscis', name: 'Proboscis', category: 'cell-mouth', tier: 2, cost: 25, diet: 'omnivore', snap: 'head-front', layer: 'front', radius: 14,
+    id: 'c-proboscis', name: 'Proboscis', category: 'cell-mouth', tier: 2, cost: 25, diet: 'omnivore', snap: 'head-front', layer: 'front', radius: 14, box: [-6, -7, 20, 7],
     stats: { bite: 1, sing: 1 }, desc: 'Impales live cells and drains them; also sips plants.',
     draw(g, c) {
       const ext = 1 + c.act * 0.25;
@@ -43,7 +48,7 @@ export const CELL_PARTS: PartDef[] = [
     },
   }),
   C({
-    id: 'c-flagellum', name: 'Flagellum', category: 'cell-move', tier: 1, cost: 15, snap: 'back', layer: 'back', radius: 16,
+    id: 'c-flagellum', name: 'Flagellum', category: 'cell-move', tier: 1, cost: 15, snap: 'back', layer: 'back', radius: 16, box: [-3, -7, 24, 7],
     stats: { speed: 1 }, desc: 'A whip tail. Smooth, steady swimming.',
     draw(g, c) {
       g.strokeStyle = shade(c.colors.coat, -0.55); g.lineWidth = 4; g.lineCap = 'round';
@@ -67,7 +72,7 @@ export const CELL_PARTS: PartDef[] = [
     },
   }),
   C({
-    id: 'c-jet', name: 'Jet', category: 'cell-move', tier: 2, cost: 25, snap: 'back', layer: 'back', radius: 9,
+    id: 'c-jet', name: 'Jet', category: 'cell-move', tier: 2, cost: 25, snap: 'back', layer: 'back', radius: 9, box: [-4, -8, 18, 8],
     stats: { speed: 2, sprint: 1 }, desc: 'Moves in powerful bursts.',
     draw(g, c) {
       fillShaded(g, polyPath([[-2, -4], [7, -6], [9, 0], [7, 6], [-2, 4]]), shade(c.colors.detail, -0.05), { y0: -6, y1: 6 });
@@ -77,7 +82,7 @@ export const CELL_PARTS: PartDef[] = [
     },
   }),
   C({
-    id: 'c-spike', name: 'Spike', category: 'cell-weapon', tier: 1, cost: 10, snap: 'perimeter', layer: 'front', radius: 10,
+    id: 'c-spike', name: 'Spike', category: 'cell-weapon', tier: 1, cost: 10, snap: 'perimeter', layer: 'front', radius: 10, box: [-3, -6, 14, 5],
     stats: { charge: 1 }, desc: 'Ram enemies. Pops big cells.',
     draw(g, c) {
       fillShaded(g, polyPath([[-1, -3.5], [12, 0], [-1, 3.5]]), '#f0e7d0', { ol: '#5a4c33', y0: -4, y1: 4 });
@@ -95,7 +100,7 @@ export const CELL_PARTS: PartDef[] = [
     },
   }),
   C({
-    id: 'c-electric', name: 'Electric Node', category: 'cell-weapon', tier: 3, cost: 25, snap: 'perimeter', layer: 'front', radius: 8,
+    id: 'c-electric', name: 'Electric Node', category: 'cell-weapon', tier: 3, cost: 25, snap: 'perimeter', layer: 'front', radius: 8, box: [-4, -7, 14, 6],
     stats: { charm: 1, strike: 1 }, desc: 'Periodically shocks everything nearby.',
     draw(g, c) {
       fillShaded(g, ellipsePath(3, 0, 4.5, 4.5), '#5cc8ff', { ol: '#1d4f73', y0: -5, y1: 5 });
@@ -110,7 +115,7 @@ export const CELL_PARTS: PartDef[] = [
     draw(g, c) { g.save(); g.rotate(-Math.PI / 2); drawEye(g, 3.6, c, { look: 0 }); g.restore(); },
   }),
   C({
-    id: 'c-eyestalk', name: 'Stalk Eye', category: 'cell-eye', tier: 1, cost: 5, snap: 'perimeter', layer: 'top', radius: 9,
+    id: 'c-eyestalk', name: 'Stalk Eye', category: 'cell-eye', tier: 1, cost: 5, snap: 'perimeter', layer: 'top', radius: 9, box: [-2, -6, 14, 7],
     stats: { sight: 1 },
     draw(g, c) {
       g.strokeStyle = shade(c.colors.base, -0.5); g.lineWidth = 2.6; g.lineCap = 'round';

@@ -2,16 +2,21 @@
 // Local space: anchor at (0,0), forward = +x, down = +y. Body radius at the node is c.nodeR.
 import { registerParts } from '../registry';
 import { shade } from '../color';
-import { claw, drawEye, drawLimb, ellipsePath, fillShaded, gloss, horn, OUTLINE_W, polyPath, smoothPath, teeth } from '../partkit';
+import { claw, drawEye, drawLimb, ellipsePath, fillShaded, gloss, horn, OUTLINE_W, polyPath, smoothPath } from '../partkit';
 import type { PartDef } from '../types';
+import { fitThumb, toothRow, type PartBox } from './creature-extra';
 import { TAU } from '../../engine/math';
 
-const P = (d: Omit<PartDef, 'kind'> & { kind?: PartDef['kind'] }): PartDef => ({ kind: 'creature', ...d });
+// `box` (drawn bounds) lets editor thumbnails re-centre one-sided parts; see fitThumb in creature-extra.ts.
+const P = (d: Omit<PartDef, 'kind'> & { kind?: PartDef['kind']; box?: PartBox }): PartDef => {
+  const { box, ...rest } = d;
+  return fitThumb({ kind: 'creature', ...rest }, box);
+};
 
 export const CREATURE_CORE: PartDef[] = [
   // ------------------------------------------------------------ Mouths
   P({
-    id: 'm-nibbler', name: 'Nibbler', category: 'mouth', tier: 1, cost: 15, diet: 'herbivore', snap: 'head-front', layer: 'front', radius: 12,
+    id: 'm-nibbler', name: 'Nibbler', category: 'mouth', tier: 1, cost: 15, diet: 'herbivore', snap: 'head-front', layer: 'front', radius: 12, box: [-7, -10, 15, 10],
     stats: { bite: 1, sing: 1 }, desc: 'Soft lips for fruit and leaves.',
     draw(g, c) {
       const o = c.act * 5;
@@ -24,19 +29,19 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'm-fang', name: 'Fang Snout', category: 'mouth', tier: 1, cost: 15, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 14,
+    id: 'm-fang', name: 'Fang Snout', category: 'mouth', tier: 1, cost: 15, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 14, box: [-9, -11, 21, 11],
     stats: { bite: 1, sing: 1 }, desc: 'A toothy snout for meat.',
     draw(g, c) {
       const o = c.act * 7;
       g.save(); g.translate(0, 1); g.rotate(o * 0.04);
       const jaw = smoothPath([[-4, 1], [12, 2], [16, 4], [11, 8], [-4, 7]]);
       fillShaded(g, jaw, shade(c.colors.base, -0.08));
-      teeth(g, 2, 13, 2, 3, -1);
+      toothRow(g, 2, 13, 2, 3, -1);
       g.restore();
       g.save(); g.rotate(-o * 0.05);
       const top = smoothPath([[-5, -8], [10, -7], [18, -2], [16, 2], [-5, 2]]);
       fillShaded(g, top, c.colors.base);
-      teeth(g, 3, 16, 1.5, 3.4, 1);
+      toothRow(g, 3, 16, 1.5, 3.4, 1);
       g.fillStyle = '#1d1210';
       g.beginPath(); g.arc(15, -3, 1.2, 0, TAU); g.fill();
       gloss(g, 6, -5, 3, 0.35);
@@ -44,7 +49,7 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'm-grin', name: 'Gobbler Grin', category: 'mouth', tier: 1, cost: 15, diet: 'omnivore', snap: 'head-front', layer: 'front', radius: 13,
+    id: 'm-grin', name: 'Gobbler Grin', category: 'mouth', tier: 1, cost: 15, diet: 'omnivore', snap: 'head-front', layer: 'front', radius: 13, box: [-9, -11, 17, 9],
     stats: { bite: 1, sing: 1 }, desc: 'Eats anything. Smiles about it.',
     draw(g, c) {
       const o = c.act * 6;
@@ -61,17 +66,17 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'm-croc', name: 'Snapjaw', category: 'mouth', tier: 2, cost: 75, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 20,
+    id: 'm-croc', name: 'Snapjaw', category: 'mouth', tier: 2, cost: 75, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 20, box: [-11, -11, 31, 11],
     stats: { bite: 3, sing: 1 }, desc: 'Long jaws lined with daggers.',
     draw(g, c) {
       const o = c.act * 9;
       g.save(); g.rotate(o * 0.03);
       fillShaded(g, smoothPath([[-4, 1], [20, 2], [26, 5], [20, 8], [-4, 8]]), shade(c.colors.base, -0.1));
-      teeth(g, 2, 24, 2, 3, -1);
+      toothRow(g, 2, 24, 2, 3, -1);
       g.restore();
       g.save(); g.rotate(-o * 0.035);
       fillShaded(g, smoothPath([[-6, -9], [12, -6], [27, -2], [26, 2], [-6, 2]]), c.colors.base);
-      teeth(g, 3, 25, 1.6, 3.6, 1);
+      toothRow(g, 3, 25, 1.6, 3.6, 1);
       g.fillStyle = shade(c.colors.coat, -0.1);
       for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(4 + i * 5, -5 + i * 0.6, 1.4, 0, TAU); g.fill(); }
       g.fillStyle = '#1d1210';
@@ -80,7 +85,7 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'm-trumpet', name: 'Trumpet Beak', category: 'mouth', tier: 2, cost: 75, diet: 'herbivore', snap: 'head-front', layer: 'front', radius: 16,
+    id: 'm-trumpet', name: 'Trumpet Beak', category: 'mouth', tier: 2, cost: 75, diet: 'herbivore', snap: 'head-front', layer: 'front', radius: 16, box: [-7, -9, 24, 9],
     stats: { bite: 1, sing: 3 }, desc: 'A resonant beak that carries a tune.',
     draw(g, c) {
       const o = c.act * 3;
@@ -100,7 +105,7 @@ export const CREATURE_CORE: PartDef[] = [
     draw(g, c) { drawEye(g, 5.5, c); },
   }),
   P({
-    id: 'e-stalk', name: 'Stalk Eye', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 14,
+    id: 'e-stalk', name: 'Stalk Eye', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 14, box: [-5, -21, 12, 4],
     stats: { sight: 1 },
     draw(g, c) {
       const sway = Math.sin(c.t * 2) * 2;
@@ -185,7 +190,7 @@ export const CREATURE_CORE: PartDef[] = [
 
   // ------------------------------------------------------------ Weapons
   P({
-    id: 'w-horn', name: 'Ram Horn', category: 'weapon', tier: 1, cost: 25, snap: 'top', layer: 'front', radius: 14,
+    id: 'w-horn', name: 'Ram Horn', category: 'weapon', tier: 1, cost: 25, snap: 'top', layer: 'front', radius: 14, box: [-7, -14, 15, 5],
     stats: { charge: 1, health: 1 }, desc: 'Lower your head and charge.',
     draw(g, c) {
       const p = smoothPath([[-5, 2], [-2, -8], [6, -12], [13, -9], [10, -6], [4, -6], [3, 2]]);
@@ -195,7 +200,7 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'w-spitter', name: 'Venom Sac', category: 'weapon', tier: 1, cost: 25, snap: 'any', layer: 'front', radius: 10,
+    id: 'w-spitter', name: 'Venom Sac', category: 'weapon', tier: 1, cost: 25, snap: 'any', layer: 'front', radius: 10, box: [-9, -8, 13, 8],
     stats: { spit: 1 }, desc: 'Ranged attack. Homes in on targets.',
     draw(g, c) {
       const pulse = 1 + Math.sin(c.t * 3) * 0.05 + c.act * 0.25;
@@ -207,7 +212,7 @@ export const CREATURE_CORE: PartDef[] = [
 
   // ------------------------------------------------------------ Details
   P({
-    id: 'd-crest', name: 'Sun Crest', category: 'detail', tier: 1, cost: 25, snap: 'top', layer: 'back', radius: 14,
+    id: 'd-crest', name: 'Sun Crest', category: 'detail', tier: 1, cost: 25, snap: 'top', layer: 'back', radius: 14, box: [-14, -17, 7, 2],
     stats: { charm: 1 }, desc: 'A showy crest. Raise it to charm.',
     draw(g, c) {
       const up = 1 + c.act * 0.35;
@@ -220,7 +225,7 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'd-plates', name: 'Back Plates', category: 'detail', tier: 1, cost: 25, snap: 'top', layer: 'back', radius: 14,
+    id: 'd-plates', name: 'Back Plates', category: 'detail', tier: 1, cost: 25, snap: 'top', layer: 'back', radius: 14, box: [-15, -14, 15, 4],
     stats: { health: 1 }, desc: 'Armour plating. More health.',
     draw(g, c) {
       for (let i = -1; i <= 1; i++) {
@@ -230,11 +235,11 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'wg-feather', name: 'Down Wings', category: 'wing', tier: 1, cost: 50, snap: 'top', layer: 'back', paired: true, radius: 22,
+    id: 'wg-feather', name: 'Down Wings', category: 'wing', tier: 1, cost: 50, snap: 'top', layer: 'back', paired: true, radius: 22, box: [-27, -26, 2, 2],
     stats: { glide: 1, jump: 1 }, desc: 'Lets you glide after a jump.',
     draw(g, c) {
       const flap = Math.sin(c.act * Math.PI) * 0.9 + Math.sin(c.t * 1.5) * 0.05;
-      g.save(); g.rotate(-0.6 - flap);
+      g.save(); g.rotate(0.45 + flap * 0.8 + (c.far ? 0.3 : 0));
       const p = smoothPath([[0, 0], [-6, -6], [-24, -14], [-30, -8], [-26, -4], [-28, 0], [-20, 2], [-10, 3]]);
       fillShaded(g, p, c.colors.coat, { y0: -14, y1: 3 });
       g.strokeStyle = shade(c.colors.coat, -0.4); g.lineWidth = 1;
@@ -243,7 +248,7 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 't-tuft', name: 'Tufted Tail', category: 'tail', tier: 1, cost: 25, snap: 'back', layer: 'back', radius: 18,
+    id: 't-tuft', name: 'Tufted Tail', category: 'tail', tier: 1, cost: 25, snap: 'back', layer: 'back', radius: 18, box: [-30, -17, 5, 5],
     stats: { charm: 1, dance: 1 }, desc: 'Wag it. Everyone loves a wag.',
     draw(g, c) {
       const wag = Math.sin(c.t * 4) * 0.25 + c.act * 0.4;

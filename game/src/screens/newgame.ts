@@ -75,8 +75,10 @@ export class NewGameScreen implements Scene {
     for (let i = 0; i < 7; i++) {
       const lon = ((this.t * 0.12 + i * 0.9) % (Math.PI * 2)) - Math.PI;
       const x = cx + Math.sin(lon) * R * 0.85, y = cy + Math.sin(i * 2.1) * R * 0.6;
-      g.globalAlpha = Math.max(0, Math.cos(lon));
-      g.beginPath(); g.ellipse(x, y, R * 0.28 * Math.cos(lon), R * 0.18, 0, 0, TAU); g.fill();
+      const vis = Math.cos(lon);
+      if (vis <= 0.02) continue;
+      g.globalAlpha = vis;
+      g.beginPath(); g.ellipse(x, y, R * 0.28 * vis, R * 0.18, 0, 0, TAU); g.fill();
     }
     g.globalAlpha = 1;
     g.restore();

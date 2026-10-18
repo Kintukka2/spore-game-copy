@@ -4,7 +4,7 @@ import { clamp } from '../../engine/math';
 import { PK } from './fx';
 import { TURRET_HP } from './world';
 import {
-  CITY_R, H, PLAYER, slotPos, turretPos, W, wdist, wdist2, wdx, wrapX,
+  CITY_R, H, PLAYER, turretPos, wdist, wdist2, wdx, wrapX,
   type City, type Geyser, type Medium, type Method, type Nation, type NationType, type Order, type Projectile, type Target, type Vehicle,
   VEH_BASE_COST,
 } from './types';
@@ -960,4 +960,3 @@ export class Sim {
   }
 }
 
-export { W };

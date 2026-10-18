@@ -4,7 +4,7 @@ import { generateBuilding, generateCreature, generateVehicle, randomPalette } fr
 import type { Design, Palette, PatternId } from '../../design/types';
 import { cityName, speciesName } from '../../game/names';
 import { shade } from '../../design/color';
-import { NAV, NCOLS, NROWS, Terrain } from './terrain';
+import { NCOLS, NROWS, Terrain } from './terrain';
 import {
   H, PLAYER, W, wdist, wrapX,
   type City, type Geyser, type Nation, type NationArt, type NationType, type Slot, type Turret, type BuildingKind,
@@ -244,6 +244,5 @@ export function generateWorld(t: Terrain, seed: number, o: {
     if (!gfar(x, y, 200, 220)) continue;
     addG(x, y, false);
   }
-  void NAV;
   return { cities, nations, geysers };
 }

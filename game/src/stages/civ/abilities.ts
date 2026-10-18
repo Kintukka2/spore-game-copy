@@ -1,6 +1,6 @@
 // Consequence-card abilities (paid in §, with cooldowns) and the nation superweapon.
 import { audio } from '../../engine/audio';
-import { h, ui } from '../../engine/ui';
+import { ui } from '../../engine/ui';
 import { ABILITIES, abilitiesFor, type AbilityDef } from '../../game/cards';
 import { PK } from './fx';
 import { fmtMoney, METHOD_OF, PLAYER, turretPos, wdist, type City } from './types';
@@ -228,4 +228,3 @@ export class Abilities {
   }
 }
 
-export { h };

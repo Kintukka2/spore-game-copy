@@ -3,7 +3,7 @@
 import { layoutDesign, renderDesign } from '../../design/render';
 import { getPart } from '../../design/registry';
 import type { Design } from '../../design/types';
-import { outlineOf, rgba, shade } from '../../design/color';
+import { outlineOf, shade } from '../../design/color';
 import { TAU } from '../../engine/math';
 import type { NationType } from './types';
 
@@ -566,4 +566,3 @@ export function cloudSprite(seed: number): HTMLCanvasElement {
   return c;
 }
 
-export { rgba };

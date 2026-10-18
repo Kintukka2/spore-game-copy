@@ -1,7 +1,7 @@
 // Visual effects: pooled particles, floating numbers, explosions, ability waves, beams and screen shake.
 import type { Camera } from '../../engine/camera';
 import { TAU } from '../../engine/math';
-import { puffSprite, puffTint } from './sprites';
+import { puffTint } from './sprites';
 import { wdx } from './types';
 
 export enum PK { Smoke, Fire, Spark, Debris, Confetti, Coin, Heal, Dust, Ice, Glow }
@@ -130,7 +130,6 @@ export class Fx {
   /** World-space effects over units. */
   drawOver(g: CanvasRenderingContext2D, cam: Camera) {
     const b = cam.bounds(80);
-    const puff = puffSprite();
     // Particles (normal blend first, then additive).
     for (let pass = 0; pass < 2; pass++) {
       if (pass === 1) g.globalCompositeOperation = 'lighter';
@@ -215,7 +214,6 @@ export class Fx {
       g.beginPath(); g.ellipse(x, e.y + 4 * e.size, r * 1.2, r * 0.6, 0, 0, TAU); g.stroke();
     }
     g.globalAlpha = 1;
-    void puff;
   }
 
   /** Floating texts, drawn in screen space so they stay readable at any zoom. */

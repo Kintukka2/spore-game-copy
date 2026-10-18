@@ -1,6 +1,6 @@
 // World renderer for the Civilization stage (canvas, world space + screen-space overlays).
 import { clamp, easeOutBack, TAU } from '../../engine/math';
-import { rgba, shade } from '../../design/color';
+import { rgba } from '../../design/color';
 import type { Design } from '../../design/types';
 import {
   cloudSprite, derrickSprite, designSprite, drawSprite, emblemSprite, flagSprite, hologramSprite, hutSprite,
@@ -727,17 +727,17 @@ export class Renderer {
       g.font = `700 ${Math.round(90 + f * 40)}px Fredoka, system-ui, sans-serif`;
       g.lineWidth = 8;
       g.strokeStyle = 'rgba(0,0,0,0.5)';
-      g.strokeText(String(n), w / 2, h * 0.35);
+      g.strokeText(String(n), w / 2, h * 0.2);
       g.fillStyle = '#ffffff';
-      g.fillText(String(n), w / 2, h * 0.35);
+      g.fillText(String(n), w / 2, h * 0.2);
     } else if (t < 4.6) {
       g.globalAlpha = clamp(4.6 - t, 0, 1);
       g.font = '700 56px Fredoka, system-ui, sans-serif';
       g.fillStyle = '#ffd166';
       g.strokeStyle = 'rgba(0,0,0,0.5)';
       g.lineWidth = 6;
-      g.strokeText('Liftoff!', w / 2, h * 0.35);
-      g.fillText('Liftoff!', w / 2, h * 0.35);
+      g.strokeText('Liftoff!', w / 2, h * 0.2);
+      g.fillText('Liftoff!', w / 2, h * 0.2);
     }
     if (t > 5.6) {
       g.globalAlpha = clamp((t - 5.6) / 1.4, 0, 1);
@@ -745,6 +745,5 @@ export class Renderer {
       g.fillRect(0, 0, w, h);
     }
     g.globalAlpha = 1;
-    void shade;
   }
 }

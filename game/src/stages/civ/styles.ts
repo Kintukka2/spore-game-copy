@@ -1,6 +1,9 @@
 // Stage-local CSS, injected once (keeps the stage self-contained).
 const CSS = `
-.layer.civ-hud { pointer-events: none; }
+/* game.layer() containers sit inside a .layer scene root, so the core rule ".layer > *" makes them
+   capture every pointer and block the canvas (the editor included). Keep the containers transparent;
+   their own children still receive events. */
+.scene-root > .layer, .layer.civ-hud { pointer-events: none; }
 .civ-hud .civ-vig { position: absolute; inset: 0; pointer-events: none !important; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 56%, rgba(4,10,20,0.42) 100%); }
 .civ-hud .civ-vig.danger { animation: civDanger 1.1s ease-in-out infinite; }
 @keyframes civDanger { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(255,60,50,0); } 50% { box-shadow: inset 0 0 26px 6px rgba(255,60,50,0.55); } }

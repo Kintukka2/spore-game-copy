@@ -36,6 +36,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: 
 #ui { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
 .layer { position: absolute; inset: 0; pointer-events: none; }
 .layer > * { pointer-events: auto; }
+/* Nested layers (scene roots and HUD layers) never block the canvas; only their real children do. */
+.layer > .layer { pointer-events: none; }
 .layer .passthrough, .layer .passthrough * { pointer-events: none; }
 input, textarea { -webkit-user-select: text; user-select: text; font-family: var(--font); }
 

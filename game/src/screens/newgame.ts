@@ -1,6 +1,6 @@
 import type { Game, Scene } from '../game/game';
 import { button, h } from '../engine/ui';
-import { RNG } from '../engine/rng';
+import { RNG, hashString } from '../engine/rng';
 import { planetName, speciesName } from '../game/names';
 import type { Difficulty } from '../game/state';
 import { TAU } from '../engine/math';
@@ -61,6 +61,7 @@ export class NewGameScreen implements Scene {
       g.fillRect(Math.abs(x) * w, Math.abs(y) * hh, 1.4, 1.4);
     }
     // Spinning planet preview
+    this.hue = hashString(this.planet || 'x') % 360; // same colour the intro cinematic uses
     const R = Math.min(w, hh) * 0.26, cx = w / 2, cy = hh * 0.27;
     const base = hsl(this.hue, 0.55, 0.45);
     const gr = g.createRadialGradient(cx - R * 0.4, cy - R * 0.4, R * 0.1, cx, cy, R);

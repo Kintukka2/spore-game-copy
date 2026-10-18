@@ -33,7 +33,7 @@ if (flags.actions) {
       try { await page.getByRole('button', { name: a.role }).first().click({ timeout: a.timeout ?? 4000, force: true }); logs.push('[click] ' + a.role); }
       catch { logs.push('[miss] ' + a.role); }
     }
-    if (a.eval) logs.push('[eval] ' + JSON.stringify(await page.evaluate(a.eval)));
+    if (a.eval) { try { logs.push('[eval] ' + JSON.stringify(await page.evaluate(a.eval))); } catch (e) { logs.push('[eval-error] ' + String(e).slice(0, 300)); } }
     if (a.key) await page.keyboard.press(a.key);
     if (a.drag) {
       const [x1, y1, x2, y2] = a.drag;

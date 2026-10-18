@@ -384,20 +384,20 @@ export class World {
     }
   }
   visited(star: number): boolean { return this.s.visited.includes(star); }
-  /** How many of a system's planets the player has scanned or settled. */
+  /** How many of a system's planets the player has scanned, landed on or settled. */
   surveyed(star: number): { done: number; total: number } {
     const pls = this.gal.planets(star);
     let done = 0;
     for (const p of pls) {
       const ps = this.s.planets[this.pkey(star, p.idx)];
-      if (ps && (ps.scanned || ps.owner === 'player')) done++;
+      if (ps && (ps.scanned || ps.landed || ps.owner === 'player')) done++;
     }
     return { done, total: pls.length };
   }
-  /** A planet counts as explored once scanned or settled by the player. */
+  /** A planet counts as explored once scanned, landed on or settled by the player. */
   explored(star: number, idx: number): boolean {
     const ps = this.s.planets[this.pkey(star, idx)];
-    return !!ps && (!!ps.scanned || ps.owner === 'player');
+    return !!ps && (!!ps.scanned || !!ps.landed || ps.owner === 'player');
   }
 
   // ------------------------------------------------------------------ simulation

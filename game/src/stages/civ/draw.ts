@@ -4,11 +4,11 @@ import { rgba } from '../../design/color';
 import type { Design } from '../../design/types';
 import {
   cloudSprite, derrickSprite, designSprite, drawSprite, emblemSprite, flagSprite, hologramSprite, hutSprite,
-  mountainSprite, puffTint, treeSprite, turretSprite, type Sprite,
+  puffTint, turretSprite, type Sprite,
 } from './sprites';
 import { AIR_LIFT, geyserRate } from './sim';
 import { PK } from './fx';
-import { TILE, TILE_X, TILE_Y } from './terrain';
+import { drawTerrainDecor, drawTerrainMap } from './terrainDraw';
 import { RADIUS } from './abilities';
 import { H, PLAYER, slotPos, turretPos, W, wdx, type City, type Vehicle } from './types';
 import type { CivStage } from './stage';
@@ -70,73 +70,11 @@ export class Renderer {
 
   // ------------------------------------------------------------------ terrain
   private drawTerrain(g: CanvasRenderingContext2D) {
-    const S = this.S, cam = S.cam, T = S.terrain;
-    const b = cam.bounds(4);
-    const tw = T.tex.width / W;
-    g.imageSmoothingEnabled = true;
-    for (let k = -1; k <= 1; k++) {
-      const x0 = Math.max(b.x0, k * W), x1 = Math.min(b.x1, (k + 1) * W);
-      if (x1 <= x0) continue;
-      const y0 = Math.max(0, b.y0), y1 = Math.min(H, b.y1);
-      if (y1 <= y0) continue;
-      const sx = (x0 - k * W) * tw, sy = y0 * tw, sw = (x1 - x0) * tw, sh = (y1 - y0) * tw;
-      g.drawImage(T.tex, sx, sy, Math.max(1, sw), Math.max(1, sh), x0, y0, x1 - x0, y1 - y0);
-    }
-    // Coastlines and the continental shelf (only tiles in view; the texture carries a baked outline when far out).
-    const z = cam.zoom;
-    if (z >= 0.42) {
-      g.lineCap = 'round';
-      const ty0 = Math.max(0, Math.floor(b.y0 / TILE)), ty1 = Math.min(TILE_Y - 1, Math.floor(b.y1 / TILE));
-      const tx0 = Math.floor(b.x0 / TILE), tx1 = Math.floor(b.x1 / TILE);
-      for (let pass = 0; pass < 3; pass++) {
-        if (pass === 0) { g.strokeStyle = 'rgba(255,255,255,0.10)'; g.lineWidth = 1.2 / z; }
-        else if (pass === 1) { g.strokeStyle = 'rgba(230,250,255,0.55)'; g.lineWidth = 5 / z; }
-        else { g.strokeStyle = 'rgba(40,70,60,0.75)'; g.lineWidth = 1.4 / z; }
-        for (let tx = tx0; tx <= tx1; tx++) {
-          const k = Math.floor((tx * TILE) / W);
-          const ix = ((tx % TILE_X) + TILE_X) % TILE_X;
-          for (let ty = ty0; ty <= ty1; ty++) {
-            const path = pass === 0 ? T.shelfTiles[ty * TILE_X + ix] : T.coastTiles[ty * TILE_X + ix];
-            if (k !== 0) { g.save(); g.translate(k * W, 0); g.stroke(path); g.restore(); }
-            else g.stroke(path);
-          }
-        }
-      }
-    }
-    // Animated wave glints.
-    if (z > 0.35) {
-      g.strokeStyle = 'rgba(255,255,255,0.35)';
-      g.lineWidth = 1.5;
-      g.beginPath();
-      for (const wv of T.waves) {
-        const x = this.sx(wv.x);
-        if (x < b.x0 || x > b.x1 || wv.y < b.y0 || wv.y > b.y1) continue;
-        const p = (this.t * 0.25 + wv.v) % 1;
-        const r = 6 * wv.s;
-        const xx = x + p * 14;
-        g.moveTo(xx - r, wv.y);
-        g.quadraticCurveTo(xx, wv.y - r * 0.6 * Math.sin(p * Math.PI), xx + r, wv.y);
-      }
-      g.stroke();
-    }
+    drawTerrainMap(g, this.S.cam, this.S.terrain, this.t);
   }
 
   private drawDecor(g: CanvasRenderingContext2D) {
-    const S = this.S, cam = S.cam, T = S.terrain;
-    if (cam.zoom < 0.3) return;
-    const b = cam.bounds(60);
-    for (const m of T.mountains) {
-      if (m.y < b.y0 || m.y > b.y1 + 40) continue;
-      const x = this.sx(m.x);
-      if (x < b.x0 || x > b.x1) continue;
-      drawSprite(g, mountainSprite(m.v, !!m.snow), x, m.y, m.s * 0.75);
-    }
-    for (const tr of T.trees) {
-      if (tr.y < b.y0 || tr.y > b.y1 + 30) continue;
-      const x = this.sx(tr.x);
-      if (x < b.x0 || x > b.x1) continue;
-      drawSprite(g, treeSprite(tr.v), x, tr.y, tr.s * 0.85);
-    }
+    drawTerrainDecor(g, this.S.cam, this.S.terrain);
   }
 
   private drawClouds(g: CanvasRenderingContext2D) {

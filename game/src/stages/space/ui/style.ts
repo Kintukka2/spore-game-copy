@@ -123,6 +123,20 @@ body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b
 .xl-cell.hy { border-color:rgba(185,140,255,.7); }
 .xl-new { font-size:9px; font-weight:800; color:#04101e; background:var(--sun); border-radius:5px; padding:0 4px; vertical-align:1px; }
 .xl-known { font-size:10px; }
+.sf-hud .sf-top { position:absolute; left:0; right:0; top:0; padding:calc(8px + var(--safe-t)) calc(10px + var(--safe-r)) 0 calc(10px + var(--safe-l)); display:flex; gap:8px; align-items:center; }
+.sf-hud .sf-back { flex:0 0 auto; font-weight:700; }
+.sf-hud .sf-title { flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.15; background:rgba(4,12,24,.72); border:1px solid var(--line); border-radius:12px; padding:5px 10px; }
+.sf-hud .sf-title b { font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sf-hud .sf-sub { font-size:11px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sf-hud .sf-cargo { flex:0 0 auto; font-size:12px; font-weight:700; }
+.sf-hud .sf-life { position:absolute; left:calc(10px + var(--safe-l)); top:calc(64px + var(--safe-t)); font-size:12px; font-weight:600; background:rgba(4,12,24,.72); border:1px solid var(--line); border-radius:10px; padding:4px 9px; pointer-events:none; }
+.sf-hud .sf-life .xl-new { margin-left:6px; }
+.sf-hud .sf-mini { position:absolute; right:calc(10px + var(--safe-r)); top:calc(64px + var(--safe-t)); width:132px; height:85px; border-radius:10px; border:1px solid rgba(255,255,255,.35); box-shadow:0 4px 14px rgba(0,0,0,.4); background:#000; cursor:crosshair; }
+.sf-hud .sf-acts { position:absolute; right:calc(12px + var(--safe-r)); bottom:calc(18px + var(--safe-b)); display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+.sf-hud .sf-scan { width:56px; height:56px; font-size:25px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(140,240,220,.45), rgba(6,30,40,.92)); border:2px solid rgba(62,230,196,.7); }
+.sf-hud .sf-scan.cool { opacity:.45; }
+.sf-hud .sf-ctx { font-size:16px; padding:14px 18px; border-radius:16px; max-width:calc(100vw - 40px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sf-hud .sf-ctx .xl-new { margin-left:8px; }
 .sp-sheet .btn.small, .sp-panel .btn.small, .sp-card .btn.small, .sp-hud-btn { min-height:44px; min-width:44px; }
 .sp-cine { position:absolute; inset:0; pointer-events:auto; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding:0 16px calc(36px + var(--safe-b)); }
 .sp-say { width:min(460px,100%); background:rgba(255,250,235,.95); color:#2a2010; border-radius:22px; padding:16px 18px; font-size:17px; line-height:1.4; box-shadow:0 10px 50px rgba(255,220,150,.35); position:relative; min-height:86px; }

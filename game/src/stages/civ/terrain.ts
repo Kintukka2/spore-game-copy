@@ -18,6 +18,38 @@ const tileOf = (x: number, y: number) => Math.min(TILE_Y - 1, Math.floor(y / TIL
 
 export interface Deco { x: number; y: number; s: number; v: number; snow?: boolean }
 
+export type RGB = [number, number, number];
+/** Colours and proportions of a world's surface (the Civilization stage uses EARTH_LOOK; space landings vary it). */
+export interface TerrainLook {
+  sand: RGB; grassDry: RGB; grassWet: RGB; forest: RGB; savanna: RGB; hill: RGB; rock: RGB; snow: RGB;
+  shallow: RGB; deep: RGB; foam: RGB; ice: RGB;
+  /** Fraction of the map above sea level. */
+  land: number;
+  /** Polar ice extent (1 = Earth-like, 0 = none). */
+  iceCaps: number;
+  /** Tree density (0 = barren) and mountain density (1 = Earth-like). */
+  trees: number;
+  mountains: number;
+  /** White caps on the highest peaks. */
+  snowCaps: boolean;
+  /** Tints for tree and mountain sprites (Earth colours when unset). */
+  leaf?: string;
+  rockTint?: string;
+  /** Coastline strokes (shelf, surf, edge) and wave glint colour (null hides waves). */
+  coast: [string, string, string];
+  wave: string | null;
+  /** Colour behind the map edges. */
+  bg: string;
+}
+
+export const EARTH_LOOK: TerrainLook = {
+  sand: [236, 222, 168], grassDry: [143, 196, 104], grassWet: [104, 172, 92], forest: [78, 140, 78], savanna: [214, 198, 128],
+  hill: [168, 172, 118], rock: [156, 144, 128], snow: [246, 246, 242],
+  shallow: [112, 196, 214], deep: [30, 82, 138], foam: [196, 236, 240], ice: [234, 244, 250],
+  land: 0.35, iceCaps: 1, trees: 1, mountains: 1, snowCaps: true,
+  coast: ['rgba(255,255,255,0.10)', 'rgba(230,250,255,0.55)', 'rgba(40,70,60,0.75)'], wave: 'rgba(255,255,255,0.35)', bg: '#1d4f7e',
+};
+
 export class Terrain {
   h = new Float32Array(COLS * ROWS);
   moist = new Float32Array(COLS * ROWS);
@@ -49,7 +81,7 @@ export class Terrain {
   private heap: number[] = [];
   private heapF: number[] = [];
 
-  constructor(seed: number) {
+  constructor(seed: number, readonly look: TerrainLook = EARTH_LOOK) {
     this.generate(seed);
   }
 
@@ -106,9 +138,9 @@ export class Terrain {
         this.moist[j * COLS + i] = wrapped(nB.fbm, x, y, 1 / 300, 4);
       }
     }
-    // Sea level: ~35% land.
+    // Sea level: ~35% land on an Earth-like world.
     const sorted = Array.from(hh).sort((a, b) => a - b);
-    this.sea = sorted[Math.floor(sorted.length * 0.65)];
+    this.sea = sorted[Math.floor(sorted.length * clamp(1 - this.look.land, 0.05, 0.95))];
     this.hMax = sorted[sorted.length - 1];
     this.hMin = sorted[0];
     this.buildNav();
@@ -406,9 +438,9 @@ export class Terrain {
       const e = this.elev(px, py);
       const m = this.moistAt(px, py);
       const mt = this.mtnAt(px, py);
-      if (mt > 0.45 && r.chance(0.55 + mt * 0.4)) {
-        this.mountains.push({ x: px, y: py, s: 0.7 + mt * 0.55 + r.range(-0.1, 0.12), v: r.int(0, 2), snow: mt > 0.8 });
-      } else if (e > 0.03 && mt < 0.3 && m > -0.02 && r.chance(0.3 + m * 1.2)) {
+      if (mt > 0.45 && r.chance((0.55 + mt * 0.4) * this.look.mountains)) {
+        this.mountains.push({ x: px, y: py, s: 0.7 + mt * 0.55 + r.range(-0.1, 0.12), v: r.int(0, 2), snow: this.look.snowCaps && mt > 0.8 });
+      } else if (e > 0.03 && mt < 0.3 && m > -0.02 && r.chance((0.3 + m * 1.2) * this.look.trees)) {
         this.trees.push({ x: px, y: py, s: r.range(0.75, 1.2), v: r.int(0, 3) });
       }
     }
@@ -451,9 +483,10 @@ export class Terrain {
       return (shade[j0 * COLS + i0] * (1 - tx) + shade[j0 * COLS + i1] * tx) * (1 - ty) + (shade[j1 * COLS + i0] * (1 - tx) + shade[j1 * COLS + i1] * tx) * ty;
     };
     const mixc = (a: number[], b: number[], t: number, o: number[]) => { o[0] = a[0] + (b[0] - a[0]) * t; o[1] = a[1] + (b[1] - a[1]) * t; o[2] = a[2] + (b[2] - a[2]) * t; };
-    const SAND = [236, 222, 168], GRASS_D = [143, 196, 104], GRASS_W = [104, 172, 92], FOREST = [78, 140, 78], SAV = [214, 198, 128];
-    const HILL = [168, 172, 118], ROCK = [156, 144, 128], SNOW = [246, 246, 242];
-    const SHALLOW = [112, 196, 214], DEEP = [30, 82, 138], FOAM = [196, 236, 240], ICE = [234, 244, 250];
+    const L = this.look;
+    const SAND = L.sand, GRASS_D = L.grassDry, GRASS_W = L.grassWet, FOREST = L.forest, SAV = L.savanna;
+    const HILL = L.hill, ROCK = L.rock, SNOW = L.snow;
+    const SHALLOW = L.shallow, DEEP = L.deep, FOAM = L.foam, ICE = L.ice;
     const col = [0, 0, 0], tmp = [0, 0, 0];
     for (let py = 0; py < th; py++) {
       const y = (py + 0.5) / TEX;
@@ -486,8 +519,8 @@ export class Terrain {
         // Polar ice.
         const pole = Math.min(y, H - y);
         const ang = (x / W) * Math.PI * 2;
-        const iceEdge = 120 + nC.noise(Math.cos(ang) * 4.2 + (y > H / 2 ? 9 : 0), Math.sin(ang) * 4.2) * 60;
-        if (pole < iceEdge + 10) { mixc(col, ICE, clamp((iceEdge + 10 - pole) / 14, 0, 1), tmp); col[0] = tmp[0]; col[1] = tmp[1]; col[2] = tmp[2]; }
+        const iceEdge = (120 + nC.noise(Math.cos(ang) * 4.2 + (y > H / 2 ? 9 : 0), Math.sin(ang) * 4.2) * 60) * L.iceCaps;
+        if (L.iceCaps > 0 && pole < iceEdge + 10) { mixc(col, ICE, clamp((iceEdge + 10 - pole) / 14, 0, 1), tmp); col[0] = tmp[0]; col[1] = tmp[1]; col[2] = tmp[2]; }
         const n = (hash2(px, py, 7) - 0.5) * 7;
         const o = (py * tw + px) * 4;
         d[o] = col[0] + n; d[o + 1] = col[1] + n; d[o + 2] = col[2] + n; d[o + 3] = 255;

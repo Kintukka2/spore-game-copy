@@ -7,7 +7,7 @@ import { SPICE, SPICE_COLORS, T_RING, tScoreOf, type SpiceColor } from '../data'
 import { drawPlanet, SphereSprite, styleFor, type PlanetLook } from '../art/planetArt';
 import { blit, glow } from '../art/sprites';
 import {
-  BUILDINGS, abduct, build, buy, buyPrice, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony,
+  BUILDINGS, build, buy, buyPrice, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony,
   genesis, happiness, isHomeworld, maxCities, production, sell, sellPrice, slotKind, slots, storageCap, terraform, used, type BuildingId, type TerraTool,
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
@@ -15,7 +15,8 @@ import { deliver, deliverables, onScan, tutorialEvent } from '../missions';
 import { resolve as resolveEvent } from '../events';
 import type { Empire, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
-import { catalogue, inXenopedia } from '../xenolab';
+import { inXenopedia } from '../xenolab';
+import { landingBlock } from '../surface/look';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './common';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
@@ -282,7 +283,7 @@ export class PlanetPanel {
       const cc = canColonize(w, this.star, this.idx);
       if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
       acts.append(button('🌍 Terraform', () => { this.tab = 'terra'; this.render(); }));
-      if (pl.life) acts.append(button('🛸 Abduct life', () => { this.tab = 'life'; this.render(); }));
+      if (!landingBlock(pl, ps, !!w.star(this.star).hollow)) acts.append(button(pl.life ? '🛬 Land & find life' : '🛬 Land', () => this.land(), { cls: pl.life ? 'primary' : '' }));
     }
     if (e && e.arch !== 'hollow') acts.append(button('💱 Trade', () => { this.tab = 'trade'; this.render(); }));
     if (e) acts.append(button('📡 Hail', () => this.st.openComm(e)));
@@ -506,22 +507,16 @@ export class PlanetPanel {
     }
     B.append(eco);
     B.append(h('div', { class: 'sp-mini' }, 'Each row needs two plants, a herbivore and a predator. A full row keeps that T-level stable.'));
-    if (pl.life && !foreign) {
+    if (pl.life) {
+      // Life is collected on the surface: land, find the herds and flora, and beam them up.
       B.append(h('div', { class: 'sp-section' }, 'Native life'));
+      B.append(button('🛬 Land and search for life', () => this.land(), { cls: 'primary block' }));
+      B.append(h('div', { class: 'sp-mini' }, foreign ? 'This world is not yours: its owners will notice abductions.' : 'Fly low over the surface to find them. Tap a creature to beam it up; fly over flora to gather seeds.'));
       const grid = h('div', { class: 'sp-species' });
       const nat = w.natives(pl).slice(0, Math.max(1, tScoreOf(pl.atm, pl.temp)) * 4);
       for (const sp of nat) {
-        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name, ' ', this.xenoTag(sp)), h('span', null, `${dietIcon(sp.diet)} ${sp.diet === 'plant' ? 'Gather seeds' : 'Beam up'}`));
-        cell.addEventListener('click', () => this.beamUp(sp));
-        grid.append(cell);
-      }
-      B.append(grid);
-    } else if (pl.life && foreign) {
-      B.append(h('div', { class: 'sp-section' }, 'Native life'));
-      const grid = h('div', { class: 'sp-species' });
-      for (const sp of w.natives(pl).slice(0, 6)) {
-        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name, ' ', this.xenoTag(sp)), h('span', null, sp.diet === 'plant' ? '🌿' : '🛸 Abduct (they will notice)'));
-        cell.addEventListener('click', () => this.beamUp(sp));
+        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name, ' ', this.xenoTag(sp)), h('span', null, `${dietIcon(sp.diet)} ${sp.diet === 'plant' ? 'Grows' : 'Roams'} on the surface`));
+        cell.addEventListener('click', () => this.land());
         grid.append(cell);
       }
       B.append(grid);
@@ -534,24 +529,9 @@ export class PlanetPanel {
     return inXenopedia(this.w, sp) ? h('span', { class: 'xl-known', title: 'Already in your Xenopedia' }, '📖') : h('span', { class: 'xl-new', title: 'New species: research grant on first collection' }, 'NEW');
   }
 
-  private beamUp(sp: Specimen) {
-    const w = this.w;
-    if (sp.diet === 'plant') {
-      if (w.count('seeds') >= 60) { this.st.ui.toast('Your seed vault is full.', '🌱'); return; }
-      w.give('seeds', 2);
-      audio.sfx('pop');
-      const grant = catalogue(w, sp);
-      this.st.ui.toast(`Gathered seeds of ${sp.name}. +2 seed pods.` + (grant ? ` New to the Xenopedia: ${money(grant)} grant.` : ''), '🌱', 'good');
-    } else {
-      const err = abduct(w, this.star, this.idx, sp);
-      if (err) { this.st.ui.toast(err, '📦', 'bad'); audio.sfx('error'); return; }
-      const grant = catalogue(w, sp);
-      this.st.ui.toast(`${sp.name} beamed aboard.` + (grant ? ` New to the Xenopedia: ${money(grant)} research grant.` : ''), grant ? '📖' : '🛸', 'good');
-      if (!w.s.flags.labHint) { w.s.flags.labHint = true; setTimeout(() => this.st.ui.toast('Specimens can be exhibited, spliced into hybrids or released into ecosystems. See Ship → 🧬 Xeno-Lab.', '🧬'), 1800); }
-      this.bursts.push({ t: 0.4, color: '#9fe3ff' });
-      if (this.star === w.gal.homeStar) tutorialEvent(w, 'abduct');
-    }
-    this.render();
+  private land() {
+    this.close();
+    this.st.land(this.star, this.idx);
   }
 
   private pickSpecimen(slot: number) {

@@ -189,11 +189,21 @@ export function updateAbilities(st: TribalStage, dt: number) {
         if (Math.random() < dt * 14) st.fx.add(P.Fish, e.x + (Math.random() - 0.5) * 460, e.y + 30 + Math.random() * 30, { vx: (Math.random() - 0.5) * 50, vz: 110 + Math.random() * 60, life: 0.9, size: 18, icon: '🐟' });
         break;
       case 'fireworks':
-        if (Math.random() < dt * 5) {
-          const x = e.x + (Math.random() - 0.5) * 240, y = e.y + (Math.random() - 0.5) * 80;
+        // rockets rise from the ground, then burst into rings of sparks
+        if (Math.random() < dt * 4) {
+          const x = e.x + (Math.random() - 0.5) * 260;
+          st.fx.add(P.Spark, x, e.y + 160, { z: 0, vz: 260, life: 0.75, size: 2.6, color: '#ffe9b0' });
+          st.fx.add(P.Ember, x, e.y + 160, { z: 0, vz: 230, life: 0.75, size: 1.6, color: '#ffb347' });
+        }
+        if (Math.random() < dt * 3.2) {
+          const x = e.x + (Math.random() - 0.5) * 260, y = e.y + (Math.random() - 0.5) * 70;
           const col = FW_COLS[Math.floor(Math.random() * FW_COLS.length)];
-          st.fx.burst(P.Spark, x, y, 26, { color: [col, '#ffffff'], speed: 140, up: 0, life: 1.1, size: 2.2, z: 0 });
-          if (st.cam.isVisible(x, y, 200)) audio.sfx('pop', { pitch: 0.5 + Math.random() * 0.6, vol: 0.5 });
+          for (let k = 0; k < 34; k++) {
+            const a = (k / 34) * Math.PI * 2, sp = 150 + Math.random() * 40;
+            st.fx.add(P.Spark, x, y, { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.75, vz: 20, life: 1.2 + Math.random() * 0.3, size: 3, color: k % 3 ? col : '#ffffff' });
+          }
+          st.fx.add(P.Star, x, y, { life: 0.35, size: 34, color: col });
+          if (st.cam.isVisible(x, y, 260)) audio.sfx('pop', { pitch: 0.4 + Math.random() * 0.5 });
         }
         break;
       case 'charm':

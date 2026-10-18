@@ -103,9 +103,11 @@ export class Fx {
         case P.Smoke: p.vx += 6 * dt; p.size += 9 * dt; break;
         case P.Ember: case P.Spark: case P.Splash: case P.Fruit: case P.Fish:
           p.vz -= (p.k === P.Spark ? 60 : 160) * dt;
+          if (p.k === P.Spark) { p.vx *= 1 - 1.4 * dt; p.vy *= 1 - 1.4 * dt; }
           if (p.z < 0 && p.k !== P.Spark) { p.z = 0; p.vz = 0; p.vx *= 0.5; p.vy *= 0.5; }
           break;
         case P.Fire: p.size *= 1 - 1.2 * dt; break;
+        case P.Star: if (p.size > 12) p.size *= 1 - 3 * dt; break;
         case P.Note: case P.Heart: case P.Zzz: p.vx = Math.sin(p.life * 5 + p.x) * 12; break;
         case P.Leaf: p.vx = Math.sin(p.life * 4) * 20; p.vz -= 10 * dt; if (p.z < 0) { p.z = 0; p.vz = 0; p.vx = 0; } break;
         case P.Rain: if (p.z <= 0) { p.life = 0; } break;

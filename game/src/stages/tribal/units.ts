@@ -32,7 +32,7 @@ export function statsOf(d: Design): Stats {
 export function bodyMetrics(d: Design, mul: number): { size: number; r: number; hgt: number } {
   const L = layoutOf(d);
   const ref = Math.max(L.width * 0.55, L.height, 20);
-  const size = clamp(34 / ref, 0.2, 1.4) * mul;
+  const size = clamp(38 / ref, 0.2, 1.5) * mul;
   return { size, r: Math.max(8, L.width * size * 0.36), hgt: L.height };
 }
 
@@ -216,7 +216,7 @@ function autoEngage(st: TribalStage, u: Unit) {
     if (a && !a.dead && a.team !== PLAYER && dist(a, u) < 220 && (a.team === WILD || st.tribes[a.team - 1].state === 'active')) foe = a;
   }
   if (!foe && !st.concert) {
-    const r = o.type === 'idle' ? 170 : o.type === 'gather' ? 110 : 0;
+    const r = o.type === 'idle' ? 170 : o.type === 'gather' ? 110 : o.type === 'hut' ? 160 : 0;
     if (r > 0) foe = findPlayerFoe(st, u, r);
   }
   if (foe) {
@@ -243,14 +243,15 @@ export function unitDamage(st: TribalStage, u: Unit, vsHut: boolean): number {
     return vsHut ? 3 : base * mul;
   }
   const def = u.tool ? TOOLS[u.tool] : null;
-  let d = vsHut ? 3 : u.team === PLAYER ? st.species.dmg : 6;
+  const mine = u.team === PLAYER;
+  let d = vsHut ? 3 : mine ? st.species.dmg : 5;
   if (def) {
-    const td = vsHut ? def.hutDmg : def.dmg;
+    const td = (vsHut ? def.hutDmg : def.dmg) * (mine ? 1 : 0.8);
     d = def.group === 'weapon' ? (vsHut ? td : Math.max(d, td)) : Math.max(d * 0.85, td);
   }
-  if (u.chief) d = Math.max(d, vsHut ? 7 : 12);
-  if (u.team === PLAYER) d *= 1 + 0.1 * st.bonus.combat;
-  else d *= st.game.diff(0.7, 1, 1.2);
+  if (u.chief) d = Math.max(d, vsHut ? 7 : mine ? 12 : 10);
+  if (mine) d *= 1 + 0.1 * st.bonus.combat;
+  else d *= st.game.diff(0.65, 0.85, 1.05);
   return d;
 }
 

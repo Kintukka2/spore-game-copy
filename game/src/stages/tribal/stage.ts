@@ -68,7 +68,7 @@ export class TribalStage implements Scene {
   /** Design table: 0 = our species (worn outfit), 1..4 rival tribes, then wild species, pets. */
   designs: Design[] = [];
   bonus: OutfitBonus = { gather: 0, combat: 0, social: 0, health: 0 };
-  species = { speed: 1, dmg: 5, hp: 60, music: 0, sneak: 0 };
+  species = { speed: 1, dmg: 5, hp: 80, music: 0, sneak: 0 };
 
   time = 0;
   day = 0.12;
@@ -109,6 +109,8 @@ export class TribalStage implements Scene {
   private camTween: { x: number; y: number; t: number } | null = null;
   private dragging = false;
   private resolvedAnnounced = false;
+  private hintQ: { id: string; text: string; icon: string }[] = [];
+  private hintCd = 2.5;
 
   // ------------------------------------------------------------------ ids & lookups
   uid(): number { return this.nextUid++; }
@@ -171,7 +173,8 @@ export class TribalStage implements Scene {
     this.clampCam();
     this.hud?.layout();
   }
-  serialize(): unknown { return serializeStage(this); }
+  /** Mid-stage snapshot. Nothing once the stage is finished, so completeStage's save drops it. */
+  serialize(): unknown { return this.finished || !this.home ? undefined : serializeStage(this); }
 
   baseZoom(): number { return clamp(this.game.w / 400, 0.7, 1.6); }
 
@@ -266,7 +269,7 @@ export class TribalStage implements Scene {
     this.species = {
       speed: st.speed ?? 1,
       dmg: 5 + 0.9 * Math.max(st.bite ?? 0, st.strike ?? 0, st.charge ?? 0, st.spit ?? 0),
-      hp: 60 + (st.health ?? 0) * 6 + this.bonus.health * 8,
+      hp: 80 + (st.health ?? 0) * 8 + this.bonus.health * 8,
       music: (st.sing ?? 0) + (st.dance ?? 0) + (st.charm ?? 0) + (st.pose ?? 0),
       sneak: st.sneak ?? 0,
     };
@@ -306,7 +309,7 @@ export class TribalStage implements Scene {
     const des = team === PLAYER ? this.designs[0] : this.designs[team];
     const t = team === PLAYER ? null : this.tribes[team - 1];
     const diffHp = team === PLAYER ? 1 : this.game.diff(0.8, 1, 1.2);
-    const hp = team === PLAYER ? this.species.hp * (o.chief ? 1.5 : 1) : 52 * diffHp * (o.chief ? 1.8 : 1);
+    const hp = team === PLAYER ? this.species.hp * (o.chief ? 1.5 : 1) : 46 * diffHp * (o.chief ? 1.8 : 1);
     const u = newUnit(this, {
       kind: 'member', team, design: des, dIdx: team === PLAYER ? 0 : team, x, y, hp: Math.round(hp),
       speed: team === PLAYER ? 62 + this.species.speed * 6 : 58, chief: !!o.chief, age: o.baby ? 0 : 1, scaleMul: o.chief ? 1.25 : 1,
@@ -411,7 +414,7 @@ export class TribalStage implements Scene {
     u.bubbleT = 2;
     this.fx.burst(P.Star, u.x, u.y - 10, 12, { color: ['#ffd166', '#fff'], speed: 50, up: 40 });
     audio.sfx('pop');
-    this.game.hint('baby', 'A baby joined the tribe! It grows up in about 30 seconds.', '🐣');
+    this.hint('baby', 'A baby joined the tribe! It grows up in about 30 seconds.', '🐣');
     this.hud.refresh(true);
   }
 
@@ -435,7 +438,7 @@ export class TribalStage implements Scene {
     this.fx.burst(P.Dust, s.x, s.y, 14, { color: '#c9a46c', speed: 60, up: 10, size: 6 });
     audio.sfx('build');
     this.game.stat('tribal-huts');
-    this.game.hint('fetch-tool', `Select members, then tap the ${TOOLS[tool].name} hut so they pick up the tool.`, TOOLS[tool].icon);
+    this.hint('fetch-tool', `Select members, then tap the ${TOOLS[tool].name} hut so they pick up the tool.`, TOOLS[tool].icon);
     this.focus(s.x, s.y);
     return true;
   }
@@ -467,7 +470,7 @@ export class TribalStage implements Scene {
     this.addUnit(porter);
     audio.sfx('pop');
     ui.toast(`A gift basket is on its way to the ${t.name}.`, { icon: '🎁', kind: 'good' });
-    this.game.hint('gift', 'Gifts warm a tribe up. Wary tribes will only listen to music once they are neutral.', '🎁');
+    this.hint('gift', 'Gifts warm a tribe up. Wary tribes will only listen to music once they are neutral.', '🎁');
   }
 
   /** Called when a gift porter arrives. */
@@ -523,7 +526,7 @@ export class TribalStage implements Scene {
     const r = await ui.modal({ title: '🔥 A tribe is born', body, buttons: [{ id: 'skip', label: 'Maybe later' }, { id: 'go', label: '👕 Outfitter', primary: true }] });
     this.paused = false;
     if (r === 'go') await this.outfitter(true);
-    this.game.hint('start', 'Tap a tribe member to select them (or use All), then tap a fruit tree, a fishing spot or an animal.', '👆');
+    this.hint('start', 'Tap a tribe member to select them (or use All), then tap a fruit tree, a fishing spot or an animal.', '👆', true);
   }
 
   async outfitter(free = false) {
@@ -603,9 +606,11 @@ export class TribalStage implements Scene {
     }
     const n = this.resolved;
     const newTools = unlockedTools(this.diet, n).filter((x) => !unlockedTools(this.diet, n - 1).includes(x));
+    const cap = this.popCap;
     setTimeout(() => {
-      if (newTools.length) ui.toast(`New tools: ${newTools.map((x) => TOOLS[x].icon + ' ' + TOOLS[x].name).join(', ')}`, { icon: '🛖', kind: 'good', ms: 4000 });
-      if (n < NUM_TRIBES) ui.toast(`Your tribe can now grow to ${this.popCap}.`, { icon: '👥', kind: 'good' });
+      if (n >= NUM_TRIBES || this.finished) return;
+      const tools = newTools.length ? ` New tools: ${newTools.map((x) => TOOLS[x].icon + ' ' + TOOLS[x].name).join(', ')}.` : '';
+      ui.toast(`Your tribe can now grow to ${cap}.${tools}`, { icon: '🗿', kind: 'good', ms: 4500 });
     }, 1500);
     if (n >= NUM_TRIBES) this.onAllResolved();
     this.hud.refresh(true);
@@ -680,7 +685,7 @@ export class TribalStage implements Scene {
   setStance(s: Stance) {
     this.stance = s;
     audio.sfx(s === 'attack' ? 'drum' : 'charm');
-    this.game.hint('stance-' + s, s === 'attack'
+    this.hint('stance-' + s, s === 'attack'
       ? 'Attack stance: tapping rivals or wild animals attacks them. Torches burn huts fast.'
       : 'Social stance: tapping a rival village sends your band to perform; tapping an animal tames it.', s === 'attack' ? '⚔️' : '🎶');
     this.hud.refresh(true);
@@ -772,7 +777,7 @@ export class TribalStage implements Scene {
             this.command(sel, () => ({ type: 'attack', target: u.id }));
             this.fx.mark(u.x, u.y, '🍖', 'Hunt', '#ff7a59');
             audio.sfx('drum');
-            this.game.hint('hunt', 'Hunted animals leave meat. Your hunters carry it home automatically.', '🍖');
+            this.hint('hunt', 'Hunted animals leave meat. Your hunters carry it home automatically.', '🍖');
           }
           return;
         }
@@ -793,7 +798,7 @@ export class TribalStage implements Scene {
           this.command(sel, () => ({ type: 'hut', tribe: t.id }));
           this.fx.mark(t.x, t.y, '🔥', 'Raze hut', '#ff5a4f');
           audio.sfx('horn');
-          this.game.hint('raze', 'Burn their hut to defeat a tribe. Torches do the most damage; defenders will fight back.', '🔥');
+          this.hint('raze', 'Burn their hut to defeat a tribe. Torches do the most damage; defenders will fight back.', '🔥');
         } else this.orderPerform(sel, t);
         return;
       }
@@ -823,7 +828,7 @@ export class TribalStage implements Scene {
         else ui.toast(`Pet pen · ${this.pets().length}/${MAX_PETS} pets. Pets lay eggs; tap the egg basket with members selected to collect them.`, { icon: '🐾' });
         return;
       case 'fire':
-        if (has) { this.orderMove(sel, this.home.fire.x, this.home.fire.y + 40, '🔥', 'Rest by the fire'); this.game.hint('fire', 'Members resting by the fire slowly heal.', '🔥'); }
+        if (has) { this.orderMove(sel, this.home.fire.x, this.home.fire.y + 40, '🔥', 'Rest by the fire'); this.hint('fire', 'Members resting by the fire slowly heal.', '🔥'); }
         else ui.toast('The village fire. Members resting here heal.', { icon: '🔥' });
         return;
       case 'home':
@@ -858,8 +863,8 @@ export class TribalStage implements Scene {
     const label = n.kind === 'tree' ? 'Gather fruit' : n.kind === 'fish' ? 'Fish' : n.kind === 'eggs' ? 'Collect eggs' : 'Collect food';
     this.fx.mark(n.sx, n.sy, n.kind === 'fish' ? '🐟' : n.kind === 'eggs' ? '🥚' : n.kind === 'tree' ? '🍎' : '🍖', label, '#ffd166');
     audio.sfx('tap');
-    if (n.kind === 'fish') this.game.hint('fishspear', 'Fishing spears triple every catch.', '🎣');
-    if (n.kind === 'tree') this.game.hint('staff', 'Gathering staffs knock fruit down three times faster.', '🧺');
+    if (n.kind === 'fish') this.hint('fishspear', 'Fishing spears triple every catch.', '🎣');
+    if (n.kind === 'tree') this.hint('staff', 'Gathering staffs knock fruit down three times faster.', '🧺');
   }
 
   orderPerform(sel: Unit[], t: Tribe) {
@@ -876,7 +881,7 @@ export class TribalStage implements Scene {
     if (!sel.some((u) => isInstrument(u.tool))) {
       ui.toast('Nobody in this band holds an instrument. Build a 🥁/📯/🪇 hut and pick one up first.', { icon: '🎶', ms: 4500 });
     } else {
-      this.game.hint('concert', 'When your band arrives, tap “Start concert” and hit the instrument buttons on the beat.', '🎶');
+      this.hint('concert', 'When your band arrives, tap “Start concert” and hit the instrument buttons on the beat.', '🎶');
     }
   }
 
@@ -1022,6 +1027,7 @@ export class TribalStage implements Scene {
     if (this.slowT <= 0) { this.slowT = 0.5; this.checkDanger(); }
     this.hintT -= dt;
     if (this.hintT <= 0) { this.hintT = 1; this.timedHints(); }
+    this.pumpHints(dt);
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 0.1; this.hud.refresh(false); }
   }
@@ -1178,6 +1184,21 @@ export class TribalStage implements Scene {
   }
 
   // ------------------------------------------------------------------ danger, hints, objective
+  /** One-time hints, paced so they never stack up. Urgent hints jump the queue. */
+  hint(id: string, text: string, icon = '💡', urgent = false) {
+    const s = this.game.state;
+    if (!s || !this.game.settings.hints || s.carry['hint:' + id] || this.hintQ.some((q) => q.id === id)) return;
+    if (urgent) { this.hintQ.unshift({ id, text, icon }); this.hintCd = Math.min(this.hintCd, 0.8); }
+    else this.hintQ.push({ id, text, icon });
+  }
+  private pumpHints(dt: number) {
+    this.hintCd -= dt;
+    if (this.hintCd > 0 || !this.hintQ.length || this.concert) return;
+    const q = this.hintQ.shift()!;
+    this.game.hint(q.id, q.text, q.icon);
+    this.hintCd = 8;
+  }
+
   private checkDanger() {
     const H = this.home;
     let threat: Unit | null = null;
@@ -1194,7 +1215,7 @@ export class TribalStage implements Scene {
         audio.sfx('alarm');
         const who = threat.team >= 1 ? `The ${this.tribes[threat.team - 1].name} are raiding` : threat.wild === 'titan' ? 'A Titan is coming' : 'A predator is prowling';
         ui.toast(`${who}! Defend the village!`, { icon: '⚠️', kind: 'bad', ms: 3500 });
-        this.game.hint('raid', 'Your idle members defend automatically. Select All and tap the raiders to strike back.', '🛡️');
+        this.hint('raid', 'Your idle members defend automatically. Select All and tap the raiders to strike back.', '🛡️', true);
       }
     } else if (this.dangerOn) {
       this.danger -= 0.5;
@@ -1207,11 +1228,11 @@ export class TribalStage implements Scene {
 
   private timedHints() {
     const g = this.game;
-    if (this.time > 25) g.hint('food-econ', 'Food is your currency: buy members 🥚, build tool huts 🛖, send gifts 🎁 and dress your tribe 👕.', '🍎');
-    if (this.time > 55) g.hint('rivals', 'Four rival tribes live nearby. Tap their badges on the right to visit them.', '🗺️');
-    if (this.time > 90 && this.toolHuts.every((t) => !t)) g.hint('build', 'Build a tool hut 🛖: instruments win tribes over, weapons and torches defeat them.', '🛖');
-    if (this.time > 140 && this.pets().length) g.hint('eggs', 'Your pets lay eggs. Tap the egg basket by the pen with members selected to collect them.', '🥚');
-    if (this.time > 200) g.hint('pinch', 'Pinch to zoom, drag to pan. Long-press the ground to select everyone nearby.', '🤏');
+    if (this.time > 25) this.hint('food-econ', 'Food is your currency: buy members 🥚, build tool huts 🛖, send gifts 🎁 and dress your tribe 👕.', '🍎');
+    if (this.time > 55) this.hint('rivals', 'Four rival tribes live nearby. Tap their badges on the right to visit them.', '🗺️');
+    if (this.time > 90 && this.toolHuts.every((t) => !t)) this.hint('build', 'Build a tool hut 🛖: instruments win tribes over, weapons and torches defeat them.', '🛖');
+    if (this.time > 140 && this.pets().length) this.hint('eggs', 'Your pets lay eggs. Tap the egg basket by the pen with members selected to collect them.', '🥚');
+    if (this.time > 200) this.hint('pinch', 'Pinch to zoom, drag to pan. Long-press the ground to select everyone nearby.', '🤏');
   }
 
   objective(): string {

@@ -61,12 +61,14 @@ const CSS = `
 .tb-li .sub { font-size:11px; color:rgba(255,244,222,.65); font-weight:500; }
 .tb-li .dot { width:12px; height:12px; border-radius:50%; flex:0 0 auto; }
 .tb-li:disabled { opacity:.45; }
-.tb-target { position:absolute; left:50%; top:calc(112px + var(--safe-t)); transform:translateX(-50%); display:flex; gap:8px; align-items:center; background:rgba(120,20,10,.88); border:1px solid rgba(255,160,120,.6); color:#fff; border-radius:16px; padding:8px 8px 8px 14px; font-weight:600; font-size:14px; white-space:nowrap; animation:tbUp .2s ease-out; }
+.tb-target { position:absolute; left:calc(8px + var(--safe-l)); right:calc(84px + var(--safe-r)); bottom:calc(140px + var(--safe-b)); display:flex; gap:8px; align-items:center; justify-content:space-between; background:rgba(120,20,10,.9); border:1px solid rgba(255,160,120,.6); color:#fff; border-radius:16px; padding:6px 6px 6px 14px; font-weight:600; font-size:14px; animation:tbUp .2s ease-out; }
 .tb-debug { position:absolute; left:calc(8px + var(--safe-l)); top:calc(150px + var(--safe-t)); display:flex; flex-direction:column; gap:6px; }
 .tb-debug button { min-width:60px; min-height:44px; border-radius:12px; border:1px dashed rgba(255,255,255,.45); background:rgba(60,0,80,.7); color:#fff; font:600 12px var(--font); cursor:pointer; }
 .chip.tb-food.flash { animation:tbFlash .5s ease 2; }
 @keyframes tbFlash { 50% { background:rgba(220,50,40,.85); } }
-.tb-concert { position:absolute; left:calc(8px + var(--safe-l)); right:calc(8px + var(--safe-r)); bottom:calc(8px + var(--safe-b)); padding:10px 12px 12px; border-radius:20px; background:rgba(30,18,8,.86); border:1px solid rgba(255,220,170,.3); color:#fff4de; display:flex; flex-direction:column; gap:8px; animation:tbUp .25s ease-out; }
+.tb-concert { position:absolute; left:calc(8px + var(--safe-l)); right:calc(8px + var(--safe-r)); bottom:calc(8px + var(--safe-b)); color:#fff4de; display:flex; flex-direction:column; gap:8px; animation:tbUp .25s ease-out; pointer-events:none; }
+.tb-concert > * { pointer-events:auto; }
+.tb-c-card { padding:10px 12px; border-radius:20px; background:rgba(30,18,8,.88); border:1px solid rgba(255,220,170,.3); display:flex; flex-direction:column; gap:8px; }
 .tb-c-head { display:flex; align-items:center; gap:8px; }
 .tb-c-title { flex:1; font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tb-c-meter { display:flex; align-items:center; gap:8px; }
@@ -74,7 +76,7 @@ const CSS = `
 .tb-c-face { font-size:26px; }
 .tb-c-combo { min-width:34px; font-weight:700; color:#ffd166; text-align:right; }
 .tb-c-sub { font-size:11px; color:rgba(255,244,222,.65); text-align:center; }
-.tb-c-lane { height:96px; margin-top:6px; }
+.tb-c-lane { height:112px; pointer-events:none !important; }
 .tb-c-btns { display:flex; gap:10px; justify-content:center; }
 .tb-c-btn { position:relative; width:86px; height:86px; border-radius:50%; border:4px solid var(--c); background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.3), rgba(40,24,10,.95)); color:#fff; cursor:pointer; padding:0; display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; box-shadow:0 4px 0 rgba(0,0,0,.4); }
 .tb-c-btn .i { font-size:34px; line-height:1; }

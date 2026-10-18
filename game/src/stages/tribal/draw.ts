@@ -696,11 +696,14 @@ function drawHutLabels(st: TribalStage, g: CanvasRenderingContext2D) {
 
 function drawIndicators(st: TribalStage, g: CanvasRenderingContext2D, w: number, hh: number, t: number) {
   const cam = st.cam;
-  const top = 116, bottom = hh - 170, left = 18, right = w - 70;
+  const top = 120, bottom = hh - 176, left = 22, right = w - 88;
+  const shown = new Set<number>();
   for (const u of st.units) {
     if (u.dead) continue;
     const threat = u.wild === 'titan' || (u.raid && u.team >= 1);
     if (!threat || Math.hypot(u.x - st.home.x, u.y - st.home.y) > 1100) continue;
+    if (shown.has(u.team)) continue;
+    shown.add(u.team);
     const p = cam.worldToScreen(u.x, u.y - 20);
     if (p.x > 0 && p.x < w && p.y > 60 && p.y < hh - 150) continue;
     const cx = w / 2, cy = (top + bottom) / 2;

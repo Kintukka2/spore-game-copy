@@ -85,13 +85,14 @@ export class Concert {
     close.addEventListener('click', (e) => { e.stopPropagation(); this.finish(false); });
     const dancers = band.filter((u) => !u.tool || !INSTRUMENTS.includes(u.tool)).length;
     this.el = h('div', { class: 'tb-concert' },
-      h('div', { class: 'tb-c-head' },
-        h('div', { class: 'tb-c-title' }, `🎶 Concert for the ${tribe.name}`),
-        close),
-      h('div', { class: 'tb-c-meter' }, this.faceEl, this.meter.el, this.comboEl),
-      h('div', { class: 'tb-c-sub' }, `Band: ${band.length}${dancers ? ` (${dancers} dancing)` : ''}${band.some((u) => u.chief) ? ' · Chieftain conducts' : ''} · tap on the beat when a note hits the ring`),
+      h('div', { class: 'tb-c-card' },
+        h('div', { class: 'tb-c-head' },
+          h('div', { class: 'tb-c-title' }, `🎶 Concert for the ${tribe.name}`),
+          close),
+        h('div', { class: 'tb-c-meter' }, this.faceEl, this.meter.el, this.comboEl),
+        h('div', { class: 'tb-c-sub' }, `Band: ${band.length}${dancers ? ` (${dancers} dancing)` : ''}${band.some((u) => u.chief) ? ' · Chieftain conducts' : ''} · tap when a note reaches the ring`)),
       this.laneEl,
-      btnRow);
+      h('div', { class: 'tb-c-card' }, btnRow));
     st.hud.root.append(this.el);
     st.hud.setConcertMode(true);
     this.updateMeter();
@@ -121,8 +122,8 @@ export class Concert {
     const st = this.st;
     const players = this.band.filter((u) => !u.dead && u.tool === inst).length;
     const dancers = this.band.filter((u) => !u.dead && (!u.tool || !INSTRUMENTS.includes(u.tool))).length;
-    const chief = this.band.some((u) => u.chief && !u.dead) ? 0.12 : 0;
-    return clamp(0.72 + 0.17 * Math.min(3, players) + 0.04 * Math.min(4, dancers) + chief + 0.05 * st.bonus.social + 0.02 * st.species.music, 0.7, 1.9);
+    const chief = this.band.some((u) => u.chief && !u.dead) ? 0.1 : 0;
+    return clamp(0.6 + 0.13 * Math.min(3, players) + 0.03 * Math.min(4, dancers) + chief + 0.04 * st.bonus.social + 0.015 * st.species.music, 0.6, 1.5);
   }
 
   private press(inst: ToolId) {
@@ -151,8 +152,8 @@ export class Concert {
     best.fx = 0;
     this.hits++;
     this.combo++;
-    const base = (100 / this.notes.length) * 1.25;
-    const gain = base * this.mult(inst) * (perfect ? 1 : 0.6) * (1 + Math.min(0.4, this.combo * 0.04));
+    const base = (100 / this.notes.length) * 0.92;
+    const gain = base * this.mult(inst) * (perfect ? 1 : 0.6) * (1 + Math.min(0.3, this.combo * 0.03));
     this.adjust(gain);
     this.tribe.relation = Math.min(100, this.tribe.relation + 1.5);
     this.setJudge(perfect ? 'Perfect!' : 'Good', perfect ? '#ffe27a' : '#b8f5c8');
@@ -238,7 +239,7 @@ export class Concert {
     const st = this.st;
     const res = h('div', { class: 'tb-c-result ' + (win ? 'win' : 'lose') },
       win ? `💚 The ${this.tribe.name} love your music!` : `They want more… admiration ${Math.round(this.tribe.admiration)}%`);
-    this.el.append(res);
+    (this.el.firstElementChild as HTMLElement).append(res);
     if (win) {
       audio.sfx('success');
       st.effects.push({ kind: 'fireworks', t: 0, dur: 3, x: this.tribe.x, y: this.tribe.y - 150 });
@@ -246,7 +247,7 @@ export class Concert {
       for (const w of st.tribeMembers(this.tribe)) { w.bubble = '💚'; w.bubbleT = 2; act(w, 'dance', 1.4); }
     } else {
       audio.sfx('fail');
-      st.game.hint('concert-retry', 'Admiration carries over between concerts. More players per instrument, gifts and social clothing make it easier.', '🎶');
+      st.hint('concert-retry', 'Admiration carries over between concerts. More players per instrument, gifts and social clothing make it easier.', '🎶');
     }
   }
 
@@ -259,12 +260,12 @@ export class Concert {
     if (!this.lane.w) this.measure();
     const L = this.lane;
     if (!L.w) return;
-    const cy = L.y + L.h / 2;
-    const x0 = L.x + 46;
+    const cy = L.y + L.h / 2 + 8;
+    const x0 = L.x + 48;
     const span = L.w - 70;
     g.save();
     // lane
-    g.fillStyle = 'rgba(30,18,8,0.55)';
+    g.fillStyle = 'rgba(30,18,8,0.72)';
     g.beginPath();
     g.roundRect(L.x, L.y, L.w, L.h, 18);
     g.fill();
@@ -336,9 +337,9 @@ export class Concert {
       g.font = `700 ${18 + this.judge.t * 10}px Fredoka, ui-rounded, system-ui, sans-serif`;
       g.strokeStyle = 'rgba(0,0,0,0.65)';
       g.lineWidth = 5;
-      g.strokeText(this.judge.text, x0 + 4, L.y - 14);
+      g.strokeText(this.judge.text, x0 + 70, L.y + 20);
       g.fillStyle = this.judge.color;
-      g.fillText(this.judge.text, x0 + 4, L.y - 14);
+      g.fillText(this.judge.text, x0 + 70, L.y + 20);
     }
     g.restore();
     void w; void hh;

@@ -102,7 +102,7 @@ export function updateTribes(st: TribalStage, dt: number) {
     const members = st.tribeMembers(t);
     const regular = members.filter((u) => !u.chief).length;
     t.spawnT -= dt;
-    if (regular < t.maxMembers - 1 && t.food >= 15 && t.spawnT <= 0) {
+    if (regular < t.maxMembers - 1 && t.food >= 15 && t.spawnT <= 0 && t.alarm <= 0) {
       t.food -= 15;
       t.spawnT = g.diff(32, 24, 15);
       spawnTribeMember(st, t, false);
@@ -239,7 +239,7 @@ function stealStep(st: TribalStage, u: Unit, t: Tribe, o: Extract<Order, { type:
         u.carryKind = 'fruit';
         st.fx.text(pile.x, pile.y - 30, `-${amt} 🍎`, '#ff8a80', true);
         audio.sfx('chomp');
-        st.game.hint('thieves', 'Thieves steal from your food pile. Keep some members home, or use Snares and Fire Bombs.', '🥷');
+        st.hint('thieves', 'Thieves steal from your food pile. Keep some members home, or use Snares and Fire Bombs.', '🥷');
       }
       o.phase = 'home';
     }
@@ -537,6 +537,6 @@ export function updateWildlife(st: TribalStage, dt: number) {
     st.game.banner('A Titan stirs', u.design.name);
     audio.sfx('roar', { pitch: 0.5 });
     st.fx.shake = 6;
-    st.game.hint('titan', 'Titans are huge and deadly, but slaying one brings a mountain of meat. Spears and Snares help.', '🦖');
+    st.hint('titan', 'Titans are huge and deadly, but slaying one brings a mountain of meat. Spears and Snares help.', '🦖');
   }
 }

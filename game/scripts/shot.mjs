@@ -30,11 +30,17 @@ if (flags.actions) {
       catch { logs.push('[miss] ' + a.text); }
     }
     if (a.role) {
-      try { await page.getByRole('button', { name: a.role }).first().click({ timeout: a.timeout ?? 4000 }); logs.push('[click] ' + a.role); }
+      try { await page.getByRole('button', { name: a.role }).first().click({ timeout: a.timeout ?? 4000, force: true }); logs.push('[click] ' + a.role); }
       catch { logs.push('[miss] ' + a.role); }
     }
     if (a.eval) logs.push('[eval] ' + JSON.stringify(await page.evaluate(a.eval)));
     if (a.key) await page.keyboard.press(a.key);
+    if (a.drag) {
+      const [x1, y1, x2, y2] = a.drag;
+      await page.mouse.move(x1, y1); await page.mouse.down();
+      for (let i = 1; i <= 12; i++) await page.mouse.move(x1 + ((x2 - x1) * i) / 12, y1 + ((y2 - y1) * i) / 12);
+      await page.mouse.up();
+    }
     if (a.hold) { await page.keyboard.down(a.hold); await page.waitForTimeout(a.ms ?? 500); await page.keyboard.up(a.hold); }
     if (a.wait) await page.waitForTimeout(a.wait);
     if (a.shot) await page.screenshot({ path: a.shot });

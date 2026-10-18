@@ -23,7 +23,7 @@ import { bakeTerrain, generateWorld, homeLayout, waterAt, type WorldGen } from '
 import { Fx, P } from './fx';
 import { TOOLS, unlockedTools, unlockLevel, isInstrument } from './tools';
 import { outfitBonus, openOutfitter, wornDesign, type OutfitBonus } from './outfit';
-import { bodyMetrics, integrate, newUnit, updatePlayerUnit, killUnit, stopUnit, slotOffset, updateShots, healPass } from './units';
+import { bodyMetrics, integrate, newUnit, updatePlayerUnit, killUnit, stopUnit, slotOffset, updateShots, healPass, sheltered } from './units';
 import { updateTribes, updateRival, updateAnimal, updateWildlife, spawnTribeMember, spawnHerdMember, type HerdState } from './ai';
 import { renderWorld } from './draw';
 import { TribalHud } from './hud';
@@ -176,7 +176,8 @@ export class TribalStage implements Scene {
   /** Mid-stage snapshot. Nothing once the stage is finished, so completeStage's save drops it. */
   serialize(): unknown { return this.finished || !this.home ? undefined : serializeStage(this); }
 
-  baseZoom(): number { return clamp(this.game.w / 400, 0.7, 1.6); }
+  /** Default zoom: shows about the same world area on any screen shape. */
+  baseZoom(): number { return clamp(Math.sqrt(this.game.w * this.game.h) / 590, 0.7, 1.5); }
 
   /** Static world and anything derived deterministically from the seed. */
   private setupWorld() {
@@ -193,7 +194,7 @@ export class TribalStage implements Scene {
     // Rival tribes
     const hues = [6, 272, 42, 318];
     const d = (e: number[], n: number[], hd: number[]) => game.diff(e, n, hd);
-    const maxM = d([3, 4, 4, 5], [4, 5, 6, 7], [5, 6, 8, 9]);
+    const maxM = d([3, 4, 5, 5], [5, 5, 6, 8], [6, 7, 8, 10]);
     const base = d([12, 0, -20, -10], [5, -20, -30, -60], [-20, -35, -60, -70]);
     for (let i = 0; i < NUM_TRIBES; i++) {
       const r = game.rng('tribal-tribe-' + i);
@@ -203,14 +204,14 @@ export class TribalStage implements Scene {
       des.colors.detail = hsl((hues[i] + 200) % 360, 0.45, 0.85);
       const diet = designDiet(des) ?? 'omnivore';
       const v = this.w.rivals[i];
-      const hutMax = game.diff(240, 320, 420) + 60 * i;
+      const hutMax = game.diff(460, 640, 800) + 130 * i;
       this.designs.push(des);
       this.tribes.push({
         id: i + 1, rank: i, name: tribeName(r), design: des, color: hsl(hues[i], 0.78, 0.58),
         style: diet === 'herbivore' ? 'clay' : diet === 'carnivore' ? 'hide' : 'wood',
         x: v.x, y: v.y, hutHp: hutMax, hutMax, burn: 0, relation: base[i], base: base[i], admiration: 0,
         state: 'active', food: 30, maxMembers: maxM[i], weapon: (['axe', 'spear', 'torch', 'axe'] as ToolId[])[i],
-        raidT: game.diff(200, 130, 80) + i * 25, giftT: 50 + i * 10, thiefT: game.diff(140, 100, 70) + i * 15,
+        raidT: game.diff(260, 170, 95) + i * 20, giftT: 50 + i * 10, thiefT: game.diff(140, 100, 70) + i * 15,
         spawnT: 10, chiefT: 0, alarm: 0, concertCd: 0, since: 0, hitT: 0,
       });
     }
@@ -309,12 +310,12 @@ export class TribalStage implements Scene {
     const des = team === PLAYER ? this.designs[0] : this.designs[team];
     const t = team === PLAYER ? null : this.tribes[team - 1];
     const diffHp = team === PLAYER ? 1 : this.game.diff(0.8, 1, 1.2);
-    const hp = team === PLAYER ? this.species.hp * (o.chief ? 1.5 : 1) : 46 * diffHp * (o.chief ? 1.8 : 1);
+    const hp = team === PLAYER ? this.species.hp * (o.chief ? 1.5 : 1) : 58 * diffHp * (o.chief ? 1.8 : 1);
     const u = newUnit(this, {
       kind: 'member', team, design: des, dIdx: team === PLAYER ? 0 : team, x, y, hp: Math.round(hp),
       speed: team === PLAYER ? 62 + this.species.speed * 6 : 58, chief: !!o.chief, age: o.baby ? 0 : 1, scaleMul: o.chief ? 1.25 : 1,
     });
-    if (t && !o.chief && t.rank >= 1 && Math.random() < 0.7) u.tool = t.weapon;
+    if (t && !o.chief && Math.random() < (t.rank === 0 ? 0.4 : 0.7)) u.tool = t.weapon;
     return this.addUnit(u);
   }
 
@@ -322,7 +323,7 @@ export class TribalStage implements Scene {
     const des = this.designs[dIdx];
     const st = computeStats(des);
     const d = this.game.diff(0.8, 1, 1.15);
-    const hp = wild === 'titan' ? 900 * this.game.diff(0.7, 1, 1.3) : wild === 'hunter' ? 80 * d : 40 + (st.health ?? 0) * 8;
+    const hp = wild === 'titan' ? 900 * this.game.diff(0.7, 1, 1.3) : wild === 'hunter' ? 66 * d : 40 + (st.health ?? 0) * 8;
     const u = newUnit(this, {
       kind: 'animal', team: WILD, design: des, dIdx, x, y, hp: Math.round(hp),
       speed: wild === 'titan' ? 36 : wild === 'hunter' ? 66 : 48 + (st.speed ?? 1) * 4, chief: false, age: 1,
@@ -542,9 +543,17 @@ export class TribalStage implements Scene {
   }
 
   // ------------------------------------------------------------------ conquest
+  /** Recent notable events (relation drops, deaths) for debugging and tests. */
+  eventLog: string[] = [];
+  logEvent(msg: string) {
+    this.eventLog.push(`${Math.round(this.time)}s ${msg}`);
+    if (this.eventLog.length > 200) this.eventLog.shift();
+  }
+
   hostileToward(t: Tribe, amount: number, reason: string) {
     if (t.state !== 'active') return;
     const was = t.relation;
+    if (was > -99) this.logEvent(`rel T${t.id} -${amount} (${reason}) ${Math.round(was)}`);
     t.relation = Math.max(-100, t.relation - amount);
     t.base = Math.min(t.base, -55);
     t.alarm = 25;
@@ -1124,7 +1133,7 @@ export class TribalStage implements Scene {
 
   // ------------------------------------------------------------------ combat hooks
   hitUnit(u: Unit, dmg: number, from: Unit | null, burn = false) {
-    if (u.dead || u.kind === 'porter') return;
+    if (u.dead || u.kind === 'porter' || sheltered(this, u)) return;
     u.hp -= dmg;
     u.flash = 0.25;
     if (burn) u.burn = Math.max(u.burn, 3);
@@ -1135,15 +1144,18 @@ export class TribalStage implements Scene {
       // Hitting a rival makes the whole tribe angry, unless they started it.
       if (from.team === PLAYER && u.team >= 1) {
         const t = this.tribes[u.team - 1];
-        if (!u.raid) this.hostileToward(t, 18, 'you attacked them');
+        // Striking back at raiders or at anyone who attacked us first is fair game.
+        if (!u.raid && !((u.fightT ?? 0) > 0)) this.hostileToward(t, 18, 'you attacked them');
         else t.alarm = Math.max(t.alarm, 8);
       }
+      if (from.team >= 1 && u.team === PLAYER) from.fightT = 10;
     }
     if (dmg >= 8 && this.cam.isVisible(u.x, u.y, 40)) this.fx.text(u.x + (Math.random() - 0.5) * 10, u.y - u.hgt * u.size - 8, `-${Math.round(dmg)}`, u.team === PLAYER ? '#ff8a80' : '#ffffff');
     if (u.hp <= 0) killUnit(this, u, from);
   }
 
   onUnitKilled(u: Unit, by: Unit | null) {
+    if (u.team === PLAYER) this.logEvent(`death ${u.pet ? 'pet' : u.age < 1 ? 'baby' : u.chief ? 'chief' : 'member'} by ${by ? by.wild ?? 'T' + by.team + (by.raid ? 'raid' : '') : 'burn/other'} order=${u.order.type}`);
     if (u.team === PLAYER && u.kind === 'member') {
       this.stats.deaths++;
       audio.sfx('die');

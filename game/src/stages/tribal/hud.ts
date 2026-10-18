@@ -87,7 +87,24 @@ const CSS = `
 .tb-c-result { text-align:center; font-weight:700; font-size:17px; padding:6px; border-radius:12px; animation:tbUp .25s ease-out; }
 .tb-c-result.win { background:rgba(60,200,110,.3); }
 .tb-c-result.lose { background:rgba(255,140,90,.2); }
-@media (min-width: 700px) { .tb-panel, .tb-concert { left:50%; right:auto; width:520px; transform:translateX(-50%); } }
+@media (min-width: 700px) {
+  .tb-panel, .tb-concert { left:50%; right:auto; width:520px; transform:translateX(-50%); }
+  .tb-ctx { left:50%; right:auto; width:min(620px, calc(100% - 220px)); transform:translateX(-50%); }
+}
+@media (max-height: 540px) and (orientation: landscape) {
+  .tb-badges { top:calc(54px + var(--safe-t)); flex-direction:row; }
+  .tb-abil { flex-direction:row; bottom:calc(22px + var(--safe-b)); gap:12px; }
+  .tb-cmd { justify-content:flex-start; padding-left:calc(12px + var(--safe-l)); }
+  .tb-btn { max-width:78px; height:56px; }
+  .tb-ctx, .tb-panel, .tb-target { bottom:calc(74px + var(--safe-b)); }
+  .tb-panel { max-height:calc(100dvh - 150px); }
+  .tb-debug { flex-direction:row; top:calc(100px + var(--safe-t)); }
+  .tb-c-sub { display:none; }
+  .tb-c-lane { height:92px; }
+  .tb-c-card { padding:6px 10px; gap:4px; }
+  .tb-c-btn { width:68px; height:68px; }
+  .tb-c-btn .i { font-size:26px; }
+}
 `;
 
 function injectCss() {

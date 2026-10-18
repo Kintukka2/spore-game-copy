@@ -117,6 +117,8 @@ export interface Unit {
   fear?: number;
   // rivals
   raid?: boolean;
+  /** Seconds this rival remains a known aggressor (it attacked the player's tribe). */
+  fightT?: number;
   /** Rival chief or wild home position. */
   hx?: number;
   hy?: number;

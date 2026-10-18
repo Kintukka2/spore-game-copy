@@ -5,7 +5,7 @@ import { ui } from '../../engine/ui';
 import { dist, lerp } from '../../engine/math';
 import { PLAYER, WILD, WORLD, type Order, type Tribe, type Unit } from './types';
 import type { TribalStage } from './stage';
-import { attackStep, findNode, findPlayerFoe, goTo, isPlayerFoe, near, newUnit, nodeStand, slotOffset, statsOf, stopUnit, tickCommon, act } from './units';
+import { attackStep, findNode, findPlayerFoe, fleePoint, goTo, isPlayerFoe, near, newUnit, nodeStand, slotOffset, statsOf, stopUnit, targetable, tickCommon, act } from './units';
 import { P } from './fx';
 
 export interface HerdState {
@@ -93,7 +93,7 @@ export function updateTribes(st: TribalStage, dt: number) {
     }
     if (t.state !== 'active') continue;
     // relationship drifts back toward the tribe's temperament (gifts wear off)
-    const drift = g.diff(0.06, 0.1, 0.16) * dt;
+    const drift = g.diff(0.03, 0.05, 0.09) * dt;
     if (t.relation > t.base) t.relation = Math.max(t.base, t.relation - drift);
     else if (t.relation < t.base) t.relation = Math.min(t.base, t.relation + drift * 0.5);
     t.food += 0.35 * dt;
@@ -117,14 +117,15 @@ export function updateTribes(st: TribalStage, dt: number) {
     t.raidT -= dt;
     t.thiefT -= dt;
     t.giftT -= dt;
-    if (t.relation <= -50 && t.raidT <= 0 && !night && st.time > 30) {
+    const bandHere = st.units.some((u) => u.team === PLAYER && !u.dead && u.order.type === 'perform' && u.order.tribe === t.id);
+    if (t.relation <= -50 && t.raidT <= 0 && !night && st.time > 30 && !bandHere) {
       if (raidingTribes(st) < g.diff(1, 1, 2)) {
-        const [lo, hi] = g.diff([2, 3], [3, 5], [4, 7]);
-        const size = Math.round(lerp(lo, hi, t.rank / 3) + (t.rank === 3 && g.difficulty !== 'easy' ? 1 : 0));
-        if (launchRaid(st, t, size, false)) t.raidT = g.diff(170, 115, 80) * (1 - t.rank * 0.07) * (0.85 + Math.random() * 0.3);
+        const [lo, hi] = g.diff([2, 3], [3, 4], [4, 7]);
+        const size = Math.round(lerp(lo, hi, t.rank / 3) + (t.rank === 3 && g.difficulty === 'hard' ? 1 : 0));
+        if (launchRaid(st, t, size, false)) t.raidT = g.diff(190, 140, 85) * (1 - t.rank * 0.05) * (0.85 + Math.random() * 0.3);
         else t.raidT = 20;
       } else t.raidT = 15;
-    } else if (t.relation > -50 && t.relation <= -15 && t.thiefT <= 0 && !night) {
+    } else if (t.relation > -50 && t.relation <= -15 && t.thiefT <= 0 && !night && !bandHere) {
       launchRaid(st, t, g.difficulty === 'hard' ? 2 : 1, true);
       t.thiefT = g.diff(160, 110, 75);
     } else if (t.relation >= 25 && t.giftT <= 0) {
@@ -139,15 +140,17 @@ export function updateTribes(st: TribalStage, dt: number) {
 function rivalFoe(st: TribalStage, u: Unit, t: Tribe): Unit | null {
   let best: Unit | null = null, bd = Infinity;
   for (const a of st.units) {
-    if (a.dead || a.kind === 'porter' || a.team === u.team || a.team >= 1) continue;
+    if (!targetable(st, a) || a.team === u.team || a.team >= 1) continue;
     const d = dist(a, u);
-    if (d > 320) continue;
+    if (d > 650) continue;
     let ok = false;
     if (a.team === PLAYER) {
-      if (u.raid) ok = d < 150;
-      else if (t.alarm > 0) ok = dist(a, t) < 380 && d < 300;
+      if (u.raid) ok = d < 120 && !(a.order.type === 'perform' && a.order.tribe === t.id);
+      else if (t.alarm > 0) ok = dist(a, t) < 400 && d < 650;
       else if (t.relation <= -50) ok = dist(a, t) < 230 && d < 220;
       if (!ok && u.aggroT > 0 && u.aggro === a.id) ok = d < 260;
+      // A band performing for this tribe is left in peace unless the tribe is at war with us.
+      if (ok && !u.raid && a.order.type === 'perform' && a.order.tribe === t.id && t.relation > -50 && t.alarm <= 0) ok = false;
     } else {
       ok = (a.wild !== 'grazer' && a.order.type === 'attack' && dist(a, t) < 300 && d < 200) || (u.aggroT > 0 && u.aggro === a.id && d < 260);
     }
@@ -181,7 +184,7 @@ export function updateRival(st: TribalStage, u: Unit, dt: number) {
   u.think -= dt;
   if (u.think <= 0) {
     u.think = 0.35 + Math.random() * 0.2;
-    if (u.order.type !== 'attack') {
+    if (u.order.type !== 'attack' && !(u.raid && u.order.type === 'home')) {
       const foe = rivalFoe(st, u, t);
       if (foe && !(u.order.type === 'steal' && u.order.phase === 'home' && !u.aggroT)) {
         u.resume = u.order.type === 'steal' ? u.order : null;
@@ -190,8 +193,8 @@ export function updateRival(st: TribalStage, u: Unit, dt: number) {
       }
     }
   }
-  if (u.raid && u.hp < u.maxHp * 0.3 && u.order.type !== 'steal') {
-    u.raid = false;
+  // Badly hurt raiders retreat (still flagged as raiders until they get home).
+  if (u.raid && u.hp < u.maxHp * 0.3 && u.order.type !== 'steal' && u.order.type !== 'home') {
     u.order = { type: 'home' };
     u.bubble = '😱';
     u.bubbleT = 2;
@@ -200,7 +203,7 @@ export function updateRival(st: TribalStage, u: Unit, dt: number) {
   switch (o.type) {
     case 'attack': {
       const tg = st.byId.get(o.target);
-      if (!tg || tg.dead || tg.team === u.team || (!u.raid && dist(tg, t) > 460) || (u.raid && dist(tg, u) > 300)) {
+      if (!tg || !targetable(st, tg) || tg.team === u.team || (!u.raid && dist(tg, t) > 460) || (u.raid && dist(tg, u) > 300)) {
         if (u.resume) { u.order = u.resume; u.resume = null; } else backToDuty(u);
         break;
       }
@@ -213,7 +216,7 @@ export function updateRival(st: TribalStage, u: Unit, dt: number) {
       const door = st.tribeDoor(t);
       const off = slotOffset(u.slot + 1, 26);
       goTo(u, door.x + off.x, door.y + 20 + off.y);
-      if (near(u, door.x + off.x, door.y + 20 + off.y, 14)) { u.raid = false; u.order = { type: 'idle' }; stopUnit(u); }
+      if (near(u, door.x + off.x, door.y + 20 + off.y, 14)) { u.raid = false; u.aggroT = 0; u.order = { type: 'idle' }; stopUnit(u); }
       break;
     }
     case 'idle': rivalIdle(st, u, t, dt); break;
@@ -250,6 +253,7 @@ function stealStep(st: TribalStage, u: Unit, t: Tribe, o: Extract<Order, { type:
       t.food += u.carry;
       u.carry = 0;
       u.raid = false;
+      u.aggroT = 0;
       u.order = { type: 'idle' };
     }
   }
@@ -390,20 +394,24 @@ function hunterBrain(st: TribalStage, u: Unit, dt: number) {
   const hd = st.herds[u.herd ?? -1];
   const hx = hd?.x ?? u.hx ?? u.x, hy = hd?.y ?? u.hy ?? u.y;
   u.think -= dt;
+  if (u.order.type !== 'attack' && u.aggroT > 0) {
+    const a = st.byId.get(u.aggro);
+    if (a && targetable(st, a) && a.team !== WILD) u.order = { type: 'attack', target: a.id };
+  }
   if (u.think <= 0 && u.order.type !== 'attack') {
     u.think = 0.5;
-    let prey: Unit | null = null, bd = 150;
+    let prey: Unit | null = null, bd = 125;
     for (const a of st.units) {
-      if (a.dead || a.team === WILD || a.kind === 'porter') continue;
+      if (!targetable(st, a) || a.team === WILD) continue;
       const d = dist(a, u);
-      if (d < bd && dist(a, { x: hx, y: hy }) < 420) { bd = d; prey = a; }
+      if (d < bd && dist(a, { x: hx, y: hy }) < 340) { bd = d; prey = a; }
     }
     if (!prey && u.aggroT > 0) prey = st.byId.get(u.aggro) ?? null;
     if (prey && !prey.dead) { u.order = { type: 'attack', target: prey.id }; u.bubble = '❗'; u.bubbleT = 1.2; }
   }
   if (u.order.type === 'attack') {
     const tg = st.byId.get(u.order.target);
-    if (!tg || tg.dead || dist(u, { x: hx, y: hy }) > 470 || tg.kind === 'porter') { u.order = { type: 'home' }; return; }
+    if (!tg || !targetable(st, tg) || dist(u, { x: hx, y: hy }) > 400) { u.order = { type: 'home' }; u.think = 35; return; }
     attackStep(st, u, tg, dt);
     return;
   }
@@ -416,12 +424,19 @@ function hunterBrain(st: TribalStage, u: Unit, dt: number) {
 }
 
 function titanBrain(st: TribalStage, u: Unit, dt: number) {
+  // After a while every Titan wanders off the map instead of camping in a village.
+  if (u.t > 150 && u.slot < 3) {
+    u.slot = 3;
+    u.hx = u.x < WORLD / 2 ? 60 : WORLD - 60;
+    u.hy = 60;
+    u.order = { type: 'idle' };
+  }
   u.think -= dt;
-  if (u.think <= 0 && u.order.type !== 'attack') {
+  if (u.think <= 0 && u.order.type !== 'attack' && u.slot < 3) {
     u.think = 0.6;
     let prey: Unit | null = null, bd = 180;
     for (const a of st.units) {
-      if (a.dead || a.team === WILD || a.kind === 'porter') continue;
+      if (!targetable(st, a) || a.team === WILD) continue;
       const d = dist(a, u);
       if (d < bd) { bd = d; prey = a; }
     }
@@ -433,7 +448,7 @@ function titanBrain(st: TribalStage, u: Unit, dt: number) {
   }
   if (u.order.type === 'attack') {
     const tg = st.byId.get(u.order.target);
-    if (!tg || tg.dead || dist(u, tg) > 300) { u.order = { type: 'idle' }; return; }
+    if (!tg || !targetable(st, tg) || dist(u, tg) > 300) { u.order = { type: 'idle' }; return; }
     attackStep(st, u, tg, dt);
     return;
   }
@@ -460,8 +475,10 @@ function petBrain(st: TribalStage, u: Unit, dt: number) {
   u.think -= dt;
   if (u.think <= 0 && u.order.type !== 'attack') {
     u.think = 0.5;
+    const titan = st.units.find((a) => a.wild === 'titan' && !a.dead && dist(a, u) < 220);
+    if (titan) { u.order = { type: 'move', ...fleePoint(st, u, titan, 260) }; u.bubble = '😱'; u.bubbleT = 1.2; return; }
     const foe = findPlayerFoe(st, u, 240);
-    if (foe && dist(foe, st.home) < 330) u.order = { type: 'attack', target: foe.id };
+    if (foe && foe.wild !== 'titan' && dist(foe, st.home) < 330) u.order = { type: 'attack', target: foe.id };
   }
   const o = u.order;
   if (o.type === 'attack') {

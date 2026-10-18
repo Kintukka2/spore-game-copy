@@ -23,7 +23,7 @@ export const TOOLS: Record<ToolId, ToolDef> = {
   rattle: { id: 'rattle', name: 'Rattle', icon: '🪇', group: 'social', desc: 'A shaker that crowds love.', dmg: 3, hutDmg: 2, range: 26, cd: 1.1 },
   spear: { id: 'spear', name: 'Spear', icon: '🗡️', group: 'weapon', desc: 'Thrown from range. Barely scratches huts.', dmg: 9, hutDmg: 1, range: 150, cd: 1.5, ranged: true },
   axe: { id: 'axe', name: 'Stone Axe', icon: '🪓', group: 'weapon', desc: 'Heavy blows up close.', dmg: 12, hutDmg: 6, range: 28, cd: 1.1 },
-  torch: { id: 'torch', name: 'Torch', icon: '🔥', group: 'weapon', desc: 'Sets foes and huts ablaze. Best for burning huts.', dmg: 7, hutDmg: 12, range: 28, cd: 1.1, burn: true },
+  torch: { id: 'torch', name: 'Torch', icon: '🔥', group: 'weapon', desc: 'Sets foes and huts ablaze. Best for burning huts.', dmg: 7, hutDmg: 10, range: 28, cd: 1.1, burn: true },
   fishspear: { id: 'fishspear', name: 'Fishing Spear', icon: '🎣', group: 'food', desc: 'Triples every catch when fishing.', dmg: 4, hutDmg: 1, range: 28, cd: 1.2 },
   staff: { id: 'staff', name: 'Gathering Staff', icon: '🧺', group: 'food', desc: 'Knocks fruit down three times faster.', dmg: 3, hutDmg: 2, range: 28, cd: 1.2 },
   heal: { id: 'heal', name: 'Healing Staff', icon: '🌿', group: 'heal', desc: 'Slowly heals nearby members and pets.', dmg: 3, hutDmg: 1, range: 28, cd: 1.2 },

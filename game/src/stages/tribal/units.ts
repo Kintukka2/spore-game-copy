@@ -90,6 +90,7 @@ export function tickCommon(st: TribalStage, u: Unit, dt: number) {
   if (u.flash > 0) u.flash -= dt;
   if (u.stun > 0) u.stun -= dt;
   if (u.aggroT > 0) u.aggroT -= dt;
+  if (u.fightT) u.fightT = Math.max(0, u.fightT - dt);
   if (u.bubbleT > 0) { u.bubbleT -= dt; if (u.bubbleT <= 0) u.bubble = null; }
   if (u.action) {
     u.actionT += dt;
@@ -207,17 +208,52 @@ export function findPlayerFoe(st: TribalStage, u: Unit, r: number): Unit | null 
   return best;
 }
 
+/** A point `r` away from `from`, steering around the sea and the map edge. */
+export function fleePoint(st: TribalStage, u: Unit, from: { x: number; y: number }, r: number): { x: number; y: number } {
+  const base = Math.atan2(u.y - from.y, u.x - from.x);
+  for (const off of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]) {
+    const x = u.x + Math.cos(base + off) * r, y = u.y + Math.sin(base + off) * r;
+    if (x > 40 && x < WORLD - 40 && y > 40 && y < coastY(st.w, x) - 40) return { x, y };
+  }
+  return { x: st.home.hut.x, y: st.home.hut.y + 60 };
+}
+
+/** Babies by the hut door are sheltered inside: nobody can target them. */
+export function sheltered(st: TribalStage, u: Unit): boolean {
+  return u.team === PLAYER && u.kind === 'member' && u.age < 1 && Math.hypot(u.x - st.home.hut.x, u.y - st.home.hut.y - 50) < 64;
+}
+export const targetable = (st: TribalStage, a: Unit) => !a.dead && a.kind !== 'porter' && !sheltered(st, a);
+
+/** Members not explicitly fighting run from a nearby Titan instead of throwing their lives away. */
+function fleeTitan(st: TribalStage, u: Unit): boolean {
+  for (const a of st.units) {
+    if (a.wild !== 'titan' || a.dead || a.team === PLAYER) continue;
+    const d = dist(a, u);
+    if (d > 200) continue;
+    u.resume = u.order.type === 'move' ? u.resume : u.order;
+    u.order = { type: 'move', ...fleePoint(st, u, a, 280) };
+    u.bubble = '😱';
+    u.bubbleT = 1.5;
+    st.notify('titan-flee', 'Your members flee the Titan! Order an attack to fight it (spears work best).', '🦖', 'bad', 20);
+    return true;
+  }
+  return false;
+}
+
 function autoEngage(st: TribalStage, u: Unit) {
   const o = u.order;
+  if (o.type === 'tool' && fleeTitan(st, u)) return;
   if (o.type === 'attack' || o.type === 'move' || o.type === 'tool') return;
+  if ((o.type === 'idle' || o.type === 'gather' || o.type === 'perform' || o.type === 'tame') && fleeTitan(st, u)) return;
   let foe: Unit | null = null;
   if (u.aggroT > 0) {
     const a = st.byId.get(u.aggro);
-    if (a && !a.dead && a.team !== PLAYER && dist(a, u) < 220 && (a.team === WILD || st.tribes[a.team - 1].state === 'active')) foe = a;
+    if (a && !a.dead && a.team !== PLAYER && a.wild !== 'titan' && dist(a, u) < 220 && (a.team === WILD || st.tribes[a.team - 1].state === 'active')) foe = a;
   }
   if (!foe && !st.concert) {
     const r = o.type === 'idle' ? 170 : o.type === 'gather' ? 110 : o.type === 'hut' ? 160 : 0;
     if (r > 0) foe = findPlayerFoe(st, u, r);
+    if (foe?.wild === 'titan') foe = null;
   }
   if (foe) {
     u.resume = o;
@@ -239,7 +275,7 @@ export function unitDamage(st: TribalStage, u: Unit, vsHut: boolean): number {
     if (u.wild === 'titan') return 26 * st.game.diff(0.75, 1, 1.2);
     const s = statsOf(u.design);
     const base = 5 + 2 * Math.max(s.bite ?? 0, s.strike ?? 0, s.charge ?? 0, s.spit ?? 0);
-    const mul = u.team === PLAYER ? 1.2 : u.wild === 'hunter' ? 1.25 * st.game.diff(0.7, 1, 1.2) : 0.8;
+    const mul = u.team === PLAYER ? 1.2 : u.wild === 'hunter' ? st.game.diff(0.7, 0.95, 1.2) : 0.8;
     return vsHut ? 3 : base * mul;
   }
   const def = u.tool ? TOOLS[u.tool] : null;
@@ -251,7 +287,7 @@ export function unitDamage(st: TribalStage, u: Unit, vsHut: boolean): number {
   }
   if (u.chief) d = Math.max(d, vsHut ? 7 : mine ? 12 : 10);
   if (mine) d *= 1 + 0.1 * st.bonus.combat;
-  else d *= st.game.diff(0.65, 0.85, 1.05);
+  else d *= st.game.diff(0.7, 0.95, 1.15);
   return d;
 }
 
@@ -452,7 +488,7 @@ export function updatePlayerUnit(st: TribalStage, u: Unit, dt: number) {
     case 'idle': idleStep(st, u); break;
     case 'move':
       goTo(u, o.x, o.y);
-      if (near(u, o.x, o.y, 8)) { stopUnit(u); u.order = { type: 'idle' }; }
+      if (near(u, o.x, o.y, 8)) { stopUnit(u); u.order = u.resume ?? { type: 'idle' }; u.resume = null; }
       break;
     case 'attack': {
       const t = st.byId.get(o.target);
@@ -521,6 +557,13 @@ function idleStep(st: TribalStage, u: Unit) {
 function babyBrain(st: TribalStage, u: Unit, dt: number) {
   const f = st.home.fire;
   u.age = Math.min(1, u.age + dt / 30);
+  // Babies run to the hut when raiders or a Titan come close.
+  u.think -= dt;
+  if (u.think <= 0) {
+    u.think = 0.4;
+    const threat = st.units.some((a) => !a.dead && (a.wild === 'titan' || a.wild === 'hunter' || (a.raid && a.team >= 1)) && dist(a, u) < (a.wild === 'titan' ? 220 : 150));
+    if (threat) { const d = st.home.hut; goTo(u, d.x + (Math.random() - 0.5) * 40, d.y + 50, 1.3); u.bubble = '😱'; u.bubbleT = 1; return; }
+  }
   if (u.gs === 0 && Math.random() < 0.01) {
     const a = Math.random() * Math.PI * 2;
     goTo(u, f.x + Math.cos(a) * 70, f.y + 20 + Math.sin(a) * 40, 0.5);
@@ -544,6 +587,7 @@ export function healPass(st: TribalStage, dt: number) {
     let rate = 0;
     if (u.team === PLAYER) {
       if (dist(u, fire) < 120 && u.order.type !== 'attack') rate += 3;
+      else if (u.aggroT <= 0 && u.order.type !== 'attack' && u.order.type !== 'hut') rate += 0.6;
       for (const hl of healers) if (hl.team === PLAYER && hl !== u && dist(hl, u) < 120) rate += 4;
     } else if (u.team >= 1) {
       const t = st.tribes[u.team - 1];

@@ -36,6 +36,8 @@ export class Abilities {
   why(id: string): string | null {
     const S = this.S;
     if (id.startsWith('sw-') && S.ownedCount() < 6) return `Needs 6 cities (you have ${S.ownedCount()})`;
+    if (id.startsWith('sw-') && this.queue.length) return 'Launching…';
+    if (id.startsWith('sw-') && this.remaining().length === 0) return 'Nothing left to take';
     if (id === 'sunfire' && S.ownedCount() < 4) return 'Needs 4 cities';
     if ((this.cool[id] ?? 0) > 0) return `Recharging (${Math.ceil(this.cool[id])}s)`;
     if (S.money < this.cost(id)) return `Needs ${fmtMoney(this.cost(id))}`;
@@ -51,7 +53,7 @@ export class Abilities {
       S.hold('confirm', true);
       const ok = await ui.confirm(`${def.icon} ${def.name}`, `${def.desc} Spend ${fmtMoney(this.cost(id))} to take the remaining ${this.remaining().length} cities?`, 'Launch', 'Cancel');
       S.hold('confirm', false);
-      if (ok) this.fireSuperweapon(id);
+      if (ok) { S.hud.closeSheet(); this.fireSuperweapon(id); }
       return;
     }
     S.targeting = id;

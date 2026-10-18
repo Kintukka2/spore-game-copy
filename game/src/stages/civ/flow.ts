@@ -4,21 +4,20 @@ import { audio } from '../../engine/audio';
 import { h, ui } from '../../engine/ui';
 import { RNG } from '../../engine/rng';
 import { openEditor } from '../../editor/editor';
-import { drawThumb } from '../../design/render';
 import { generateBuilding, generateShip } from '../../design/generate';
 import type { Design } from '../../design/types';
 import type { CardColor } from '../../game/cards';
-import { renderable } from './sprites';
+import { drawPreview } from './sprites';
 import { MEDIUM_ICON, MEDIUM_NAME, PLAYER, ROLE_ICON, type Medium, type Method, type NationType } from './types';
 import type { CivStage } from './stage';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** A modal with a design preview: returns 'design' or 'suggested' (or 'later'). */
-async function designModal(o: { title: string; text: string; design: Design; designLabel: string; suggestedLabel?: string; laterLabel?: string }): Promise<string> {
+async function designModal(o: { title: string; text: string; design: Design; designLabel: string; suggestedLabel?: string; laterLabel?: string; medium?: string }): Promise<string> {
   const cv = h('canvas', { class: 'civ-intro-art' }) as HTMLCanvasElement;
   const body = h('div', null, cv, h('p', null, o.text));
-  requestAnimationFrame(() => { try { drawThumb(cv, renderable(o.design), { pad: 16 }); } catch (e) { console.error(e); } });
+  requestAnimationFrame(() => { try { drawPreview(cv, o.design, o.medium); } catch (e) { console.error(e); } });
   const buttons = [
     ...(o.laterLabel ? [{ id: 'later', label: o.laterLabel }] : []),
     { id: 'suggested', label: o.suggestedLabel ?? 'Use suggested design' },
@@ -72,7 +71,7 @@ export async function runOpening(S: CivStage) {
     const choice = await designModal({
       title: `${ROLE_ICON[S.playerType]} Your first vehicle`,
       text: `${ROLE_BLURB[S.playerType]} Design the land vehicle your cities will build.`,
-      design: sug, designLabel: '✏️ Design vehicle',
+      design: sug, designLabel: '✏️ Design vehicle', medium: 'land',
     });
     if (choice === 'design') {
       const res = await openEditor(S.game, { design: sug, mode: 'free', doneLabel: 'Roll out', background: 'workshop', hint: 'Add wheels in Motion, then weapons or tools. Power, armour and speed come from the parts.' });
@@ -96,8 +95,13 @@ export async function runOpening(S: CivStage) {
   setTimeout(() => S.hint('start', 'Tap a vehicle to select it, then tap a spice geyser to build a derrick. Drag to pan, pinch to zoom.', '👆'), 1800);
 }
 
-/** Offer to design a newly unlocked vehicle medium. */
-export async function offerVehicleDesign(S: CivStage, medium: Medium) {
+/** Offer to design a newly unlocked vehicle medium (offers are shown one after another). */
+let offerChain: Promise<void> = Promise.resolve();
+export function offerVehicleDesign(S: CivStage, medium: Medium) {
+  offerChain = offerChain.then(() => offerOne(S, medium)).catch((e) => console.error(e));
+}
+
+async function offerOne(S: CivStage, medium: Medium) {
   if (S.designed.includes('vehicle-' + medium)) return;
   await wait(1200);
   if (S.phase !== 'play') return;
@@ -106,7 +110,7 @@ export async function offerVehicleDesign(S: CivStage, medium: Medium) {
   const choice = await designModal({
     title: `${MEDIUM_ICON[medium]} ${MEDIUM_NAME[medium]} vehicles unlocked`,
     text: medium === 'sea' ? 'Ships are built at coastal cities, claim ocean geysers and out-range turrets. Design one?' : 'Aircraft cross any terrain to reach cities on other continents. Design one?',
-    design: sug, designLabel: '✏️ Design', suggestedLabel: 'Use suggested',
+    design: sug, designLabel: '✏️ Design', suggestedLabel: 'Use suggested', medium,
   });
   S.hold('offer-' + medium, false);
   if (choice === 'design') await editVehicle(S, medium, S.playerType);

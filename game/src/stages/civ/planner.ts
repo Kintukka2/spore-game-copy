@@ -253,7 +253,7 @@ export function openPlanner(S: CivStage, city: City, el: HTMLElement, close: () 
         pick.append(b);
       }
       actions.append(pick);
-      actions.append(h('div', { class: 'dim', style: 'font-size:12px' }, '🏠 +1 vehicle and boosts linked factories · 🏭 −1 happiness, +§10/s per link · 🎡 +1 happiness per house or hall link, −1 per factory link'));
+      actions.append(h('div', { class: 'dim', style: 'font-size:12px' }, '🏠 +1 vehicle and boosts linked factories · 🏭 −1 happiness, +§8/s per link · 🎡 +1 happiness per house or hall link, −1 per factory link'));
       return;
     }
     const tu = c.turrets[sel.i];

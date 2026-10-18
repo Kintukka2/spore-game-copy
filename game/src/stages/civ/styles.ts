@@ -1,7 +1,13 @@
 // Stage-local CSS, injected once (keeps the stage self-contained).
 const CSS = `
 .layer.civ-hud { pointer-events: none; }
-.civ-hud .objective { max-width: calc(100vw - 200px); top: calc(62px + var(--safe-t)) !important; font-weight: 600; color: var(--ink); background: rgba(6,14,24,0.72); }
+.civ-hud .civ-vig { position: absolute; inset: 0; pointer-events: none !important; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 56%, rgba(4,10,20,0.42) 100%); }
+.civ-hud .civ-vig.danger { animation: civDanger 1.1s ease-in-out infinite; }
+@keyframes civDanger { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(255,60,50,0); } 50% { box-shadow: inset 0 0 26px 6px rgba(255,60,50,0.55); } }
+.civ-hud .objective { max-width: calc(100vw - 32px); top: auto !important; bottom: calc(82px + var(--safe-b)); left: 50% !important; transform: translateX(-50%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600; font-size: 13px; color: var(--ink); background: rgba(6,14,24,0.78); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; }
+.civ-hud.busy .objective { display: none !important; }
+.civ-hud.cine > * { opacity: 0; pointer-events: none !important; transition: opacity .6s; }
 .civ-hud .hud-top { gap: 6px; }
 .civ-prog { min-width: 60px !important; height: 22px; }
 .civ-prog .civ-segs { position: absolute; inset: 0; display: flex; }
@@ -38,7 +44,7 @@ const CSS = `
 .cbtn { font: 600 14px var(--font); min-height: 44px; padding: 8px 12px; }
 .cbtn .cost { font-size: 12.5px; opacity: .85; font-weight: 700; margin-left: 4px; }
 .civ-row .btn.primary .cost { color: #053a2e; }
-.civ-target { position: absolute; top: calc(66px + var(--safe-t)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+.civ-target { position: absolute; bottom: calc(84px + var(--safe-b)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
   background: var(--glass-strong); border: 1px solid rgba(255,209,102,0.7); border-radius: 16px; padding: 6px 6px 6px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); white-space: nowrap; }
 .civ-power { width: 100%; cursor: pointer; text-align: left; }
 .civ-power.off { opacity: 0.62; }
@@ -48,7 +54,7 @@ const CSS = `
   background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.25), rgba(10,25,45,0.85)); border: 2px solid rgba(255,255,255,0.35); }
 .civ-ab.sw { border-color: var(--sun); }
 .civ-ab .civ-cd { position: absolute; inset: 0; border-radius: 50%; }
-.civ-debug { position: absolute; left: calc(10px + var(--safe-l)); top: calc(110px + var(--safe-t)); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.civ-debug { position: absolute; left: calc(10px + var(--safe-l)); top: calc(66px + var(--safe-t)); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .civ-debug .dbg { min-height: 44px; background: rgba(120,40,160,0.75); }
 .civ-planner canvas { width: 100%; height: 230px; display: block; border-radius: 12px; background: radial-gradient(ellipse at 50% 45%, #6f9a5e, #3f6a45); touch-action: none; }
 .civ-pl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }

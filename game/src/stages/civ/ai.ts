@@ -69,7 +69,7 @@ export class AI {
         const d = wdist2(v.x, v.y, g.x, g.y);
         if (d < bd) { bd = d; best = v; }
       }
-      if (best) { S.sim.setOrder(best, { k: 'geyser', g: g.id }); idle = idle.filter((v) => v !== best); sent++; }
+      if (best) { S.sim.setOrder(best, { k: 'geyser', g: g.id, want: -1 }); idle = idle.filter((v) => v !== best); sent++; }
     }
     // Economic vehicles run trade routes with friendly AI cities.
     for (const v of idle.filter((q) => q.role === 'economic')) {
@@ -127,7 +127,7 @@ export class AI {
 
   private build(n: Nation, cities: City[], count: number) {
     const S = this.S;
-    const cap = cities.reduce((a, c) => a + 2 + S.tune.aiCapExtra + (c.large ? 1 : 0), 0);
+    const cap = cities.reduce((a, c) => a + 1 + S.tune.aiCapExtra + (c.large ? 1 : 0), 0) + (S.time > 360 ? 2 : 0);
     if (count >= cap) return;
     const c = cities.slice().sort((a, b) => S.sim.vehiclesOf(a) - S.sim.vehiclesOf(b))[0];
     let medium: Medium = 'land';

@@ -41,6 +41,7 @@ export class Hud {
   buildCity: number | null = null;
   private progSegs: HTMLElement[] = [];
   private progLabel!: HTMLElement;
+  private vig!: HTMLElement;
 
   constructor(private S: CivStage) {}
 
@@ -49,6 +50,8 @@ export class Hud {
     injectCivStyles();
     this.base = createStageHud(game, 'civ', { onPause: () => { S.paused = true; }, onResume: () => { S.paused = false; } });
     this.base.root.classList.add('civ-hud');
+    this.vig = h('div', { class: 'civ-vig' });
+    this.base.root.prepend(this.vig);
     // Card meter in the progress bar: one coloured segment per capture method.
     const pb = this.base.progress.el;
     pb.classList.add('civ-prog');
@@ -181,6 +184,9 @@ export class Hud {
     this.powersBadge.style.display = ready ? '' : 'none';
     this.powersBadge.textContent = String(ready);
     this.base.setObjective(this.objective());
+    this.base.root.classList.toggle('busy', this.ctxEl.style.display !== 'none' || !!this.sheet || !!S.targeting || S.phase !== 'play');
+    this.base.root.classList.toggle('cine', S.phase === 'ending' || S.phase === 'launch' || S.phase === 'done');
+    this.vig.classList.toggle('danger', S.dangerT > 0 && S.phase === 'play');
   }
 
   private objective(): string {
@@ -320,7 +326,7 @@ export class Hud {
     const parts: string[] = [];
     if (roles.has('military')) parts.push(`⚔️ destroy its ${c.turrets.filter((q) => q.alive).length} turrets, then the hall`);
     if (roles.has('religious')) parts.push('🕊️ park religious vehicles nearby; entertainment and turrets resist');
-    if (roles.has('economic')) parts.push(S.diplo.canTrade(c) || c.trade ? '💰 send economic vehicles to trade, then buy it' : '💰 needs Friendly relations (try gifts) to trade');
+    if (roles.has('economic')) parts.push(S.diplo.canTrade(c) || c.trade ? '💰 send economic vehicles to trade, then buy it' : '💰 needs relations of 0 or better (try gifts) to trade');
     return 'To take it: ' + parts.join(' · ');
   }
 
@@ -384,6 +390,7 @@ export class Hud {
     this.sheetArg = null;
     this.sheetEl.style.display = 'none';
     this.sheetEl.innerHTML = '';
+    this.sheetEl.classList.remove('civ-planner');
     this.dirty = true;
   }
 
@@ -480,7 +487,7 @@ export class Hud {
     const S = this.S;
     const me = S.nations[PLAYER];
     const derricks = S.geysers.filter((g) => g.owner === PLAYER).length;
-    const body = this.sheetFrame('Nations', `${me.name} · ${ROLE_ICON[S.playerType]} ${S.playerType} · ${S.ownedCount()} cities · ${derricks} derricks · time paused`);
+    const body = this.sheetFrame('Nations', `${me.name} · ${ROLE_ICON[S.playerType]} ${S.playerType} · ${S.ownedCount()} ${S.ownedCount() === 1 ? "city" : "cities"} · ${derricks} derrick${derricks === 1 ? "" : "s"} · time paused`);
     for (const n of S.nations) {
       if (n.id === PLAYER || !n.alive || !S.cities.some((c) => c.owner === n.id && c.founded)) continue;
       const rl = relLabel(S.diplo.rel(n), n.allied);
@@ -498,6 +505,6 @@ export class Hud {
           h('div', { class: 'grow col', style: 'gap:0' }, h('b', null, n.name), h('span', { class: 'dim', style: 'font-size:12.5px' }, `${ROLE_ICON[n.type]} ${n.type} · ${nc} ${nc === 1 ? 'city' : 'cities'}${war ? ' · ⚔️ at war' : ''}${n.goodwill > 0 ? ' · 🎉 celebrating' : ''}${n.truce > 0 ? ' · 🕊️ truce' : ''}`))),
         relBar.el, acts));
     }
-    body.append(h('div', { class: 'dim', style: 'font-size:12px' }, 'Relations drift back toward each nation\'s attitude. Military nations grow wary as you expand. Allies never attack you; Friendly nations accept trade routes.'));
+    body.append(h('div', { class: 'dim', style: 'font-size:12px' }, 'Relations drift back toward each nation\'s attitude. Military nations grow wary as you expand. Allies never attack you; nations at 0 or better accept trade routes.'));
   }
 }

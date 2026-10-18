@@ -95,7 +95,7 @@ export class CivStage implements Scene {
     this.playerType = nationTypeFor(st.cards);
     this.tune = {
       aiIncome: game.diff(0.55, 0.8, 1.05), aiHp: game.diff(0.85, 1, 1.15), turretDmg: game.diff(0.7, 1, 1.25),
-      convertRate: game.diff(1.35, 1, 0.85), tradeRate: game.diff(1.3, 1, 0.85), playerCitiesSafe: game.difficulty === 'easy',
+      convertRate: game.diff(1, 0.72, 0.6), tradeRate: game.diff(1.3, 1, 0.85), playerCitiesSafe: game.difficulty === 'easy',
       firstWave: game.diff(330, 200, 130), waveEvery: game.diff(150, 105, 75), waveMax: game.diff(3, 5, 7), aiCapExtra: game.diff(0, 1, 2),
       buyMul: game.diff(0.75, 1, 1.25), startMoney: game.diff(3500, 2500, 2000),
     };

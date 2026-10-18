@@ -58,6 +58,23 @@ export function renderable(d: Design): Design {
 // ---------------------------------------------------------------- design sprites
 const designCache = new WeakMap<Design, Map<number, Sprite>>();
 
+/** Render a design (plus fallback parts) into g with its ground point at (ax, groundY). Returns the body offset. */
+function paintDesign(g: CanvasRenderingContext2D, rd: Design, L: ReturnType<typeof layoutDesign>, fb: Fallback, ax: number, bodyY: number, size: number) {
+  const inDesign = (fn: () => void) => {
+    g.save();
+    g.translate(ax, bodyY);
+    g.scale(size, size);
+    g.translate(-L.cx, -L.groundY);
+    g.lineJoin = 'round';
+    g.lineCap = 'round';
+    try { fn(); } catch (e) { console.error(e); }
+    g.restore();
+  };
+  inDesign(() => fb.back(g));
+  try { renderDesign(g, rd, ax, bodyY, size, { t: 0.3 }, { shadow: false }); } catch (e) { console.error(e); }
+  inDesign(() => fb.front(g));
+}
+
 /** Sprite for a design scaled so that its height (or length for vehicles) is about `worldSize` units. */
 export function designSprite(d: Design, worldSize: number, byWidth = false, medium?: string): Sprite {
   let m = designCache.get(d);
@@ -76,22 +93,31 @@ export function designSprite(d: Design, worldSize: number, byWidth = false, medi
   const g = c.getContext('2d')!;
   const ax = (L.cx - L.left + pad + fb.side) * size;
   const bodyY = (L.groundY - L.top + pad + fb.above) * size;
-  const inDesign = (fn: () => void) => {
-    g.save();
-    g.translate(ax, bodyY);
-    g.scale(size, size);
-    g.translate(-L.cx, -L.groundY);
-    g.lineJoin = 'round';
-    g.lineCap = 'round';
-    try { fn(); } catch (e) { console.error(e); }
-    g.restore();
-  };
-  inDesign(() => fb.back(g));
-  try { renderDesign(g, rd, ax, bodyY, size, { t: 0.3 }, { shadow: false }); } catch (e) { console.error(e); }
-  inDesign(() => fb.front(g));
+  paintDesign(g, rd, L, fb, ax, bodyY, size);
   const s: Sprite = { c, ax, ay: bodyY + fb.below * size, q: Q };
   m.set(key, s);
   return s;
+}
+
+/** Fit a design (with fallback parts) into a preview canvas, crisp at the device pixel ratio. */
+export function drawPreview(cv: HTMLCanvasElement, d: Design, medium?: string) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const cw = cv.clientWidth || 300, ch = cv.clientHeight || 150;
+  cv.width = Math.round(cw * dpr);
+  cv.height = Math.round(ch * dpr);
+  const g = cv.getContext('2d')!;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, cw, ch);
+  const rd = renderable(d);
+  const L = layoutDesign(rd);
+  const fb = fallbackPlan(rd, L, medium);
+  const w = L.width + fb.side * 2, hgt = L.height + fb.above + fb.below;
+  const size = Math.min((cw - 30) / Math.max(10, w), (ch - 24) / Math.max(10, hgt), 4);
+  const ax = cw / 2 + (L.cx - (L.left + L.right) / 2) * size;
+  const bodyY = ch / 2 - (hgt / 2) * size + (fb.above + (L.groundY - L.top)) * size;
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.beginPath(); g.ellipse(cw / 2, bodyY + fb.below * size + 2, Math.min(cw * 0.4, w * size * 0.45), 6, 0, 0, TAU); g.fill();
+  paintDesign(g, rd, L, fb, ax, bodyY, size);
 }
 
 // ---------------------------------------------------------------- fallback parts
@@ -242,6 +268,44 @@ function fallbackPlan(d: Design, L: ReturnType<typeof layoutDesign>, medium?: st
         const by = base.y + base.r;
         const door = new Path2D(); door.moveTo(base.x - dw / 2, by); door.lineTo(base.x - dw / 2, by - dh + dw / 2); door.arc(base.x, by - dh + dw / 2, dw / 2, Math.PI, 0); door.lineTo(base.x + dw / 2, by); door.closePath();
         shaded(g, door, '#6d4c41', by - dh, by, 1.6);
+      }
+    };
+    return f;
+  }
+  if (d.kind === 'ship') {
+    const noEngine = !hasCat(d, ['s-engine']);
+    const noWing = !hasCat(d, ['s-wing']);
+    const noCockpit = !hasCat(d, ['cockpit']);
+    const f: Fallback = { above: noWing ? 12 : 0, below: noWing ? 12 : 0, side: noEngine ? 14 : 0, back: () => {}, front: () => {} };
+    const mid = sp[Math.floor(sp.length / 2)];
+    const rx = rear.x - rear.r * 1.45;
+    f.back = (g) => {
+      if (noWing) {
+        const p = new Path2D();
+        p.moveTo(mid.x + mid.r * 0.6, mid.y - mid.r * 0.6); p.lineTo(rear.x - rear.r * 0.8, mid.y - mid.r - 12); p.lineTo(rear.x - rear.r * 1.3, mid.y - mid.r - 10); p.lineTo(rear.x, mid.y - mid.r * 0.3); p.closePath();
+        shaded(g, p, shade(c.coat, -0.2), mid.y - mid.r - 12, mid.y, 2);
+      }
+      if (noEngine) {
+        const n = new Path2D();
+        n.moveTo(rx + 4, rear.y - rear.r * 0.6); n.lineTo(rx - 12, rear.y - rear.r * 0.8); n.lineTo(rx - 12, rear.y + rear.r * 0.8); n.lineTo(rx + 4, rear.y + rear.r * 0.6); n.closePath();
+        shaded(g, n, '#6c7686', rear.y - rear.r, rear.y + rear.r, 2);
+        g.fillStyle = 'rgba(120,230,255,0.85)';
+        g.beginPath(); g.ellipse(rx - 12, rear.y, 3, rear.r * 0.7, 0, 0, TAU); g.fill();
+      }
+    };
+    f.front = (g) => {
+      if (noWing) {
+        const p = new Path2D();
+        p.moveTo(mid.x + mid.r * 0.6, mid.y + mid.r * 0.6); p.lineTo(rear.x - rear.r * 0.8, mid.y + mid.r + 12); p.lineTo(rear.x - rear.r * 1.3, mid.y + mid.r + 10); p.lineTo(rear.x, mid.y + mid.r * 0.3); p.closePath();
+        shaded(g, p, c.coat, mid.y, mid.y + mid.r + 12, 2);
+        g.fillStyle = c.detail;
+        g.fillRect(rear.x - rear.r * 0.4, mid.y + mid.r * 0.75, 8, 2.5);
+      }
+      if (noCockpit) {
+        const cp = new Path2D(); cp.ellipse(front.x + front.r * 0.55, front.y - front.r * 0.45, front.r * 0.75, front.r * 0.42, -0.15, 0, TAU);
+        shaded(g, cp, '#8fe3ff', front.y - front.r, front.y, 1.8);
+        g.fillStyle = 'rgba(255,255,255,0.7)';
+        g.beginPath(); g.ellipse(front.x + front.r * 0.4, front.y - front.r * 0.62, front.r * 0.25, front.r * 0.1, -0.2, 0, TAU); g.fill();
       }
     };
     return f;

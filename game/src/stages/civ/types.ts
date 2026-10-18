@@ -15,7 +15,7 @@ export const PLAYER = 0;
 export const BUILD_COST: Record<BuildingKind | 'turret', number> = { house: 1600, factory: 1200, fun: 800, turret: 2000 };
 export const BUILD_NAME: Record<BuildingKind | 'turret', string> = { house: 'House', factory: 'Factory', fun: 'Entertainment', turret: 'Turret' };
 export const BUILD_ICON: Record<BuildingKind | 'turret', string> = { house: '🏠', factory: '🏭', fun: '🎡', turret: '🗼' };
-export const VEH_BASE_COST: Record<Medium, number> = { land: 1000, sea: 1500, air: 2400 };
+export const VEH_BASE_COST: Record<Medium, number> = { land: 1200, sea: 1800, air: 2800 };
 export const MEDIUM_ICON: Record<Medium, string> = { land: '🚙', sea: '🚢', air: '✈️' };
 export const MEDIUM_NAME: Record<Medium, string> = { land: 'Land', sea: 'Sea', air: 'Air' };
 export const ROLE_ICON: Record<NationType, string> = { religious: '🕊️', economic: '💰', military: '⚔️' };
@@ -101,7 +101,7 @@ export type Order =
   | { k: 'move'; x: number; y: number }
   | { k: 'city'; city: number }
   | { k: 'hunt'; vid: number }
-  | { k: 'geyser'; g: number };
+  | { k: 'geyser'; g: number; want?: number };
 
 export interface Vehicle {
   id: number;

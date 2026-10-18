@@ -12,8 +12,8 @@ import type { CivStage } from './stage';
 
 export const AIR_LIFT = 30;
 
-/** Geyser output in §/s at stage time t: starts at 100 and halves every 4 minutes. */
-export const geyserRate = (t: number) => Math.max(14, 100 * Math.pow(0.5, t / 240));
+/** Geyser output in §/s at stage time t: starts at 70 and halves every 200 seconds. */
+export const geyserRate = (t: number) => Math.max(8, 70 * Math.pow(0.5, t / 200));
 
 export interface VStats { hp: number; dmg: number; speed: number; range: number; pow: number; cost: number }
 
@@ -27,7 +27,7 @@ export function vehicleStats(design: import('../../design/types').Design | null,
   }[medium];
   return {
     hp: Math.round(base.hp), dmg: base.dmg, speed: base.speed, range: base.rng[role],
-    pow: role === 'religious' ? 1.1 + p * 0.18 : role === 'economic' ? p : p,
+    pow: role === 'religious' ? 0.9 + p * 0.15 : p,
     cost: VEH_BASE_COST[medium] + 30 * (p + a + m),
   };
 }
@@ -342,7 +342,10 @@ export class Sim {
         for (const oc of oldCities) { const d = wdist2(oc.x, oc.y, v.x, v.y); if (d < bd) { bd = d; best = oc.id; } }
         v.home = best;
       }
-      if (v.nation === owner && v.order.k === 'city' && v.order.city === c.id) this.setOrder(v, { k: 'move', x: c.x + (Math.random() - 0.5) * 120, y: c.y + 70 + Math.random() * 40 });
+      if (v.order.k === 'city' && v.order.city === c.id) {
+        if (v.nation === owner) this.setOrder(v, { k: 'move', x: c.x + (Math.random() - 0.5) * 120, y: c.y + 70 + Math.random() * 40 });
+        else if (v.nation === PLAYER || !this.hostile(v.nation, owner)) this.setOrder(v, { k: 'idle' });
+      }
     }
     S.onCapture(c, old, owner, method);
     if (old >= 0 && this.owned(old).length === 0) this.eliminate(S.nations[old]);
@@ -367,7 +370,7 @@ export class Sim {
     const act = (i: number) => { const s = c.slots[(i + n) % n]; return s.off > 0 || c.hush > 0 ? null : s.kind; };
     let happy = 1;
     const factoryOut: number[] = new Array(n).fill(0);
-    let out = 8; // the hall itself
+    let out = 6; // the hall itself
     for (let i = 0; i < n; i++) {
       const k = act(i);
       if (k === 'factory') {
@@ -375,7 +378,7 @@ export class Sim {
         let links = 1; // hall
         if (act(i - 1) === 'house') links++;
         if (act(i + 1) === 'house') links++;
-        factoryOut[i] = links * 10;
+        factoryOut[i] = links * 8;
       } else if (k === 'fun') {
         happy += 1; // hall link
         for (const j of [i - 1, i + 1]) {
@@ -468,9 +471,9 @@ export class Sim {
         const tx = c.x + p.x, ty = c.y + p.y;
         const tgt = this.cityThreat(c, tx, ty, 175);
         if (!tgt) { tu.cool = 0.4; continue; }
-        tu.cool = 1.4;
+        tu.cool = 1.5;
         const tp = this.targetPos({ t: 'v', id: tgt.id })!;
-        S.projectiles.push({ k: 'tracer', x: tx, y: ty - 18, sx: tx, sy: ty - 18, tx: tp.x, ty: tp.y, t: 0, dur: Math.max(0.15, wdist(tx, ty, tp.x, tp.y) / 480), nation: c.owner, dmg: c.owner === PLAYER ? 13 : 9 * S.tune.turretDmg, tgt: { t: 'v', id: tgt.id }, arc: 6 });
+        S.projectiles.push({ k: 'tracer', x: tx, y: ty - 18, sx: tx, sy: ty - 18, tx: tp.x, ty: tp.y, t: 0, dur: Math.max(0.15, wdist(tx, ty, tp.x, tp.y) / 480), nation: c.owner, dmg: c.owner === PLAYER ? 13 : 7 * S.tune.turretDmg, tgt: { t: 'v', id: tgt.id }, arc: 6 });
         S.sfxAt('zap', tx, ty, 0.25, 0.8);
       }
       // Military halls carry a missile launcher.
@@ -479,10 +482,10 @@ export class Sim {
         S.hallCool[key] = (S.hallCool[key] ?? 0) - dt;
         if (S.hallCool[key] <= 0) {
           const tgt = this.cityThreat(c, c.x, c.y, 195);
-          S.hallCool[key] = tgt ? 2.4 : 0.5;
+          S.hallCool[key] = tgt ? 3 : 0.5;
           if (tgt) {
             const tp = this.targetPos({ t: 'v', id: tgt.id })!;
-            S.projectiles.push({ k: 'missile', x: c.x, y: c.y - 50, sx: c.x, sy: c.y - 50, tx: tp.x, ty: tp.y, t: 0, dur: Math.max(0.3, wdist(c.x, c.y, tp.x, tp.y) / 240), nation: c.owner, dmg: 14, tgt: { t: 'v', id: tgt.id }, arc: 50 });
+            S.projectiles.push({ k: 'missile', x: c.x, y: c.y - 50, sx: c.x, sy: c.y - 50, tx: tp.x, ty: tp.y, t: 0, dur: Math.max(0.3, wdist(c.x, c.y, tp.x, tp.y) / 240), nation: c.owner, dmg: c.owner === PLAYER ? 14 : 10 * S.tune.turretDmg, tgt: { t: 'v', id: tgt.id }, arc: 50 });
           }
         }
       }
@@ -686,6 +689,8 @@ export class Sim {
       if (this.steer(v, c.x, c.y + 70, 60, dt)) this.idleBrain(v, dt);
       return;
     }
+    // AI only presses attacks on nations it is at war with.
+    if (v.nation !== PLAYER && v.role !== 'economic' && !this.hostile(v.nation, c.owner)) { this.setOrder(v, { k: 'idle' }); return; }
     if (v.role === 'military') {
       // Defend yourself first.
       const e = this.enemyNear(v, v.range * 0.8);
@@ -696,9 +701,10 @@ export class Sim {
       if (d <= v.range * 0.92) {
         this.brake(v, dt);
         if (v.cool <= 0) this.fire(v, aim);
-      } else if (this.steer(v, p.x, p.y, v.range * 0.85, dt) && d > v.range + 80) {
-        // Path ended far away: unreachable.
-        this.unreachable(v, c);
+      } else {
+        this.steer(v, p.x, p.y, v.range * 0.85, dt);
+        // Path ended out of range: unreachable for this medium.
+        if (this.pathDone(v) && wdist(v.x, v.y, p.x, p.y) > v.range) this.unreachable(v, c);
       }
       return;
     }
@@ -712,23 +718,32 @@ export class Sim {
           if (live >= 0) this.fire(v, { t: 'tur', city: c.id, i: live });
           else this.fire(v, { t: 'hall', city: c.id });
         }
-      } else if (this.steer(v, c.x, c.y, v.range * 0.8, dt) && d > v.range + 80) this.unreachable(v, c);
+      } else {
+        this.steer(v, c.x, c.y, v.range * 0.8, dt);
+        if (this.pathDone(v) && wdist(v.x, v.y, c.x, c.y) > v.range) this.unreachable(v, c);
+      }
       return;
     }
     // Economic: trade route shuttle.
     const allowed = v.nation === PLAYER ? c.trade : S.nations[v.nation].relAI[c.owner] > 0;
     if (!allowed) { this.setOrder(v, { k: 'idle' }); return; }
     if (v.leg === 0) {
-      if (this.steer(v, c.x, c.y, CITY_R * 0.75, dt)) {
-        if (wdist(v.x, v.y, c.x, c.y) > CITY_R + 80) { this.unreachable(v, c); return; }
+      const there = this.steer(v, c.x, c.y, CITY_R * 0.75, dt);
+      if (there || this.pathDone(v)) {
+        if (wdist(v.x, v.y, c.x, c.y) > CITY_R + 70) { this.unreachable(v, c); return; }
         this.deliver(v, c);
         v.leg = 1; v.path = null;
       }
     } else {
       const home = this.tradeHome(v, c);
       if (!home) { v.leg = 0; return; }
-      if (this.steer(v, home.x, home.y, CITY_R * 0.75, dt)) { v.leg = 0; v.path = null; }
+      if (this.steer(v, home.x, home.y, CITY_R * 0.75, dt) || this.pathDone(v)) { v.leg = 0; v.path = null; }
     }
+  }
+
+  /** True once a vehicle has walked its whole path (or has no path at all). */
+  private pathDone(v: Vehicle): boolean {
+    return !!v.path && v.pathI >= v.path.length && v.repath <= 0.9;
   }
 
   private tradeHome(v: Vehicle, target: City): City | null {
@@ -768,6 +783,13 @@ export class Sim {
 
   private geyserBrain(v: Vehicle, g: Geyser, dt: number) {
     const S = this.S;
+    const o = v.order as { k: 'geyser'; g: number; want?: number };
+    if (o.want !== undefined && g.owner !== o.want && g.owner >= 0 && g.owner !== v.nation && !this.hostile(v.nation, g.owner)) {
+      // Someone else got there first; don't start a war over it.
+      if (v.nation === PLAYER) S.toast(`The ${S.nations[g.owner].name} claimed that geyser first.`, '🛢️');
+      this.setOrder(v, { k: 'idle' });
+      return;
+    }
     if (g.owner === v.nation) {
       if (this.steer(v, g.x, g.y + 30, 40, dt)) this.setOrder(v, { k: 'idle' });
       return;
@@ -781,9 +803,10 @@ export class Sim {
       }
       const arrived = this.steer(v, g.x, g.y + 14, 22, dt);
       if (!arrived) {
-        if (v.path && v.pathI >= v.path.length && wdist(v.x, v.y, g.x, g.y) > 100) { if (v.nation === PLAYER) S.warnUnreachable(v, 'that geyser'); this.setOrder(v, { k: 'idle' }); }
+        if (v.path && v.pathI >= v.path.length) { if (v.nation === PLAYER) S.warnUnreachable(v, 'that geyser'); this.setOrder(v, { k: 'idle' }); }
         return;
       }
+      if (g.workBy >= 0 && g.workBy !== v.nation && g.work > 0) return; // someone else is already building here
       if (g.workBy !== v.nation) { g.workBy = v.nation; g.work = 0; }
       g.work += dt / 3;
       if (Math.random() < dt * 8) S.fx.spawn(PK.Spark, g.x + (Math.random() - 0.5) * 20, g.y - Math.random() * 30, { life: 0.3, size: 2, color: '#ffe0a0' });
@@ -817,6 +840,7 @@ export class Sim {
       return;
     }
     // Religious: convert the workers.
+    if (g.workBy >= 0 && g.workBy !== v.nation && g.work > 0) return;
     if (g.workBy !== v.nation) { g.workBy = v.nation; g.work = 0; }
     g.work += dt / 5;
     if (Math.random() < dt * 6) S.fx.spawn(PK.Glow, g.x + (Math.random() - 0.5) * 24, g.y - Math.random() * 30, { life: 0.6, size: 5, color: '#fff2a8', vz: 20 });
@@ -854,7 +878,7 @@ export class Sim {
     }
     if (target.geyser) {
       const g = target.geyser;
-      for (const v of vs) this.setOrder(v, { k: 'geyser', g: g.id });
+      for (const v of vs) this.setOrder(v, { k: 'geyser', g: g.id, want: g.owner });
       return;
     }
     // Plain move with a loose formation.

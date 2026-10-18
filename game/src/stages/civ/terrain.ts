@@ -11,6 +11,10 @@ export const NAV = 32; // nav grid spacing
 export const NCOLS = W / NAV;
 export const NROWS = H / NAV;
 const TEX = 0.5; // texture px per world unit
+export const TILE = 400;
+export const TILE_X = Math.ceil(W / TILE);
+export const TILE_Y = Math.ceil(H / TILE);
+const tileOf = (x: number, y: number) => Math.min(TILE_Y - 1, Math.floor(y / TILE)) * TILE_X + (Math.floor(wrapX(x) / TILE) % TILE_X);
 
 export interface Deco { x: number; y: number; s: number; v: number; snow?: boolean }
 
@@ -23,8 +27,9 @@ export class Terrain {
   hMin = 0;
   tex!: HTMLCanvasElement;
   mini!: HTMLCanvasElement;
-  coast = new Path2D();
-  shelf = new Path2D();
+  /** Coastline and shelf contours split into tiles so only visible ones are stroked. */
+  coastTiles: Path2D[] = [];
+  shelfTiles: Path2D[] = [];
   trees: Deco[] = [];
   mountains: Deco[] = [];
   waves: Deco[] = [];
@@ -360,7 +365,7 @@ export class Terrain {
   }
 
   // ------------------------------------------------------------------ coastlines
-  private contour(level: number, path: Path2D) {
+  private contour(level: number, tiles: Path2D[]) {
     const v = (i: number, j: number) => this.h[j * COLS + (i % COLS)] - level;
     for (let j = 0; j < ROWS - 1; j++) for (let i = 0; i < COLS; i++) {
       const a = v(i, j), b = v(i + 1, j), c = v(i + 1, j + 1), d = v(i, j + 1);
@@ -371,6 +376,7 @@ export class Terrain {
       const right = () => [x + G, y + G * (b / (b - c))] as const;
       const bottom = () => [x + G * (d / (d - c)), y + G] as const;
       const left = () => [x, y + G * (a / (a - d))] as const;
+      const path = tiles[tileOf(x, y)];
       const seg = (p: readonly [number, number], q: readonly [number, number]) => { path.moveTo(p[0], p[1]); path.lineTo(q[0], q[1]); };
       switch (idx) {
         case 1: case 14: seg(left(), bottom()); break;
@@ -385,8 +391,9 @@ export class Terrain {
     }
   }
   private buildCoast() {
-    this.contour(this.sea, this.coast);
-    this.contour(this.sea - (this.sea - this.hMin) * 0.12, this.shelf);
+    for (let i = 0; i < TILE_X * TILE_Y; i++) { this.coastTiles.push(new Path2D()); this.shelfTiles.push(new Path2D()); }
+    this.contour(this.sea, this.coastTiles);
+    this.contour(this.sea - (this.sea - this.hMin) * 0.12, this.shelfTiles);
   }
 
   // ------------------------------------------------------------------ decorations
@@ -466,6 +473,7 @@ export class Terrain {
           if (mt > 0.4) { mixc(col, ROCK, smoothstep(0.4, 0.7, mt), tmp); col[0] = tmp[0]; col[1] = tmp[1]; col[2] = tmp[2]; }
           if (mt > 0.8) { mixc(col, SNOW, smoothstep(0.8, 0.95, mt), tmp); col[0] = tmp[0]; col[1] = tmp[1]; col[2] = tmp[2]; }
           if (e < 0.035) { mixc(col, SAND, 1 - smoothstep(0.02, 0.035, e), tmp); col[0] = tmp[0]; col[1] = tmp[1]; col[2] = tmp[2]; }
+          if (e < 0.004) { mixc(col, [60, 92, 78], (1 - smoothstep(0.0, 0.004, e)) * 0.55, tmp); col[0] = tmp[0]; col[1] = tmp[1]; col[2] = tmp[2]; }
           const k = 0.78 + s * 0.42;
           col[0] *= k; col[1] *= k; col[2] *= k;
         } else {

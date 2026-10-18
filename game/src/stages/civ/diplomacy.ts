@@ -26,12 +26,12 @@ export class Diplomacy {
     const n = this.S.nations[c.owner];
     if (!n || n.id === PLAYER) return false;
     const rivals = this.S.nations.filter((o) => o.id !== PLAYER && o.alive).length;
-    return n.allied || this.rel(n) >= 15 || rivals <= 1;
+    return n.allied || this.rel(n) >= 0 || rivals <= 1;
   }
 
   tradeRefused(c: City) {
     const n = this.S.nations[c.owner];
-    this.S.toast(`The ${n.name} won't trade with you yet. Raise relations to Friendly — gifts help.`, '🚫', 'bad', 3800);
+    this.S.toast(`The ${n.name} won't trade with you yet. Relations must be 0 or better — gifts help.`, '🚫', 'bad', 3800);
     audio.sfx('error');
   }
 
@@ -47,7 +47,7 @@ export class Diplomacy {
     const S = this.S;
     if (S.money < GIFT) { audio.sfx('error'); S.toast(`A gift costs ${fmtMoney(GIFT)}.`, '🎁', 'bad'); return; }
     S.money -= GIFT;
-    const gain = 14 * Math.pow(0.82, n.gifts);
+    const gain = 16 * Math.pow(0.85, n.gifts);
     n.rel = clamp(n.rel + gain, -100, 100);
     n.gifts++;
     S.stats.gifts++;
@@ -106,7 +106,7 @@ export class Diplomacy {
     else t -= Math.max(0, mine - 2) * 1.5;
     const routes = S.cities.filter((c) => c.owner === n.id && c.trade).length;
     t += Math.min(25, routes * 8);
-    t += Math.min(30, n.gifts * 6);
+    t += Math.min(35, n.gifts * 7);
     if (n.allied) t = Math.max(t, 65);
     return clamp(t, -100, 100);
   }
@@ -115,7 +115,7 @@ export class Diplomacy {
     const S = this.S;
     for (const n of S.nations) {
       if (n.id === PLAYER || !n.alive) continue;
-      n.gifts = Math.max(0, n.gifts - dt / 45);
+      n.gifts = Math.max(0, n.gifts - dt / 90);
       if (n.hostileT > 25) {
         const t = this.target(n);
         n.rel += clamp(t - n.rel, -1, 1) * dt * 0.35;

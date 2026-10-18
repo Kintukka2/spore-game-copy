@@ -8,6 +8,7 @@ import {
 } from './sprites';
 import { AIR_LIFT, geyserRate } from './sim';
 import { PK } from './fx';
+import { TILE, TILE_X, TILE_Y } from './terrain';
 import { RADIUS } from './abilities';
 import { H, PLAYER, slotPos, turretPos, W, wdx, type City, type Vehicle } from './types';
 import type { CivStage } from './stage';
@@ -81,25 +82,26 @@ export class Renderer {
       const sx = (x0 - k * W) * tw, sy = y0 * tw, sw = (x1 - x0) * tw, sh = (y1 - y0) * tw;
       g.drawImage(T.tex, sx, sy, Math.max(1, sw), Math.max(1, sh), x0, y0, x1 - x0, y1 - y0);
     }
-    // Coastlines and the continental shelf.
+    // Coastlines and the continental shelf (only tiles in view; the texture carries a baked outline when far out).
     const z = cam.zoom;
-    for (let k = -1; k <= 1; k++) {
-      if ((k + 1) * W < b.x0 || k * W > b.x1) continue;
-      g.save();
-      g.translate(k * W, 0);
+    if (z >= 0.42) {
       g.lineCap = 'round';
-      if (z > 0.3) {
-        g.strokeStyle = 'rgba(255,255,255,0.10)';
-        g.lineWidth = 1.2 / z;
-        g.stroke(T.shelf);
+      const ty0 = Math.max(0, Math.floor(b.y0 / TILE)), ty1 = Math.min(TILE_Y - 1, Math.floor(b.y1 / TILE));
+      const tx0 = Math.floor(b.x0 / TILE), tx1 = Math.floor(b.x1 / TILE);
+      for (let pass = 0; pass < 3; pass++) {
+        if (pass === 0) { g.strokeStyle = 'rgba(255,255,255,0.10)'; g.lineWidth = 1.2 / z; }
+        else if (pass === 1) { g.strokeStyle = 'rgba(230,250,255,0.55)'; g.lineWidth = 5 / z; }
+        else { g.strokeStyle = 'rgba(40,70,60,0.75)'; g.lineWidth = 1.4 / z; }
+        for (let tx = tx0; tx <= tx1; tx++) {
+          const k = Math.floor((tx * TILE) / W);
+          const ix = ((tx % TILE_X) + TILE_X) % TILE_X;
+          for (let ty = ty0; ty <= ty1; ty++) {
+            const path = pass === 0 ? T.shelfTiles[ty * TILE_X + ix] : T.coastTiles[ty * TILE_X + ix];
+            if (k !== 0) { g.save(); g.translate(k * W, 0); g.stroke(path); g.restore(); }
+            else g.stroke(path);
+          }
+        }
       }
-      g.strokeStyle = 'rgba(230,250,255,0.55)';
-      g.lineWidth = 5 / z;
-      g.stroke(T.coast);
-      g.strokeStyle = 'rgba(40,70,60,0.75)';
-      g.lineWidth = 1.4 / z;
-      g.stroke(T.coast);
-      g.restore();
     }
     // Animated wave glints.
     if (z > 0.35) {
@@ -139,6 +141,7 @@ export class Renderer {
 
   private drawClouds(g: CanvasRenderingContext2D) {
     const S = this.S, cam = S.cam;
+    if (cam.zoom > 1.1) return;
     const a = clamp(0.42 - cam.zoom * 0.3, 0.06, 0.32);
     const b = cam.bounds(300);
     for (const c of this.clouds) {
@@ -147,10 +150,8 @@ export class Renderer {
       if (x < b.x0 || x > b.x1 || c.y < b.y0 || c.y > b.y1) continue;
       const img = cloudSprite(c.k);
       const wdt = 260 * c.s, hgt = 140 * c.s;
-      g.globalAlpha = a * 0.5;
-      g.globalCompositeOperation = 'multiply';
-      g.drawImage(puffTint('#8090a0'), x - wdt * 0.4 + 40, c.y - hgt * 0.25 + 70, wdt * 0.8, hgt * 0.5);
-      g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = a * 0.35;
+      g.drawImage(puffTint('#203040'), x - wdt * 0.35 + 50, c.y - hgt * 0.2 + 80, wdt * 0.7, hgt * 0.4);
       g.globalAlpha = a;
       g.drawImage(img, x - wdt / 2, c.y - hgt / 2, wdt, hgt);
     }
@@ -665,23 +666,8 @@ export class Renderer {
     }
   }
 
-  private drawVignette(g: CanvasRenderingContext2D, w: number, h: number) {
-    const key = w + 'x' + h;
-    if (key !== this.vigKey) {
-      this.vigKey = key;
-      const gr = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.45, w / 2, h / 2, Math.max(w, h) * 0.75);
-      gr.addColorStop(0, 'rgba(0,0,0,0)');
-      gr.addColorStop(1, 'rgba(4,10,20,0.45)');
-      this.vignette = gr;
-    }
-    g.fillStyle = this.vignette!;
-    g.fillRect(0, 0, w, h);
-    if (this.S.dangerT > 0 && this.S.phase === 'play') {
-      const a = (Math.sin(this.t * 5) * 0.5 + 0.5) * 0.12 * Math.min(1, this.S.dangerT / 3);
-      g.strokeStyle = `rgba(255,60,50,${a * 3})`;
-      g.lineWidth = 8;
-      g.strokeRect(0, 0, w, h);
-    }
+  private drawVignette(_g: CanvasRenderingContext2D, _w: number, _h: number) {
+    // The vignette and the danger flash are a CSS overlay (see hud.ts), composited on the GPU.
   }
 
   private drawMinimap(g: CanvasRenderingContext2D, w: number, h: number) {

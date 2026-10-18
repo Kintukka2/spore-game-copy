@@ -1,0 +1,16 @@
+{
+  "name": "Primordia",
+  "short_name": "Primordia",
+  "description": "Evolve a species from a single cell to the stars.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#07131f",
+  "theme_color": "#07131f",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

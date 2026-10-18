@@ -1,7 +1,7 @@
 // Optional community sharing ("pollination"): when the game runs as a claude.ai artifact with the
 // `db` capability, each player's latest creations are published to a shared document and other
 // players' creations wander into your worlds. Everywhere else the game stays local-only.
-import type { Design, DesignKind, PartInstance, PatternId, SpineNode } from '../design/types';
+import { DRAW_LAYERS, type Design, type DesignKind, type DrawLayer, type PartInstance, type PatternId, type SpineNode } from '../design/types';
 import { getPart } from '../design/registry';
 
 /* Minimal local typings for the platform capability surface we use. */
@@ -61,6 +61,7 @@ export function sanitizeDesign(raw: unknown): Design | null {
       node: Math.round(num(o.node, 0, spine.length - 1)),
       ox: num(o.ox, -80, 80), oy: num(o.oy, -80, 80), rot: num(o.rot, -7, 7), scale: num(o.scale, 0.3, 2.5, 1),
       flip: o.flip === true || undefined, sym: o.sym === true || undefined,
+      layer: DRAW_LAYERS.includes(o.layer as DrawLayer) ? (o.layer as DrawLayer) : undefined,
     });
   }
   const c = (r.colors ?? {}) as Record<string, unknown>;

@@ -25,6 +25,7 @@ export class SpaceHud {
   private alerts: HTMLElement;
   private viewBtn: HTMLButtonElement;
   private viewLabel: HTMLElement;
+  private exploreEl: HTMLElement;
   private ctx: HTMLElement;
   private ctxBtn: HTMLButtonElement;
   private abil: HTMLElement;
@@ -64,7 +65,8 @@ export class SpaceHud {
     // Bottom-left view toggle
     this.viewLabel = h('span', { class: 'sp-vl' }, 'Galaxy');
     this.viewBtn = button([h('span', null, '🌌'), this.viewLabel], () => st.toggleView(), { cls: 'sp-viewbtn', title: 'Galaxy map' });
-    const bl = h('div', { class: 'sp-bl' }, this.viewBtn);
+    this.exploreEl = h('div', { class: 'sp-explored', title: 'Systems you have visited / fully surveyed' });
+    const bl = h('div', { class: 'sp-bl' }, this.exploreEl, this.viewBtn);
     // Contextual planet button
     this.ctxBtn = button('🪐', () => st.ctxAction(), { cls: 'primary' });
     this.ctx = h('div', { class: 'sp-ctx' }, this.ctxBtn);
@@ -166,6 +168,15 @@ export class SpaceHud {
     const mh = w.maxHp, me = w.maxEnergy;
     this.set('hp', `${Math.round(s.hp)}/${mh}`, () => this.hpBar.set(s.hp / mh, `❤ ${Math.round(s.hp)} / ${mh}`));
     this.set('en', `${Math.round(s.energy)}/${me}`, () => this.enBar.set(s.energy / me, `⚡ ${Math.round(s.energy)} / ${me}`));
+    // Exploration legend (galaxy map only)
+    const gal = st.mode === 'galaxy';
+    let full = 0;
+    for (const f of st.gv.explored.values()) if (f) full++;
+    this.set('explored', gal ? `${st.gv.explored.size}/${full}` : '-', () => {
+      this.exploreEl.style.display = gal ? '' : 'none';
+      this.exploreEl.innerHTML = '';
+      this.exploreEl.append(h('i', null, '✓'), h('span', null, `${st.gv.explored.size} explored`), h('i', { class: 'full' }, '✓'), h('span', null, `${full} surveyed`));
+    });
     const rk = w.rank();
     this.set('rank', String(rk), () => { this.rankIcon.textContent = RANKS[rk].icon; this.rankName.textContent = RANKS[rk].name; });
     // Mission tracker: the first main mission, else the first mission.

@@ -13,6 +13,7 @@ import { BADGES, DRIVE_RANGE, ECO_ROW, PERK_DISCOUNT, RANKS, SPICE_COLORS, TOOL_
 import type { Empire, GEvent, Mission, Planet, PlanetState, SpaceSave, Specimen, Star } from './types';
 import { createEmpires, empireTick, relation } from './empires';
 import { colonyTick, ecoDriftTick, routeTick } from './economy';
+import { zooTick } from './xenolab';
 import { eventsTick } from './events';
 import { checkMainMissions, missionsTick, startTutorial } from './missions';
 
@@ -234,6 +235,7 @@ export class World {
   /** Creature design for a specimen (cached). */
   specimenDesign(sp: Specimen): Design | null {
     if (sp.diet === 'plant') return null;
+    if (sp.design) return sp.design;
     let d = this.designCache.get(sp.seed);
     if (!d) {
       d = generateCreature(new RNG(sp.seed), { level: 2, diet: sp.diet, name: sp.name });
@@ -382,6 +384,21 @@ export class World {
     }
   }
   visited(star: number): boolean { return this.s.visited.includes(star); }
+  /** How many of a system's planets the player has scanned or settled. */
+  surveyed(star: number): { done: number; total: number } {
+    const pls = this.gal.planets(star);
+    let done = 0;
+    for (const p of pls) {
+      const ps = this.s.planets[this.pkey(star, p.idx)];
+      if (ps && (ps.scanned || ps.owner === 'player')) done++;
+    }
+    return { done, total: pls.length };
+  }
+  /** A planet counts as explored once scanned or settled by the player. */
+  explored(star: number, idx: number): boolean {
+    const ps = this.s.planets[this.pkey(star, idx)];
+    return !!ps && (!!ps.scanned || ps.owner === 'player');
+  }
 
   // ------------------------------------------------------------------ simulation
   update(dt: number) {
@@ -403,6 +420,7 @@ export class World {
       const d = this.tick1;
       this.tick1 = 0;
       colonyTick(this, d);
+      zooTick(this, d);
       routeTick(this, d);
       for (const e of this.empires) empireTick(this, e, d);
       eventsTick(this, d);

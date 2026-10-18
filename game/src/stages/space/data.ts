@@ -152,6 +152,7 @@ export const BADGES: BadgeDef[] = [
   { id: 'diplomat', name: 'Envoy', icon: '🤝', counter: 'diplomacy', levels: [1, 3, 6, 10, 16], desc: 'Contact empires and form alliances' },
   { id: 'missions', name: 'Errand Runner', icon: '📜', counter: 'missions', levels: [2, 6, 12, 25, 45], desc: 'Complete missions' },
   { id: 'eco', name: 'Eco Guardian', icon: '🌿', counter: 'eco', levels: [1, 3, 6, 12, 25], desc: 'Complete ecosystems and stop eco-disasters' },
+  { id: 'xeno', name: 'Xenobiologist', icon: '🧬', counter: 'catalogued', levels: [3, 10, 25, 50, 90], desc: 'Catalogue species in the Xenopedia' },
 ];
 
 export interface RankDef { name: string; icon: string; pts: number }

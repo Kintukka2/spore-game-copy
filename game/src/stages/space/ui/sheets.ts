@@ -13,6 +13,7 @@ import { acceptOffer, abandon, declineOffer, offerFor } from '../missions';
 import { EVENT_INFO } from '../events';
 import type { SpaceStage } from '../stage';
 import { dietIcon, fmtTime, modsList, money, portrait, relMeter, sheet, specimenThumb, stanceChip, tabStrip } from './common';
+import { renderLab } from './xenoLab';
 
 // ------------------------------------------------------------------ ship sheet
 function shopContext(st: SpaceStage): { kind: 'own' | 'ally' | null; label: string } {
@@ -59,8 +60,9 @@ export function openShip(st: SpaceStage, tab = 'shop') {
   const sh = sheet('Ship & Tools');
   let cur = tab;
   let cat: ToolCat = 'standard';
+  const labPick: number[] = [];
   const render = () => {
-    tabStrip(sh.tabs, [{ id: 'shop', label: '🧰 Shop' }, { id: 'cargo', label: '📦 Cargo' }, { id: 'badges', label: '🎖️ Badges' }, { id: 'perks', label: '✨ Ship & perks' }], cur, (id) => { cur = id; render(); });
+    tabStrip(sh.tabs, [{ id: 'shop', label: '🧰 Shop' }, { id: 'cargo', label: '📦 Cargo' }, { id: 'lab', label: '🧬 Xeno-Lab', badge: w.s.specimens.length }, { id: 'badges', label: '🎖️ Badges' }, { id: 'perks', label: '✨ Ship & perks' }], cur, (id) => { cur = id; labPick.length = 0; render(); });
     const B = sh.body;
     B.innerHTML = '';
     if (cur === 'shop') {
@@ -95,9 +97,13 @@ export function openShip(st: SpaceStage, tab = 'shop') {
       if (!anySpice) B.append(h('div', { class: 'sp-mini' }, 'No spice aboard. Colonies store spice; visit their systems to collect it. Sell it at other empires.'));
       B.append(h('div', { class: 'sp-section' }, `Specimens (${w.s.specimens.length})`));
       w.s.specimens.forEach((sp, i) => {
-        B.append(h('div', { class: 'sp-item', style: 'padding:6px' }, specimenThumb(w, sp, 64, 44), h('div', { class: 'sp-txt' }, h('b', null, sp.name), `${dietIcon(sp.diet)} ${sp.diet}`), button('Release', () => { w.s.specimens.splice(i, 1); audio.sfx('remove'); render(); }, { cls: 'small ghost' })));
+        B.append(h('div', { class: 'sp-item', style: 'padding:6px' }, specimenThumb(w, sp, 64, 44), h('div', { class: 'sp-txt' }, h('b', null, sp.name), sp.hybrid ? '🧬 Hybrid' : `${dietIcon(sp.diet)} ${sp.diet}`),
+          button('Set free', () => { w.s.specimens.splice(i, 1); audio.sfx('remove'); render(); }, { cls: 'small ghost', title: 'Let it go (frees a cargo slot)' })));
       });
-      if (!w.s.specimens.length) B.append(h('div', { class: 'sp-mini' }, 'Beam up creatures from living worlds (planet → Life) to fill ecosystems elsewhere.'));
+      B.append(h('div', { class: 'sp-mini' }, w.s.specimens.length
+        ? 'Exhibit specimens for tourism income, splice two into a hybrid, or release them into ecosystem slots on terraformed worlds.'
+        : 'Beam up creatures from living worlds (planet → Life). New species pay research grants; the Xeno-Lab shows what else they are good for.'));
+      B.append(button('🧬 Open the Xeno-Lab', () => { cur = 'lab'; render(); }, { cls: 'small block' }));
       B.append(h('div', { class: 'sp-section' }, 'Consumables'));
       const cons = TOOLS.filter((t) => t.kind === 'consumable' && w.count(t.id) > 0);
       for (const t of cons) {
@@ -105,6 +111,8 @@ export function openShip(st: SpaceStage, tab = 'shop') {
         B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, `${t.name} ×${w.count(t.id)}`)), use));
       }
       if (!cons.length) B.append(h('div', { class: 'sp-mini' }, 'None.'));
+    } else if (cur === 'lab') {
+      renderLab(st, B, labPick, render);
     } else if (cur === 'badges') {
       const rk = w.rank();
       const pts = w.badgePoints();

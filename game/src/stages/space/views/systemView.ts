@@ -14,6 +14,7 @@ import { tutorialEvent } from '../missions';
 import type { Planet } from '../types';
 import type { Design } from '../../../design/types';
 import type { SpaceStage } from '../stage';
+import { drawExploreBadge } from './badge';
 
 interface Beacon { a: number; taken: boolean }
 interface FloatText { x: number; y: number; text: string; color: string; life: number }
@@ -720,6 +721,10 @@ export class SystemView {
         g.fillStyle = spiceHex(p.spice);
         g.beginPath(); g.arc(x - tw / 2 - 12 * px, y + 8.5 * px, 4.5 * px, 0, TAU); g.fill();
       }
+      drawExploreBadge(g, x + tw / 2 + 15 * px, y + 8.5 * px, 7 * px, w.explored(this.star, p.idx) ? 'seen' : 'unknown');
+      g.font = `600 ${12 * px}px Fredoka, system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'top';
     }
   }
 

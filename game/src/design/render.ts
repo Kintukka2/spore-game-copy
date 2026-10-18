@@ -4,7 +4,7 @@ import { getPart } from './registry';
 import { hashString, RNG } from '../engine/rng';
 import { clamp, TAU } from '../engine/math';
 import { outlineOf, rgba, shade } from './color';
-import type { Design, LimbPose, Palette, PartDef, PartDrawCtx, PartInstance, SpineNode } from './types';
+import { DRAW_LAYERS, type Design, type DrawLayer, type LimbPose, type Palette, type PartDef, type PartDrawCtx, type PartInstance, type SpineNode } from './types';
 
 export interface Pose {
   /** Seconds (drives idle motion). */
@@ -85,6 +85,22 @@ export function layoutDesign(d: Design): Layout {
 
 function farPalette(c: Palette): Palette {
   return { base: shade(c.base, -0.32), coat: shade(c.coat, -0.32), detail: shade(c.detail, -0.32), pattern: c.pattern };
+}
+
+/** Effective draw layer of a part instance. */
+export function partLayer(pi: PartInstance, p: PartDef | undefined = getPart(pi.partId)): DrawLayer {
+  if (pi.layer) return pi.layer;
+  if (!p) return 'front';
+  if (p.category === 'leg' || p.category === 'arm') return 'limb';
+  return p.layer;
+}
+
+/** Parts sorted back-to-front: by layer, then by their order in the design. */
+export function drawOrder(d: Design): PartInstance[] {
+  return d.parts
+    .map((pi, i) => ({ pi, i, l: DRAW_LAYERS.indexOf(partLayer(pi)) }))
+    .sort((a, b) => a.l - b.l || a.i - b.i)
+    .map((x) => x.pi);
 }
 
 /** Animated spine positions. */
@@ -828,33 +844,29 @@ export function renderDesign(g: CanvasRenderingContext2D, d: Design, x: number, 
   const limbs = computeLimbs(d, nodes, L, pose);
   const sel = opts.selectedUid ?? null;
 
-  // 1. Far-side paired parts (legs/arms/wings/ears...).
+  // 1. Far-side paired parts (legs/arms/wings/ears...) always sit behind the body.
   for (const j of limbs) if (j.far) drawPartInstance(g, d, j.pi, j.p, nodes, pose, true, j.pose);
   for (const pi of d.parts) {
     const p = getPart(pi.partId);
     if (!p || p.category === 'leg' || p.category === 'arm') continue;
     if (p.paired) drawPartInstance(g, d, pi, p, nodes, pose, true);
   }
-  // 2. Back-layer parts.
-  for (const pi of d.parts) {
+  // 2. Near-side parts in draw order; the body goes in after the 'back' layer.
+  const nearLimb = new Map<string, LimbJob>();
+  for (const j of limbs) if (!j.far) nearLimb.set(j.pi.uid, j);
+  let bodyDrawn = false;
+  for (const pi of drawOrder(d)) {
     const p = getPart(pi.partId);
-    if (!p || p.layer !== 'back' || p.category === 'leg' || p.category === 'arm') continue;
-    drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
+    if (!p) continue;
+    if (!bodyDrawn && partLayer(pi, p) !== 'back') { drawBody(g, d, nodes, L, false); bodyDrawn = true; }
+    if (p.category === 'leg' || p.category === 'arm') {
+      const j = nearLimb.get(pi.uid);
+      if (j) drawPartInstance(g, d, pi, p, nodes, pose, false, j.pose, pi.uid === sel);
+    } else {
+      drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
+    }
   }
-  // 3. Body.
-  drawBody(g, d, nodes, L, false);
-  // 4. Front parts (non-limb), then near limbs, then top layer.
-  for (const pi of d.parts) {
-    const p = getPart(pi.partId);
-    if (!p || p.layer !== 'front' || p.category === 'leg' || p.category === 'arm') continue;
-    drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
-  }
-  for (const j of limbs) if (!j.far) drawPartInstance(g, d, j.pi, j.p, nodes, pose, false, j.pose, j.pi.uid === sel);
-  for (const pi of d.parts) {
-    const p = getPart(pi.partId);
-    if (!p || p.layer !== 'top' || p.category === 'leg' || p.category === 'arm') continue;
-    drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
-  }
+  if (!bodyDrawn) drawBody(g, d, nodes, L, false);
   if (pose.flash && pose.flashAmt) {
     g.globalAlpha *= clamp(pose.flashAmt, 0, 1) * 0.6;
     g.fillStyle = pose.flash;
@@ -896,7 +908,7 @@ export function renderCell(g: CanvasRenderingContext2D, d: Design, x: number, y:
   // Back parts (flagella, cilia...).
   for (const pi of d.parts) {
     const p = getPart(pi.partId);
-    if (p && p.layer === 'back') drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
+    if (p && partLayer(pi, p) === 'back') drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
   }
   const ol = outlineOf(c.base);
   g.fillStyle = ol;
@@ -932,9 +944,9 @@ export function renderCell(g: CanvasRenderingContext2D, d: Design, x: number, y:
   g.ellipse(L.cx - L.width * 0.1, -L.height * 0.22, L.width * 0.28, L.height * 0.12, 0, 0, TAU);
   g.fill();
   g.restore();
-  for (const pi of d.parts) {
+  for (const pi of drawOrder(d)) {
     const p = getPart(pi.partId);
-    if (p && p.layer !== 'back') drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
+    if (p && partLayer(pi, p) !== 'back') drawPartInstance(g, d, pi, p, nodes, pose, false, undefined, pi.uid === sel);
   }
   if (pose.flash && pose.flashAmt) {
     g.globalAlpha *= clamp(pose.flashAmt, 0, 1) * 0.6;

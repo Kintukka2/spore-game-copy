@@ -27,6 +27,7 @@ import { openComm, openEmpires, openMissions, openShip, firstContactDialog, take
 import { annexSystem, breakLaw, meet } from './empires';
 import { checkMainMissions, onArrive, tutorialEvent } from './missions';
 import { collectSystem } from './economy';
+import { catalogue, splice } from './xenolab';
 import { start as startEvent } from './events';
 import { playEnding } from './ending';
 
@@ -121,6 +122,30 @@ export class SpaceStage implements Scene, WorldHooks {
       this.game.state!.designs.ship = this.shipDesign;
     }
     if (first) this.begin(false);
+  }
+
+  /** Gene Splicer: fuse two cargo specimens, let the player name and tweak the hybrid, then store it. */
+  async spliceHybrid(a: number, b: number) {
+    const w = this.w;
+    const res = splice(w, a, b);
+    if (typeof res === 'string') { this.ui.toast(res, '🧬'); audio.sfx('error'); return; }
+    closeAllSheets();
+    audio.sfx('success');
+    const hy = res.hybrid;
+    const [x, y] = res.parents;
+    const ed = await openEditor(this.game, {
+      design: hy.design!,
+      mode: 'free',
+      title: 'Gene Splicer',
+      doneLabel: '🧬 Done',
+      allowCancel: false,
+      hint: `Your ${x.name} × ${y.name} hybrid. Rename it, tweak it, then tap Done.`,
+    });
+    if (ed) { hy.design = ed.design; hy.name = (ed.design.name.trim() || hy.name).slice(0, 16); }
+    w.s.specimens.push(hy);
+    const grant = catalogue(w, hy);
+    this.ui.toast(`${hy.name} is born! Hybrids fit any animal slot and draw triple crowds at the Menagerie.` + (grant ? ` Xenopedia grant §${grant.toLocaleString('en-US')}.` : ''), '🧬', 'good');
+    openShip(this, 'lab');
   }
 
   /** Re-open the ship editor (from the ship sheet at your homeworld). */
@@ -541,12 +566,13 @@ export class SpaceStage implements Scene, WorldHooks {
         const pl = w.planet(star, idx);
         if (!pl.life) { this.ui.toast('Nothing lives on this world.', '🛸'); return false; }
         const nat = w.natives(pl).slice(0, Math.max(1, w.tscore(star, idx)) * 4);
-        let n = 0;
+        let n = 0, grant = 0;
         for (const sp of nat) for (let k = 0; k < 2; k++) {
           if (w.cargoUsed >= w.cargoCap) break;
           if (sp.diet === 'plant') { w.give('seeds', 1); n++; } else { w.s.specimens.push({ ...sp }); n++; }
+          grant += catalogue(w, sp);
         }
-        this.ui.toast(`The Ark Beam lifts ${n} lifeforms aboard.`, '🛸', 'good');
+        this.ui.toast(`The Ark Beam lifts ${n} lifeforms aboard.` + (grant ? ` Xenopedia grants: §${grant.toLocaleString('en-US')}.` : ''), '🛸', 'good');
         audio.sfx('whoosh');
         return n > 0;
       });

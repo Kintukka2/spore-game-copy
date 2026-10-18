@@ -7,10 +7,10 @@ import { audio } from '../engine/audio';
 import { clamp, TAU } from '../engine/math';
 import { uid } from '../engine/rng';
 import { computeStats, designCost, getPart, partsFor } from '../design/registry';
-import { drawPartThumb, layoutDesign, partAnchor, renderCell, renderDesign, type Pose } from '../design/render';
+import { drawOrder, drawPartThumb, layoutDesign, partAnchor, partLayer, renderCell, renderDesign, type Pose } from '../design/render';
 import { cloneDesign } from '../design/generate';
 import { SWATCHES } from '../design/color';
-import type { AbilityId, Design, DesignKind, PartCategory, PartDef, PartInstance, PatternId } from '../design/types';
+import { DRAW_LAYERS, type AbilityId, type Design, type DesignKind, type DrawLayer, type PartCategory, type PartDef, type PartInstance, type PatternId, type Stats } from '../design/types';
 import { ABILITY_INFO, BUILDING_STATS, CELL_STATS, CREATURE_STATS, OUTFIT_STATS, SHIP_STATS, VEHICLE_STATS } from './abilityInfo';
 import { codexSave } from '../game/codex';
 
@@ -118,6 +118,8 @@ export function defaultTabs(kind: DesignKind | 'outfit'): EditorTab[] {
 
 const MAX_NODES: Record<DesignKind, number> = { cell: 6, creature: 8, vehicle: 6, building: 6, ship: 6 };
 const NODE_R: Record<DesignKind, [number, number]> = { cell: [4, 13], creature: [6, 30], vehicle: [8, 26], building: [10, 28], ship: [8, 26] };
+const LAYER_NAMES: Record<DrawLayer, string> = { back: 'Behind body', front: 'On body', limb: 'With limbs', top: 'On top' };
+const DIET_LABEL: Record<string, string> = { herbivore: '🌿 Herbivore', carnivore: '🥩 Carnivore', omnivore: '🍽️ Omnivore' };
 const PATTERNS: { id: PatternId; label: string }[] = [
   { id: 'none', label: 'Plain' }, { id: 'spots', label: 'Spots' }, { id: 'stripes', label: 'Stripes' }, { id: 'tiger', label: 'Tiger' },
   { id: 'bands', label: 'Back' }, { id: 'belly', label: 'Belly' }, { id: 'patches', label: 'Patches' }, { id: 'dots', label: 'Dots' },
@@ -164,8 +166,15 @@ export class EditorScene implements Scene {
   private elSel!: HTMLElement;
   private elTrash!: HTMLElement;
   private elName!: HTMLInputElement;
+  private elInfo!: HTMLElement;
   private bottomH = 170;
   private isOutfit = false;
+  /** Part whose stat gains are being previewed (palette hover on desktop, press on touch). */
+  private preview: PartDef | null = null;
+  /** Stats that just went up, flashed in the gain colour for a moment after placing a part. */
+  private gained = new Set<AbilityId>();
+  private gainedTimer = 0;
+  private previewTimer = 0;
 
   constructor(private cfg: EditorConfig, private resolve: (r: EditorResult | null) => void) {
     this.d = cloneDesign(cfg.design);
@@ -185,7 +194,7 @@ export class EditorScene implements Scene {
     this.fitView();
     if (this.cfg.hint) setTimeout(() => ui.toast(this.cfg.hint!, { icon: '💡', ms: 5000 }), 400);
   }
-  exit() {}
+  exit() { clearTimeout(this.previewTimer); clearTimeout(this.gainedTimer); }
   onResize() { this.fitView(); this.updateBottomH(); }
 
   private get kind(): DesignKind { return this.d.kind; }
@@ -227,7 +236,8 @@ export class EditorScene implements Scene {
     this.elBudget = h('div', { class: 'ed-budget' });
     L.append(this.elStats, this.elBudget);
     this.elSel = h('div', { class: 'ed-sel panel', style: 'display:none' });
-    L.append(this.elSel);
+    this.elInfo = h('div', { class: 'ed-info panel', style: 'display:none' });
+    L.append(this.elSel, this.elInfo);
     this.elTrash = h('div', { class: 'chip', style: 'position:absolute;left:50%;transform:translateX(-50%);top:calc(64px + var(--safe-t));display:none;background:rgba(200,40,40,.8)' }, '🗑️ Drop here or off the body to remove');
     L.append(this.elTrash);
     const bottom = h('div', { class: 'ed-bottom' });
@@ -245,6 +255,7 @@ export class EditorScene implements Scene {
     const el = this.elPalette?.parentElement;
     if (el) this.bottomH = el.getBoundingClientRect().height || 170;
     this.elSel.style.bottom = `calc(${this.bottomH + 8}px)`;
+    this.elInfo.style.bottom = `calc(${this.bottomH + 8}px)`;
   }
 
   private renderTabs() {
@@ -257,6 +268,7 @@ export class EditorScene implements Scene {
         this.selUid = null;
         this.selNode = null;
         this.testAction = null;
+        this.setPreview(null);
         this.renderTabs();
         this.renderPalette();
         this.refreshSel();
@@ -286,16 +298,24 @@ export class EditorScene implements Scene {
     if (this.tab.special === 'body') return this.renderBodyTools();
     const parts = (this.tab.cats ?? []).flatMap((c) => partsFor(this.kind, c));
     if (parts.length === 0) pal.append(h('div', { class: 'dim', style: 'padding:20px' }, 'No parts in this category yet.'));
+    const shown = this.statIds();
     for (const p of parts) {
       const unlocked = this.isUnlocked(p) && this.dietAllowed(p);
       const c = h('canvas', { width: '72', height: '60' }) as HTMLCanvasElement;
-      const tile = h('div', { class: 'ed-part' + (unlocked ? '' : ' locked') + (!this.free && unlocked && p.cost > this.available ? ' cant' : ''), title: p.desc ?? p.name },
-        c, h('div', { class: 'pn' }, p.name), this.free ? null : h('div', { class: 'pc' }, String(p.cost)));
+      const line = (Object.entries(p.stats) as [AbilityId, number][]).filter(([k, v]) => v > 0 && shown.includes(k)).slice(0, 3);
+      const tile = h('div', { class: 'ed-part' + (unlocked ? '' : ' locked') + (!this.free && unlocked && p.cost > this.available ? ' cant' : '') },
+        c, h('div', { class: 'pn' }, p.name),
+        line.length ? h('div', { class: 'ps' }, ...line.map(([k, v]) => h('span', null, ABILITY_INFO[k].icon, String(v)))) : null,
+        this.free ? null : h('div', { class: 'pc' }, String(p.cost)));
       pal.append(tile);
       requestAnimationFrame(() => drawPartThumb(c, p, this.d.colors));
+      tile.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') this.setPreview(p); });
+      tile.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && this.preview === p && this.drag?.type !== 'new') this.setPreview(null); });
       tile.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        this.setPreview(p);
         if (!unlocked) {
+          if (e.pointerType !== 'mouse') this.clearPreviewSoon(p, 2200);
           audio.sfx('error');
           ui.toast(!this.dietAllowed(p) ? `Your diet doesn't allow the ${p.name}.` : this.cfg.lockedHint ?? 'Locked. Keep playing to unlock this part.', { icon: '🔒' });
           return;
@@ -376,50 +396,131 @@ export class EditorScene implements Scene {
     pal.append(row);
   }
 
+  private statIds(): AbilityId[] {
+    return this.cfg.stats ?? (this.isOutfit ? OUTFIT_STATS : this.kind === 'creature' ? CREATURE_STATS : this.kind === 'cell' ? CELL_STATS : this.kind === 'vehicle' ? VEHICLE_STATS : this.kind === 'ship' ? SHIP_STATS : BUILDING_STATS);
+  }
+  /** Stats as they would be with one more copy of p attached. */
+  private statsWith(p: PartDef): Stats {
+    const fake: PartInstance = { uid: '_preview', partId: p.id, node: Math.max(0, this.d.spine.length - 1), ox: 0, oy: 0, rot: 0, scale: 1 };
+    return computeStats({ ...this.d, parts: [...this.d.parts, fake] });
+  }
+
   private refreshInfo() {
-    // Stats
+    // Stats: current level in gold; what the previewed part would add in teal.
     const stats = computeStats(this.d);
-    const which = this.cfg.stats ?? (this.isOutfit ? OUTFIT_STATS : this.kind === 'creature' ? CREATURE_STATS : this.kind === 'cell' ? CELL_STATS : this.kind === 'vehicle' ? VEHICLE_STATS : this.kind === 'ship' ? SHIP_STATS : BUILDING_STATS);
+    const after = this.preview ? this.statsWith(this.preview) : stats;
+    const which = this.statIds();
     this.elStats.innerHTML = '';
-    const max = this.kind === 'vehicle' || this.kind === 'ship' ? 10 : 5;
+    const per = this.kind === 'vehicle' || this.kind === 'ship' ? 2 : 1;
     for (const id of which) {
-      const v = stats[id] ?? 0;
-      if (v <= 0 && which.length > 8) continue;
+      const v = stats[id] ?? 0, a = after[id] ?? 0;
+      if (v <= 0 && a <= 0 && which.length > 8) continue;
       const pips = h('span', { class: 'pips' });
-      for (let i = 0; i < Math.min(max, 5); i++) pips.append(h('i', { class: v > (max === 10 ? i * 2 : i) ? 'on' : '' }));
-      this.elStats.append(h('div', { class: 'st' }, ABILITY_INFO[id].icon, ' ', ABILITY_INFO[id].name, ' ', pips));
+      for (let i = 0; i < 5; i++) pips.append(h('i', { class: v > i * per ? 'on' : a > i * per ? 'gain' : '' }));
+      const up = a > v;
+      this.elStats.append(h('div', { class: 'st' + (up ? ' up' : '') + (this.gained.has(id) ? ' flash' : '') },
+        ABILITY_INFO[id].icon, ' ', ABILITY_INFO[id].name, ' ', pips, up ? h('b', { class: 'delta' }, `+${a - v}`) : null));
     }
     // Budget + complexity
     this.elBudget.innerHTML = '';
     if (!this.free && this.cfg.budget !== undefined) {
-      this.elBudget.append(h('div', { class: 'chip' }, h('span', { class: 'k' }, this.cfg.currency ?? 'DNA'), ' ', String(Math.round(this.available))));
+      const cost = this.preview && this.isUnlocked(this.preview) ? this.preview.cost : 0;
+      this.elBudget.append(h('div', { class: 'chip' }, h('span', { class: 'k' }, this.cfg.currency ?? 'DNA'), ' ', String(Math.round(this.available)),
+        cost ? h('b', { class: 'delta' + (cost > this.available ? ' bad' : ' spend') }, ` −${cost}`) : null));
     }
     const maxP = this.cfg.maxParts ?? (this.kind === 'cell' ? 12 : 24);
     const n = this.d.parts.length - (this.cfg.lockedUids?.length ?? 0);
     const cx = h('div', { class: 'bar' + (n >= maxP ? ' hp' : ''), style: 'width:96px;height:12px;min-width:0' }, h('div', { class: 'bar-fill', style: `width:${clamp(n / maxP, 0, 1) * 100}%` }));
     this.elBudget.append(h('div', { class: 'chip', style: 'flex-direction:column;align-items:flex-end;gap:4px' }, h('span', { class: 'k', style: 'font-size:11px' }, `Complexity ${n}/${maxP}`), cx));
+    this.renderInfoCard();
+  }
+
+  /** The part card shown above the palette while previewing: what it is, what it costs and what it adds. */
+  private renderInfoCard() {
+    const el = this.elInfo, p = this.preview;
+    if (!el) return;
+    el.innerHTML = '';
+    if (!p) { el.style.display = 'none'; this.elSel.style.visibility = ''; return; }
+    const before = computeStats(this.d), after = this.statsWith(p);
+    const chips = h('div', { class: 'ii-stats' });
+    let flat = 0;
+    const seen = new Set<AbilityId>();
+    for (const [k, v] of Object.entries(p.stats) as [AbilityId, number][]) {
+      if (v <= 0 || !ABILITY_INFO[k]) continue;
+      seen.add(k);
+      const gain = (after[k] ?? 0) - (before[k] ?? 0);
+      if (gain <= 0) flat++;
+      chips.append(h('span', { class: 'ii-chip ' + (gain > 0 ? 'up' : 'flat') }, ABILITY_INFO[k].icon, ' ', ABILITY_INFO[k].name, ' ', gain > 0 ? `+${gain}` : String(v)));
+    }
+    // Gains that come from the part's category rather than its own numbers (e.g. a first mouth or first legs).
+    for (const k of this.statIds()) {
+      if (seen.has(k)) continue;
+      const gain = (after[k] ?? 0) - (before[k] ?? 0);
+      if (gain > 0) chips.append(h('span', { class: 'ii-chip up' }, ABILITY_INFO[k].icon, ' ', ABILITY_INFO[k].name, ' ', `+${gain}`));
+    }
+    if (!chips.childElementCount) chips.append(h('span', { class: 'ii-chip flat' }, '🎨 Looks only'));
+    const cur = this.cfg.currency ?? 'DNA';
+    const status = !this.isUnlocked(p) ? '🔒 Locked for now' : !this.dietAllowed(p) ? '🚫 Not allowed by your diet'
+      : !this.free && p.cost > this.available ? `Need ${p.cost} ${cur}` : null;
+    el.append(...[
+      h('div', { class: 'ii-head' }, h('b', null, p.name), p.diet ? h('span', { class: 'ii-tag' }, DIET_LABEL[p.diet] ?? p.diet) : null,
+        this.free ? null : h('span', { class: 'ii-cost' }, `${p.cost} ${cur}`)),
+      p.desc ? h('div', { class: 'ii-desc' }, p.desc) : null,
+      chips,
+      flat ? h('div', { class: 'ii-note' }, this.kind === 'vehicle' || this.kind === 'ship' ? 'Grey: already at the cap.' : 'Grey: you already have this level or better.') : null,
+      status ? h('div', { class: 'ii-status' }, status) : null,
+    ].filter((x): x is HTMLDivElement => !!x));
+    el.style.display = 'flex';
+    this.elSel.style.visibility = 'hidden';
+  }
+
+  private setPreview(p: PartDef | null) {
+    clearTimeout(this.previewTimer);
+    if (this.preview === p) return;
+    this.preview = p;
+    this.refreshInfo();
+  }
+  private clearPreviewSoon(p: PartDef, ms: number) {
+    clearTimeout(this.previewTimer);
+    this.previewTimer = window.setTimeout(() => { if (this.preview === p) this.setPreview(null); }, ms);
+  }
+  /** Briefly highlight the stats a placement just raised. */
+  private flashGains(before: Stats) {
+    const after = computeStats(this.d);
+    this.gained = new Set((Object.keys(after) as AbilityId[]).filter((k) => (after[k] ?? 0) > (before[k] ?? 0)));
+    clearTimeout(this.gainedTimer);
+    if (this.gained.size) this.gainedTimer = window.setTimeout(() => { this.gained.clear(); this.refreshInfo(); }, 1500);
   }
 
   private refreshSel() {
     const el = this.elSel;
     el.innerHTML = '';
     const pi = this.d.parts.find((p) => p.uid === this.selUid);
+    el.classList.remove('stack');
     if (pi) {
       const p = getPart(pi.partId);
       if (!p) return;
       const isLimb = p.category === 'leg' || p.category === 'arm';
+      const r1 = h('div', { class: 'ed-sel-row' });
       const size = h('input', { type: 'range', min: '0.5', max: '2', step: '0.05', value: String(pi.scale), 'aria-label': 'Size' }) as HTMLInputElement;
       size.addEventListener('pointerdown', () => this.pushUndo());
       size.addEventListener('input', () => { pi.scale = Number(size.value); this.refreshInfo(); });
-      el.append(h('span', { class: 'dim', style: 'font-size:12px' }, '↔'), size);
+      r1.append(h('span', { class: 'dim', style: 'font-size:12px' }, '↔'), size);
       if (!isLimb && this.kind !== 'cell') {
         const rot = h('input', { type: 'range', min: '-180', max: '180', step: '5', value: String(Math.round((pi.rot * 180) / Math.PI)), 'aria-label': 'Rotate', style: 'width:90px' }) as HTMLInputElement;
         rot.addEventListener('pointerdown', () => this.pushUndo());
         rot.addEventListener('input', () => { pi.rot = (Number(rot.value) * Math.PI) / 180; });
-        el.append(h('span', { class: 'dim', style: 'font-size:12px' }, '⟳'), rot);
+        r1.append(h('span', { class: 'dim', style: 'font-size:12px' }, '⟳'), rot);
       }
-      el.append(button('⧉', () => this.duplicate(pi), { cls: 'icon small', title: 'Duplicate' }));
-      el.append(button('🗑️', () => this.removePart(pi.uid), { cls: 'icon small danger', title: 'Remove' }));
+      r1.append(button('⧉', () => this.duplicate(pi), { cls: 'icon small', title: 'Duplicate' }));
+      r1.append(button('🗑️', () => this.removePart(pi.uid), { cls: 'icon small danger', title: 'Remove' }));
+      // Draw order: step the part behind or in front of whatever it overlaps, then across layers.
+      const lay = h('div', { class: 'ed-sel-row ed-layer' },
+        button('⤓ Back', () => this.shiftLayer(pi, -1), { cls: 'small', title: 'Send backward' }),
+        h('span', { class: 'ed-layer-name' }, '🗂️ ', LAYER_NAMES[partLayer(pi, p)]),
+        button('Front ⤒', () => this.shiftLayer(pi, 1), { cls: 'small', title: 'Bring forward' }));
+      el.append(r1, lay);
+      el.classList.add('stack');
       el.style.display = 'flex';
       return;
     }
@@ -451,6 +552,50 @@ export class EditorScene implements Scene {
     this.refreshSel();
     this.refreshInfo();
     if (this.tab.special === 'paint') this.renderPalette();
+  }
+
+  private overlaps(a: PartInstance, b: PartInstance): boolean {
+    const da = getPart(a.partId), db = getPart(b.partId);
+    if (!da || !db) return false;
+    const pa = partAnchor(this.d, a), pb = partAnchor(this.d, b);
+    return Math.hypot(pa.x - pb.x, pa.y - pb.y) < (da.radius * a.scale + db.radius * b.scale) * 0.9;
+  }
+
+  /** Move a part one visible step backward (-1) or forward (+1) in the draw order. */
+  private shiftLayer(pi: PartInstance, dir: 1 | -1) {
+    const order = drawOrder(this.d);
+    const cur = partLayer(pi);
+    const parts = this.d.parts;
+    const moveNextTo = (q: PartInstance) => {
+      parts.splice(parts.indexOf(pi), 1);
+      const at = parts.indexOf(q);
+      parts.splice(dir > 0 ? at + 1 : at, 0, pi);
+    };
+    // Within the same layer, hop over the nearest part it actually overlaps.
+    for (let i = order.indexOf(pi) + dir; i >= 0 && i < order.length; i += dir) {
+      const q = order[i];
+      if (partLayer(q) !== cur) break;
+      if (this.overlaps(pi, q)) { this.pushUndo(); moveNextTo(q); audio.sfx('tap'); this.refreshSel(); return; }
+    }
+    const li = DRAW_LAYERS.indexOf(cur) + dir;
+    if (li < 0 || li >= DRAW_LAYERS.length) {
+      audio.sfx('error');
+      ui.toast(dir > 0 ? 'Already in front of everything.' : 'Already at the very back.', { icon: '🗂️' });
+      return;
+    }
+    this.pushUndo();
+    const nl = DRAW_LAYERS[li];
+    // Enter the new layer at its near edge: below its other parts when moving up, above them when moving down.
+    const peers = order.filter((q) => q !== pi && partLayer(q) === nl);
+    if (peers.length) {
+      parts.splice(parts.indexOf(pi), 1);
+      const at = parts.indexOf(dir > 0 ? peers[0] : peers[peers.length - 1]);
+      parts.splice(dir > 0 ? at : at + 1, 0, pi);
+    }
+    if (nl === partLayer({ ...pi, layer: undefined })) delete pi.layer;
+    else pi.layer = nl;
+    audio.sfx('tap');
+    this.refreshSel();
   }
 
   private canAfford(p: PartDef): boolean {
@@ -588,7 +733,9 @@ export class EditorScene implements Scene {
       const r = this.d.spine[at.node]?.r ?? 12;
       pi.scale = clamp(r / 13, 0.7, 1.6);
     }
+    const before = computeStats(this.d);
     this.d.parts.push(pi);
+    this.flashGains(before);
     this.selUid = pi.uid;
     audio.sfx('place', { pitch: 0.9 + Math.random() * 0.2 });
     this.refreshInfo();
@@ -619,7 +766,9 @@ export class EditorScene implements Scene {
     this.pushUndo();
     const n = this.d.spine[pi.node];
     const copy: PartInstance = { ...pi, uid: uid(), ox: pi.ox + (n ? n.r * 0.35 : 6), oy: pi.oy };
+    const before = computeStats(this.d);
     this.d.parts.push(copy);
+    this.flashGains(before);
     this.selUid = copy.uid;
     audio.sfx('place');
     this.refreshInfo();
@@ -695,6 +844,7 @@ export class EditorScene implements Scene {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       this.drag = null;
+      if (ev.pointerType !== 'mouse' || moved) this.setPreview(null);
       if (!moved) { this.addPart(p, this.autoPlace(p)); return; }
       const lift = this.liftY();
       const dp = this.toDesign(this.dragPos.x, this.dragPos.y - lift);
@@ -713,8 +863,9 @@ export class EditorScene implements Scene {
   private hitPart(sx: number, sy: number): PartInstance | null {
     const p = this.toDesign(sx, sy);
     let best: PartInstance | null = null, bd = Infinity;
-    for (let i = this.d.parts.length - 1; i >= 0; i--) {
-      const pi = this.d.parts[i];
+    const order = drawOrder(this.d);
+    for (let i = order.length - 1; i >= 0; i--) {
+      const pi = order[i];
       if (this.cfg.lockedUids?.includes(pi.uid)) continue;
       const def = getPart(pi.partId);
       if (!def) continue;

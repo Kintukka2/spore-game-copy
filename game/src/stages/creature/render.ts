@@ -36,11 +36,11 @@ export function renderWorld(S: CreatureStage, g: CanvasRenderingContext2D, w: nu
   S.terrain.drawWater(g, cam, S.t);
   const wind = 0.65 + 0.35 * Math.sin(S.t * 0.21) + 0.15 * Math.sin(S.t * 0.67);
   drawDecals(S, g);
-  S.terrain.drawFlora(g, cam, S.t, wind);
+  if (S.quality > 0) S.terrain.drawFlora(g, cam, S.t, wind, S.quality > 1);
   drawSorted(S, g, wind);
   S.fx.drawWorld(g, cam);
   S.events.drawSky(g);
-  drawClouds(S, g);
+  if (S.quality > 1) drawClouds(S, g);
   g.restore();
   drawLighting(S, g, w, h);
   drawOverlays(S, g, w, h);
@@ -340,7 +340,7 @@ export function drawCritter(S: CreatureStage, g: CanvasRenderingContext2D, c: Cr
     g.beginPath();
     g.rect(c.x - 600, c.y - 2000, 1200, 2000 - cut);
     g.clip();
-    renderDesign(g, c.sp.design, c.x, c.y, size, pose, { lodPx: 14, shadow: false });
+    renderDesign(g, c.sp.design, c.x, c.y, size, pose, { lodPx: S.quality > 0 ? 14 : 28, shadow: false });
     g.restore();
     const moving = Math.hypot(c.vx, c.vy) > 10;
     g.strokeStyle = 'rgba(255,255,255,0.75)';
@@ -351,7 +351,7 @@ export function drawCritter(S: CreatureStage, g: CanvasRenderingContext2D, c: Cr
     const r2 = rw + 8 + ((S.t * 20) % 14);
     g.beginPath(); g.ellipse(c.x, c.y - cut, r2, r2 * 0.3, 0, 0, TAU); g.stroke();
   } else {
-    renderDesign(g, c.sp.design, c.x, c.y, size, pose, { lodPx: 14 });
+    renderDesign(g, c.sp.design, c.x, c.y, size, pose, { lodPx: S.quality > 0 ? 14 : 28 });
   }
 }
 
@@ -403,6 +403,7 @@ function drawLighting(S: CreatureStage, g: CanvasRenderingContext2D, w: number, 
   if (a > 0.005) { g.fillStyle = `rgba(${col},${a.toFixed(3)})`; g.fillRect(0, 0, w, h); }
   const sky = S.events.skyTint;
   if (sky > 0) { g.fillStyle = `rgba(110,30,10,${(sky * 0.22).toFixed(3)})`; g.fillRect(0, 0, w, h); }
+  if (S.quality <= 0) return;
   // Vignette, baked once at device resolution so it is a 1:1 blit each frame.
   const tr = g.getTransform();
   const dw = Math.round(w * tr.a), dh = Math.round(h * tr.d);

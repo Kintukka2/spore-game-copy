@@ -23,6 +23,7 @@ export function addDNA(S: CreatureStage, n: number, x?: number, y?: number, quie
     S.fx.text(px, py, 60, `+${n} 🧬`, '#7dffd8', 18);
     audio.sfx('coin', { vol: 0.6 });
   }
+  if (S.dna >= 75) S.hint('cr-spend', 'You have DNA to spend! Tap 📣 to call your mate, then evolve new parts at your nest.', '🧬');
   checkBrain(S);
 }
 

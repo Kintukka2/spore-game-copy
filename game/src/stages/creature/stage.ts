@@ -121,6 +121,10 @@ export class CreatureStage implements Scene {
   private lonerSpots: { x: number; y: number }[] = [];
   private corpseId = 1;
   private ambT = 1;
+  /** Render quality: 2 full, 1 no tufts/clouds, 0 minimal. Drops automatically if frames run long. */
+  quality = 2;
+  private qT = 0;
+  private slowFor = 0;
   private hintQ: { id: string; text: string; icon: string }[] = [];
   private hintT = 2;
 
@@ -131,6 +135,16 @@ export class CreatureStage implements Scene {
     const st = this.game.state;
     if (!st || !this.game.settings.hints || st.carry['hint:' + id] || this.hintQ.some((q) => q.id === id)) return;
     this.hintQ.push({ id, text, icon });
+  }
+
+  /** Shed visual extras when the device can't keep up (skipped in debug sessions so tests stay full quality). */
+  private updateQuality(dt: number) {
+    if (this.game.debug || this.quality <= 0) return;
+    this.qT += dt;
+    if (this.qT < 1) return;
+    this.qT = 0;
+    this.slowFor = this.game.fps < 44 ? this.slowFor + 1 : 0;
+    if (this.slowFor >= 4) { this.quality--; this.slowFor = 0; }
   }
 
   private updateHints(dt: number) {
@@ -571,7 +585,7 @@ export class CreatureStage implements Scene {
         break;
     }
     if (this.critters.some((c) => c.gone)) this.critters = this.critters.filter((c) => !c.gone);
-    if (this.phase === 'play') this.updateHints(dt);
+    if (this.phase === 'play') { this.updateHints(dt); this.updateQuality(dt); }
     this.updateCamera(dt);
     this.hud.update(dt);
   }

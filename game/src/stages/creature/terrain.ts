@@ -249,13 +249,13 @@ export class TerrainRenderer {
   }
 
   /** Swaying grass tufts and flowers (inside camera transform). */
-  drawFlora(g: CanvasRenderingContext2D, cam: Camera, t: number, wind: number) {
+  drawFlora(g: CanvasRenderingContext2D, cam: Camera, t: number, wind: number, tufts = true) {
     if (cam.zoom < 0.45) return;
     const v = this.visibleRange(cam, 20);
     const b = cam.bounds(20);
     g.lineCap = 'round';
     g.lineWidth = 1.7;
-    for (let ci = 0; ci < TUFT_COLS.length; ci++) {
+    for (let ci = 0; tufts && ci < TUFT_COLS.length; ci++) {
       g.strokeStyle = TUFT_COLS[ci];
       g.beginPath();
       for (let j = v.j0; j <= v.j1; j++) for (let i = v.i0; i <= v.i1; i++) {

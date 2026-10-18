@@ -266,7 +266,7 @@ export class CellStage implements Scene, WorldHost {
     if (ab.jet > 0 && before.jet === 0) this.hint('cell-jet', 'Jets push you forward in powerful bursts while you swim.', '💨');
     if (ab.cilia > 0 && before.cilia === 0) this.hint('cell-cilia', 'Cilia let you turn on a dime and swim sideways.', '〰️');
     if (ab.spikes > 0 && before.spikes === 0) this.hint('cell-spike', 'Spikes hurt whatever they ram. Point them at your enemies and charge!', '🔱');
-    if (ab.drain > 0 && before.drain === 0) this.hint('cell-drain', 'Your proboscis latches onto live cells and drains them, and sips plants too.', '🦟');
+    if (ab.drain > 0 && before.drain === 0) this.hint('cell-drain', 'Your proboscis latches onto live cells and drains them, and eats both plants and meat.', '🦟');
     if (ab.eatsMeat && ab.eatsPlants) this.hint('cell-omni', 'Your cell can now eat both plants and meat.', '🍄');
   }
 
@@ -472,7 +472,7 @@ export class CellStage implements Scene, WorldHost {
     audio.sfx('error', { vol: 0.35 });
     this.fx.popup(p.x, p.y - bodyR(p), '✕', '#ffb0a0');
     if (kind === 'plant') this.hint('cell-wrong-plant', 'Your jaw can\'t digest plants. Add a filter mouth or proboscis with Call Mate to eat them.', '🌿');
-    else if (kind === 'meat') this.hint('cell-wrong-meat', 'Filter mouths can\'t eat meat. Add a jaw with Call Mate to eat it.', '🥩');
+    else if (kind === 'meat') this.hint('cell-wrong-meat', 'Filter mouths can\'t eat meat. Add a jaw or proboscis with Call Mate to eat it.', '🥩');
   }
 
   // ------------------------------------------------------------------ progression
@@ -753,7 +753,7 @@ export class CellStage implements Scene, WorldHost {
     this.hud.setVisible(false);
     this.joy.enabled = false;
     this.growFrom = this.player.size;
-    this.growTo = this.player.size * 1.7;
+    this.growTo = Math.max(this.player.size, LEVEL_SCALE[this.level]) * 1.7;
     this.growT = 1;
     this.world.scatterT = 30;
     for (const c of this.world.npcs) { c.state = 'flee'; c.target = this.player; c.stateT = 12; }
@@ -1026,12 +1026,19 @@ export class CellStage implements Scene, WorldHost {
     if (!off.npcs) drawNpcs(g, this.world, cam);
     const mate = this.world.mate;
     if (mate) drawPlayerCell(g, mate.cell, 1, '#ff9ccc');
+    if (this.phase === 'finale' && this.backdrop.shore > 0.01) {
+      // The beach sits between the pool's inhabitants and the player, who crawls up onto it.
+      g.restore();
+      this.drawShore(g, w, h);
+      g.save();
+      g.translate(sh.x, sh.y);
+      cam.apply(g);
+    }
     this.drawPlayer(g);
     this.fx.renderWorld(g, cam);
     g.restore();
 
     this.backdrop.renderFront(g, w, h, vis);
-    if (this.phase === 'finale' && this.backdrop.shore > 0.01) this.drawShore(g, w, h);
     this.fx.renderScreen(g, cam);
     if (this.phase === 'play' || this.phase === 'mate') {
       let nearest: Shard | null = null, nd = Infinity;
@@ -1080,7 +1087,7 @@ export class CellStage implements Scene, WorldHost {
   /** The beach the cell crawls toward in the finale: sand with lapping foam. */
   private drawShore(g: CanvasRenderingContext2D, w: number, h: number) {
     const k = easeInOutCubic(this.backdrop.shore);
-    const edge = -h * 0.1 + k * h * 0.5;
+    const edge = -h * 0.1 + k * h * 0.42;
     const t = this.t;
     const wave = (x: number, off: number) => edge + off + Math.sin(x * 0.028 + t * 1.8) * 7 + Math.sin(x * 0.011 - t * 0.9) * 10;
     const path = (off: number) => {

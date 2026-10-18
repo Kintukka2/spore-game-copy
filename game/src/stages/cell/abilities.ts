@@ -1,6 +1,6 @@
 // Derives a cell's gameplay abilities from its Design. Behaviour is keyed off part categories,
 // diets and stats (not part ids), so parts added to the catalog later work automatically:
-//   cell-mouth: herbivore diet = filter (plants), carnivore = jaw (meat + bite), omnivore = proboscis (drain + plants)
+//   cell-mouth: herbivore diet = filter (plants), carnivore = jaw (meat + bite), omnivore = proboscis (drain + both foods)
 //   cell-move:  speed stat = swim speed, jump stat = cilia (fast turns, strafing), sprint stat = jet (bursts)
 //   cell-weapon: charge = spike (ram), spit = poison trail, strike = electric pulse
 //   cell-eye / sight: vision
@@ -71,7 +71,7 @@ export function computeAbilities(d: Design): CellAbilities {
         if (node) a.mouthX = Math.max(a.mouthX, node.x + pi.ox + p.radius * 0.5 * pi.scale);
         if (p.diet === 'herbivore') { a.eatsPlants = true; a.filter++; }
         else if (p.diet === 'carnivore') { a.eatsMeat = true; a.bite += Math.max(1, p.stats.bite ?? 1); }
-        else if (p.diet === 'omnivore') { a.eatsPlants = true; a.drain++; }
+        else if (p.diet === 'omnivore') { a.eatsPlants = true; a.eatsMeat = true; a.drain++; }
         break;
       }
       case 'cell-move': {

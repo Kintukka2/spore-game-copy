@@ -121,7 +121,11 @@ export class CivStage implements Scene {
       this.hud.build();
       this.art[PLAYER] = this.playerArt();
       if (this.phase === 'intro') runOpening(this);
-      else if (this.phase === 'ending' || this.phase === 'launch') { this.phase = 'play'; this.endingStarted = false; }
+      else if (this.phase === 'ending' || this.phase === 'launch' || this.ownedCount() >= this.cities.length) {
+        this.phase = 'play';
+        this.endingStarted = false;
+        if (this.ownedCount() >= this.cities.length) setTimeout(() => this.startEnding(), 800);
+      }
     } else {
       this.nations[PLAYER].money = this.tune.startMoney;
       this.hud.build();
@@ -564,9 +568,12 @@ export class CivStage implements Scene {
   }
 
   onTap(x: number, y: number) {
-    if (!this.canInteract()) return;
+    if (this.phase !== 'play') return;
     const m = this.renderer.miniRect;
     if (m && x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h) return;
+    // Tapping the map dismisses an open sheet (and resumes time if it was paused).
+    if (this.hud.sheetOpen && !this.targeting) { this.hud.closeSheet(); audio.sfx('click'); return; }
+    if (!this.canInteract()) return;
     const wp = this.cam.screenToWorld(x, y);
     const wx = wrapX(wp.x), wy = wp.y;
     if (this.targeting) {

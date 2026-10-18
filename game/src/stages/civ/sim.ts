@@ -593,7 +593,7 @@ export class Sim {
         case 'move': {
           const o = v.order;
           this.opportunistic(v);
-          if (this.steer(v, o.x, o.y, 18, dt) || v.stuck > 2.5) { this.setOrder(v, { k: 'idle' }); }
+          if (this.steer(v, o.x, o.y, 18, dt) || v.stuck > 2.5 || this.pathDone(v)) { this.setOrder(v, { k: "idle" }); }
           break;
         }
         case 'hunt': {
@@ -603,7 +603,10 @@ export class Sim {
           if (d <= v.range * 0.9) {
             this.brake(v, dt);
             if (v.cool <= 0) this.fire(v, { t: 'v', id: tgt.id });
-          } else this.steer(v, tgt.x, tgt.y, v.range * 0.8, dt);
+          } else {
+            this.steer(v, tgt.x, tgt.y, v.range * 0.8, dt);
+            if (this.pathDone(v) && wdist(v.x, v.y, tgt.x, tgt.y) > v.range) this.setOrder(v, { k: 'idle' });
+          }
           break;
         }
         case 'city': this.cityBrain(v, S.cities[v.order.city], dt); break;

@@ -42,6 +42,7 @@ export class Hud {
   private progSegs: HTMLElement[] = [];
   private progLabel!: HTMLElement;
   private vig!: HTMLElement;
+  private lastObjective = '-';
 
   constructor(private S: CivStage) {}
 
@@ -183,7 +184,8 @@ export class Hud {
     const ready = S.abilities.list().filter((a) => !S.abilities.why(a.id)).length + (S.abilities.why(S.abilities.superweapon().id) ? 0 : 1);
     this.powersBadge.style.display = ready ? '' : 'none';
     this.powersBadge.textContent = String(ready);
-    this.base.setObjective(this.objective());
+    const obj = this.objective();
+    if (obj !== this.lastObjective) { this.lastObjective = obj; this.base.setObjective(obj); }
     this.base.root.classList.toggle('busy', this.ctxEl.style.display !== 'none' || !!this.sheet || !!S.targeting || S.phase !== 'play');
     this.base.root.classList.toggle('cine', S.phase === 'ending' || S.phase === 'launch' || S.phase === 'done');
     this.vig.classList.toggle('danger', S.dangerT > 0 && S.phase === 'play');
@@ -220,6 +222,16 @@ export class Hud {
     if (this.sheet) { el.style.display = 'none'; return; }
     if (S.selected.size) { this.renderSelection(el); el.style.display = ''; return; }
     const close = button('✕', () => { this.ctx = { k: 'none' }; this.dirty = true; }, { cls: 'icon ghost', title: 'Close' });
+    if (this.ctx.k === 'city' && S.cities[this.ctx.id].owner === PLAYER) {
+      const c = S.cities[this.ctx.id];
+      el.append(h('div', { class: 'row' },
+        h('div', { class: 'civ-dot', style: `background:${S.nations[PLAYER].color}` }),
+        h('div', { class: 'grow col', style: 'gap:2px' }, h('b', null, `${c.name} is yours!`), h('span', { class: 'dim', style: 'font-size:13px' }, `${ROLE_ICON[c.type]} ${c.type} city · builds ${c.type} vehicles`)),
+        close));
+      el.append(button('🏛️ Open City Planner', () => this.openPlanner(c), { cls: 'primary block' }));
+      el.style.display = '';
+      return;
+    }
     if (this.ctx.k === 'city') { this.renderCityCtx(el, S.cities[this.ctx.id], close); el.style.display = ''; return; }
     if (this.ctx.k === 'geyser') { this.renderGeyserCtx(el, S.geysers[this.ctx.id], close); el.style.display = ''; return; }
     if (this.ctx.k === 'vehicle') {

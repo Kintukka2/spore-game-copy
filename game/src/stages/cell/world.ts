@@ -294,9 +294,12 @@ export class World {
 
   private targets() {
     const L = this.level, tune = this.host.tune;
+    // Meat-only eaters get extra drifting chunks, so hunting isn't their only food source.
+    const ab = this.player.ab;
+    const meatOnly = ab.eatsMeat && !ab.eatsPlants ? 6 : 0;
     return {
       plants: Math.round((26 + L * 2) * tune.foodMul),
-      meat: Math.round((8 + L) * tune.foodMul),
+      meat: Math.round((8 + L + meatOnly) * tune.foodMul),
       clusters: L >= 1 ? 2 : 0,
       prey: 8,
       peer: 7,

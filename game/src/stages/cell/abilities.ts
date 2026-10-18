@@ -98,7 +98,7 @@ export function computeAbilities(d: Design): CellAbilities {
     }
   }
   a.speed = Math.min(6, st.speed ?? 0);
-  a.turn = 3.1 + (a.cilia > 0 ? 4.4 + 0.5 * (a.cilia - 1) : 0) + a.speed * 0.12;
+  a.turn = 4 + (a.cilia > 0 ? 4.4 + 0.5 * (a.cilia - 1) : 0) + a.speed * 0.12;
   return a;
 }
 

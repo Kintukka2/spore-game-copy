@@ -53,3 +53,8 @@ if (stage) {
   game.setScene(new TitleScreen());
 }
 game.start();
+
+// Installable app: register the service worker when served over HTTPS as a top-level page.
+if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window.self && !game.debug) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}

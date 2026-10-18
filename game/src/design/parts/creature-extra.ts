@@ -348,7 +348,7 @@ const MOUTHS: PartDef[] = [
     id: 'm-gnasher', name: 'Mega Gnasher', category: 'mouth', tier: 4, cost: 250, diet: 'carnivore', snap: 'head-front', layer: 'front', radius: 28, box: [-13, -14, 32, 15],
     stats: { bite: 5, sing: 2, charge: 3 }, desc: 'Row upon row of teeth. The apex of chomp.',
     draw(g, c) {
-      const o = c.act * 0.5;
+      const o = (c.thumb ? 0.45 : c.act) * 0.5;
       g.fillStyle = MOUTH;
       g.beginPath(); g.moveTo(-4, 2); g.lineTo(26, 1); g.lineTo(-4 + Math.cos(o) * 26, 3 + Math.sin(o) * 26); g.closePath(); g.fill();
       g.save(); g.translate(-4, 3); g.rotate(o);
@@ -415,7 +415,7 @@ const MOUTHS: PartDef[] = [
     id: 'm-petal', name: 'Petal Maw', category: 'mouth', tier: 3, cost: 150, diet: 'omnivore', snap: 'head-front', layer: 'front', radius: 19, box: [-8, -9, 22, 9],
     stats: { bite: 3, sing: 3, charge: 1 }, desc: 'Blooms open to reveal… teeth. Lovely. Terrifying.',
     draw(g, c) {
-      const o = c.act * 0.75 + Math.sin(c.t * 2) * 0.05;
+      const o = (c.thumb ? 0.45 : c.act) * 0.75 + Math.sin(c.t * 2) * 0.05;
       const pc = mix(c.colors.coat, '#ff7ab6', 0.4);
       fillShaded(g, smoothPath([[-5, -6], [6, -5], [9, 0], [6, 5], [-5, 6]]), shade(c.colors.coat, 0.08), { y0: -6, y1: 6 });
       g.fillStyle = MOUTH;
@@ -441,7 +441,7 @@ const MOUTHS: PartDef[] = [
     stats: { bite: 4, sing: 4, charge: 2 }, desc: 'A wide froggy grin with a lightning tongue and a booming throat sac.',
     draw(g, c) {
       const sing = c.action === 'sing' ? c.act : 0;
-      const lick = c.action === 'sing' ? 0 : c.act;
+      const lick = c.thumb ? 0.5 : c.action === 'sing' ? 0 : c.act;
       if (sing > 0.02) {
         fillShaded(g, ellipsePath(3, 9 + sing * 2, 7 + sing * 5, 4 + sing * 4), mix(c.colors.detail, '#ffd0dc', 0.3), { y0: 4, y1: 16 });
       }

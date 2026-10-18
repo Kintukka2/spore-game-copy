@@ -111,7 +111,7 @@ const cord = (g: G) => strokes(g, [[[-2, -9], [-1, -4], [0, -0.5]]], shade(LEATH
 // ======================================================================= HATS
 const HATS: PartDef[] = [
   O({
-    id: 'o-feather-band', name: 'Feather Fancy', category: 'hat', tier: 1, cost: 15, snap: 'top', layer: 'top', radius: 14,
+    id: 'o-feather-band', name: 'Feather Fancy', category: 'hat', tier: 1, cost: 15, snap: 'top', layer: 'top', radius: 23, box: [-21, -24, 18, 10],
     stats: { social: 1 }, desc: 'A headband with three bright feathers. Instant flair.',
     draw(g, c) {
       const k = headK(c);
@@ -128,7 +128,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-leaf-cap', name: 'Leaf Lid', category: 'hat', tier: 1, cost: 10, snap: 'top', layer: 'top', radius: 14,
+    id: 'o-leaf-cap', name: 'Leaf Lid', category: 'hat', tier: 1, cost: 10, snap: 'top', layer: 'top', radius: 20, box: [-25, -8, 20, 13],
     stats: { gather: 1 }, desc: 'One big leaf, worn with pride. Keeps the sun off while foraging.',
     draw(g, c) {
       const k = headK(c);
@@ -148,7 +148,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-straw-hat', name: 'Straw Sunhat', category: 'hat', tier: 2, cost: 30, snap: 'top', layer: 'top', radius: 17,
+    id: 'o-straw-hat', name: 'Straw Sunhat', category: 'hat', tier: 2, cost: 30, snap: 'top', layer: 'top', radius: 18, box: [-22, -17, 21, 6],
     stats: { gather: 2, health: 1 }, desc: 'A wide woven brim for long days in the berry patch.',
     draw(g, c) {
       const k = headK(c);
@@ -164,7 +164,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-flower-crown', name: 'Bloom Crown', category: 'hat', tier: 2, cost: 25, snap: 'top', layer: 'top', radius: 14,
+    id: 'o-flower-crown', name: 'Bloom Crown', category: 'hat', tier: 2, cost: 25, snap: 'top', layer: 'top', radius: 16, box: [-19, -10, 20, 10],
     stats: { social: 2 }, desc: 'A ring of fresh flowers. Everybody wants to be your friend.',
     draw(g, c) {
       const k = headK(c);
@@ -191,7 +191,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-bone-helm', name: 'Bone Helm', category: 'hat', tier: 2, cost: 40, snap: 'top', layer: 'top', radius: 17,
+    id: 'o-bone-helm', name: 'Bone Helm', category: 'hat', tier: 2, cost: 40, snap: 'top', layer: 'top', radius: 17, box: [-19, -18, 18, 12],
     stats: { combat: 2, health: 1 }, desc: 'A horned skull cap. Bonks back.',
     draw(g, c) {
       const k = headK(c);
@@ -209,7 +209,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-shell-tiara', name: 'Shell Tiara', category: 'hat', tier: 2, cost: 35, snap: 'top', layer: 'top', radius: 15,
+    id: 'o-shell-tiara', name: 'Shell Tiara', category: 'hat', tier: 2, cost: 35, snap: 'top', layer: 'top', radius: 15, box: [-18, -12, 17, 9],
     stats: { social: 1, health: 2 }, desc: 'Seashells on a golden cord, gathered from the shore.',
     draw(g, c) {
       const k = headK(c);
@@ -225,7 +225,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-plume-crest', name: 'Chief Plumes', category: 'hat', tier: 3, cost: 60, snap: 'top', layer: 'top', radius: 22,
+    id: 'o-plume-crest', name: 'Chief Plumes', category: 'hat', tier: 3, cost: 60, snap: 'top', layer: 'top', radius: 28, box: [-22, -33, 17, 9],
     stats: { social: 3, combat: 1 }, desc: 'A towering fan of plumes. Only the boldest wear it.',
     draw(g, c) {
       const k = headK(c);
@@ -258,11 +258,15 @@ const eyeHole = (p: Path2D, r: number) => { p.moveTo(EYE[0] + r, EYE[1]); p.arc(
 
 const MASKS: PartDef[] = [
   O({
-    id: 'o-war-paint', name: 'War Paint', category: 'mask', tier: 1, cost: 10, snap: 'head-front', layer: 'top', radius: 10,
+    id: 'o-war-paint', name: 'War Paint', category: 'mask', tier: 1, cost: 10, snap: 'head-front', layer: 'top', radius: 14, box: [-17, -11, 10, 11],
     stats: { combat: 1 }, desc: 'Bold stripes of clay. Look fierce, feel fierce.',
     draw(g, c) {
       const k = headK(c);
       g.save(); g.scale(k, k);
+      if (c.thumb) {
+        g.fillStyle = 'rgba(255,255,255,0.1)';
+        g.beginPath(); g.arc(MC[0], MC[1], HR, 0, TAU); g.fill();
+      }
       g.beginPath(); g.arc(MC[0], MC[1], HR - 0.5, 0, TAU); g.clip();
       const paint = luminance(c.colors.base) > 0.6 ? '#b8352a' : '#f4efe4';
       strokes(g, [[[-12, 2.5], [-10, 7.5]], [[-9, 2.2], [-7, 7.8]], [[-6, 2], [-4, 7.6]]], paint, 2.3);
@@ -272,7 +276,7 @@ const MASKS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-beak-mask', name: 'Beak Visor', category: 'mask', tier: 1, cost: 20, snap: 'head-front', layer: 'top', radius: 16,
+    id: 'o-beak-mask', name: 'Beak Visor', category: 'mask', tier: 1, cost: 20, snap: 'head-front', layer: 'top', radius: 24, box: [-27, -16, 21, 4],
     stats: { gather: 1, social: 1 }, desc: 'A painted bird mask with a long beak. Peck, peck.',
     draw(g, c) {
       const k = headK(c);
@@ -289,7 +293,7 @@ const MASKS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-tiki-mask', name: 'Tiki Grin', category: 'mask', tier: 2, cost: 35, snap: 'head-front', layer: 'top', radius: 14,
+    id: 'o-tiki-mask', name: 'Tiki Grin', category: 'mask', tier: 2, cost: 35, snap: 'head-front', layer: 'top', radius: 15, box: [-14, -17, 15, 13],
     stats: { social: 2, combat: 1 }, desc: 'A carved wooden face with a big friendly grin.',
     draw(g, c) {
       const k = headK(c);
@@ -309,7 +313,7 @@ const MASKS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-skull-mask', name: 'Skull Mask', category: 'mask', tier: 2, cost: 40, snap: 'head-front', layer: 'top', radius: 15,
+    id: 'o-skull-mask', name: 'Skull Mask', category: 'mask', tier: 2, cost: 40, snap: 'head-front', layer: 'top', radius: 14, box: [-14, -17, 17, 11],
     stats: { combat: 2, social: 1 }, desc: 'The bleached skull of a long-gone beast. Spooky.',
     draw(g, c) {
       const k = headK(c);
@@ -327,7 +331,7 @@ const MASKS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-spirit-mask', name: 'Spirit Face', category: 'mask', tier: 3, cost: 60, snap: 'head-front', layer: 'top', radius: 22,
+    id: 'o-spirit-mask', name: 'Spirit Face', category: 'mask', tier: 3, cost: 60, snap: 'head-front', layer: 'top', radius: 23, box: [-26, -26, 23, 16],
     stats: { combat: 3, social: 2 }, desc: 'A sunburst war mask with tusks. Rivals think twice.',
     draw(g, c) {
       const k = headK(c);
@@ -357,7 +361,7 @@ const clipBody = (g: G, cx: number, cy: number, r = BR * 1.03) => { g.beginPath(
 
 const CHESTS: PartDef[] = [
   O({
-    id: 'o-beads', name: 'Bead String', category: 'chest', tier: 1, cost: 10, snap: 'any', layer: 'front', radius: 14,
+    id: 'o-beads', name: 'Bead String', category: 'chest', tier: 1, cost: 10, snap: 'any', layer: 'front', radius: 14, box: [-9, -16, 10, 9],
     stats: { social: 1 }, desc: 'Painted clay beads on a string. Simple and charming.',
     draw(g, c) {
       const k = bodyK(c);
@@ -374,7 +378,7 @@ const CHESTS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-fang-necklace', name: 'Fang Necklace', category: 'chest', tier: 1, cost: 20, snap: 'any', layer: 'front', radius: 14,
+    id: 'o-fang-necklace', name: 'Fang Necklace', category: 'chest', tier: 1, cost: 20, snap: 'any', layer: 'front', radius: 16, box: [-10, -18, 12, 11],
     stats: { combat: 1, social: 1 }, desc: 'Trophy teeth on a cord. Tells a story or two.',
     draw(g, c) {
       const k = bodyK(c);
@@ -394,7 +398,7 @@ const CHESTS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-leaf-vest', name: 'Leaf Vest', category: 'chest', tier: 1, cost: 15, snap: 'any', layer: 'front', radius: 14,
+    id: 'o-leaf-vest', name: 'Leaf Vest', category: 'chest', tier: 1, cost: 15, snap: 'any', layer: 'front', radius: 11, box: [-11, -12, 11, 12],
     stats: { gather: 1 }, desc: 'Big leaves stitched together. Fresh every morning.',
     draw(g, c) {
       const k = bodyK(c);
@@ -415,7 +419,7 @@ const CHESTS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-woven-sash', name: 'Gatherer’s Sash', category: 'chest', tier: 2, cost: 25, snap: 'any', layer: 'front', radius: 16,
+    id: 'o-woven-sash', name: 'Gatherer’s Sash', category: 'chest', tier: 2, cost: 25, snap: 'any', layer: 'front', radius: 18, box: [-17, -16, 16, 18],
     stats: { gather: 2 }, desc: 'A woven sling with a handy pouch for seeds and snacks.',
     draw(g, c) {
       const k = bodyK(c);
@@ -438,7 +442,7 @@ const CHESTS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-shell-bib', name: 'Shell Bib', category: 'chest', tier: 2, cost: 30, snap: 'any', layer: 'front', radius: 15,
+    id: 'o-shell-bib', name: 'Shell Bib', category: 'chest', tier: 2, cost: 30, snap: 'any', layer: 'front', radius: 13, box: [-8, -16, 11, 12],
     stats: { health: 2, social: 1 }, desc: 'Overlapping shells, tough as armour and twice as pretty.',
     draw(g, c) {
       const k = bodyK(c);
@@ -457,7 +461,7 @@ const CHESTS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-bone-plate', name: 'Rib Armour', category: 'chest', tier: 3, cost: 55, snap: 'any', layer: 'front', radius: 16,
+    id: 'o-bone-plate', name: 'Rib Armour', category: 'chest', tier: 3, cost: 55, snap: 'any', layer: 'front', radius: 16, box: [-16, -17, 11, 14],
     stats: { health: 3, combat: 2 }, desc: 'Bone ribs lashed over hide. Hits bounce right off.',
     draw(g, c) {
       const k = bodyK(c);
@@ -483,7 +487,7 @@ const onBody = (a: number, r = BR): Pt => [SHOULDER[0] + Math.cos(a) * r, SHOULD
 
 const SHOULDERS: PartDef[] = [
   O({
-    id: 'o-leaf-cape', name: 'Leaf Cape', category: 'shoulder', tier: 1, cost: 15, snap: 'top', layer: 'front', radius: 16,
+    id: 'o-leaf-cape', name: 'Leaf Cape', category: 'shoulder', tier: 1, cost: 15, snap: 'top', layer: 'front', radius: 23, box: [-22, -12, 13, 21],
     stats: { gather: 1 }, desc: 'Shingled leaves over the back. Blends right into the brush.',
     draw(g, c) {
       const k = bodyK(c);
@@ -503,7 +507,7 @@ const SHOULDERS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-plume-pads', name: 'Plume Pads', category: 'shoulder', tier: 1, cost: 15, snap: 'top', layer: 'front', radius: 14,
+    id: 'o-plume-pads', name: 'Plume Pads', category: 'shoulder', tier: 1, cost: 15, snap: 'top', layer: 'front', radius: 19, box: [-11, -22, 10, 2],
     stats: { social: 1 }, desc: 'A jaunty tuft of feathers on each shoulder.',
     draw(g, c) {
       const k = bodyK(c);
@@ -519,7 +523,7 @@ const SHOULDERS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-bone-pauldron', name: 'Bone Pauldron', category: 'shoulder', tier: 2, cost: 35, snap: 'top', layer: 'front', radius: 16,
+    id: 'o-bone-pauldron', name: 'Bone Pauldron', category: 'shoulder', tier: 2, cost: 35, snap: 'top', layer: 'front', radius: 19, box: [-13, -13, 18, 19],
     stats: { combat: 2, health: 1 }, desc: 'A spiked bone shoulder guard. Very serious business.',
     draw(g, c) {
       const k = bodyK(c);
@@ -541,7 +545,7 @@ const SHOULDERS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-fur-mantle', name: 'Fur Mantle', category: 'shoulder', tier: 2, cost: 40, snap: 'top', layer: 'front', radius: 18,
+    id: 'o-fur-mantle', name: 'Fur Mantle', category: 'shoulder', tier: 2, cost: 40, snap: 'top', layer: 'front', radius: 21, box: [-19, -9, 17, 21],
     stats: { health: 2, social: 1 }, desc: 'A cosy shaggy cape for cold nights by the fire.',
     draw(g, c) {
       const k = bodyK(c);
@@ -565,7 +569,7 @@ const SHOULDERS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-harvest-basket', name: 'Harvest Basket', category: 'shoulder', tier: 3, cost: 55, snap: 'top', layer: 'front', radius: 18,
+    id: 'o-harvest-basket', name: 'Harvest Basket', category: 'shoulder', tier: 3, cost: 55, snap: 'top', layer: 'front', radius: 21, box: [-14, -24, 17, 13],
     stats: { gather: 3, health: 1 }, desc: 'A big woven backpack basket, brimming with goodies.',
     draw(g, c) {
       const k = bodyK(c);
@@ -590,7 +594,7 @@ const SHOULDERS: PartDef[] = [
 // ======================================================================= TRINKETS
 const TRINKETS: PartDef[] = [
   O({
-    id: 'o-rattle', name: 'Gourd Rattle', category: 'trinket', tier: 1, cost: 15, snap: 'any', layer: 'front', radius: 10,
+    id: 'o-rattle', name: 'Gourd Rattle', category: 'trinket', tier: 1, cost: 15, snap: 'any', layer: 'front', radius: 11, box: [-8, -11, 8, 14],
     stats: { social: 1 }, desc: 'A dried gourd full of seeds. Shake-a-shake!',
     draw(g, c) {
       const k = bodyK(c);
@@ -605,7 +609,7 @@ const TRINKETS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-pouch', name: 'Forage Pouch', category: 'trinket', tier: 1, cost: 15, snap: 'any', layer: 'front', radius: 10,
+    id: 'o-pouch', name: 'Forage Pouch', category: 'trinket', tier: 1, cost: 15, snap: 'any', layer: 'front', radius: 8, box: [-9, -11, 9, 11],
     stats: { gather: 1 }, desc: 'A little leather bag for nuts, seeds and shiny pebbles.',
     draw(g, c) {
       const k = bodyK(c);
@@ -619,7 +623,7 @@ const TRINKETS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-lucky-bones', name: 'Lucky Bones', category: 'trinket', tier: 2, cost: 30, snap: 'any', layer: 'front', radius: 12,
+    id: 'o-lucky-bones', name: 'Lucky Bones', category: 'trinket', tier: 2, cost: 30, snap: 'any', layer: 'front', radius: 16, box: [-10, -11, 10, 19],
     stats: { combat: 1, health: 1 }, desc: 'Crossed bones in a hoop, with a feather for luck.',
     draw(g, c) {
       const k = bodyK(c);
@@ -635,7 +639,7 @@ const TRINKETS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-belly-drum', name: 'Belly Drum', category: 'trinket', tier: 2, cost: 40, snap: 'any', layer: 'front', radius: 12,
+    id: 'o-belly-drum', name: 'Belly Drum', category: 'trinket', tier: 2, cost: 40, snap: 'any', layer: 'front', radius: 15, box: [-13, -15, 8, 11],
     stats: { social: 2, combat: 1 }, desc: 'A little hide drum. Rally the tribe, or rattle the rivals.',
     draw(g, c) {
       const k = bodyK(c);
@@ -651,7 +655,7 @@ const TRINKETS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-totem-charm', name: 'Totem Charm', category: 'trinket', tier: 3, cost: 55, snap: 'any', layer: 'front', radius: 13,
+    id: 'o-totem-charm', name: 'Totem Charm', category: 'trinket', tier: 3, cost: 55, snap: 'any', layer: 'front', radius: 11, box: [-9, -11, 9, 14],
     stats: { social: 2, health: 2, gather: 1 }, desc: 'A carved little totem with a glowing heart-stone. Blessed!',
     draw(g, c) {
       const k = bodyK(c);

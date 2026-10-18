@@ -2,9 +2,9 @@
 // Local space: anchor at (0,0), forward = +x, down = +y. Body radius at the node is c.nodeR.
 import { registerParts } from '../registry';
 import { shade } from '../color';
-import { claw, drawEye, drawLimb, ellipsePath, fillShaded, gloss, horn, OUTLINE_W, polyPath, smoothPath, teeth } from '../partkit';
+import { claw, drawEye, drawLimb, ellipsePath, fillShaded, gloss, horn, OUTLINE_W, polyPath, smoothPath } from '../partkit';
 import type { PartDef } from '../types';
-import { fitThumb, type PartBox } from './creature-extra';
+import { fitThumb, toothRow, type PartBox } from './creature-extra';
 import { TAU } from '../../engine/math';
 
 // `box` (drawn bounds) lets editor thumbnails re-centre one-sided parts; see fitThumb in creature-extra.ts.
@@ -36,12 +36,12 @@ export const CREATURE_CORE: PartDef[] = [
       g.save(); g.translate(0, 1); g.rotate(o * 0.04);
       const jaw = smoothPath([[-4, 1], [12, 2], [16, 4], [11, 8], [-4, 7]]);
       fillShaded(g, jaw, shade(c.colors.base, -0.08));
-      teeth(g, 2, 13, 2, 3, -1);
+      toothRow(g, 2, 13, 2, 3, -1);
       g.restore();
       g.save(); g.rotate(-o * 0.05);
       const top = smoothPath([[-5, -8], [10, -7], [18, -2], [16, 2], [-5, 2]]);
       fillShaded(g, top, c.colors.base);
-      teeth(g, 3, 16, 1.5, 3.4, 1);
+      toothRow(g, 3, 16, 1.5, 3.4, 1);
       g.fillStyle = '#1d1210';
       g.beginPath(); g.arc(15, -3, 1.2, 0, TAU); g.fill();
       gloss(g, 6, -5, 3, 0.35);
@@ -72,11 +72,11 @@ export const CREATURE_CORE: PartDef[] = [
       const o = c.act * 9;
       g.save(); g.rotate(o * 0.03);
       fillShaded(g, smoothPath([[-4, 1], [20, 2], [26, 5], [20, 8], [-4, 8]]), shade(c.colors.base, -0.1));
-      teeth(g, 2, 24, 2, 3, -1);
+      toothRow(g, 2, 24, 2, 3, -1);
       g.restore();
       g.save(); g.rotate(-o * 0.035);
       fillShaded(g, smoothPath([[-6, -9], [12, -6], [27, -2], [26, 2], [-6, 2]]), c.colors.base);
-      teeth(g, 3, 25, 1.6, 3.6, 1);
+      toothRow(g, 3, 25, 1.6, 3.6, 1);
       g.fillStyle = shade(c.colors.coat, -0.1);
       for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(4 + i * 5, -5 + i * 0.6, 1.4, 0, TAU); g.fill(); }
       g.fillStyle = '#1d1210';

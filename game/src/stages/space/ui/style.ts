@@ -99,7 +99,7 @@ body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b
 .sp-portrait { width:100%; height:120px; border-radius:14px; background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.12), rgba(0,0,0,.25)); }
 .sp-offer { background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.4); border-radius:14px; padding:10px; font-size:13px; color:var(--ink-dim); display:flex; flex-direction:column; gap:8px; }
 .sp-offer b { color:var(--ink); font-size:15px; }
-.sp-debug { position:absolute; left:calc(10px + var(--safe-l)); top:calc(170px + var(--safe-t)); display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+.sp-debug { position:absolute; left:calc(10px + var(--safe-l)); bottom:calc(166px + var(--safe-b)); display:flex; flex-direction:column-reverse; gap:6px; align-items:flex-start; }
 .sp-debug .btn { min-height:44px; font-size:12px; padding:6px 10px; background:rgba(120,40,140,.7); }
 .sp-mini { font-size:12px; color:var(--ink-faint); }
 .sp-sheet .btn.small, .sp-panel .btn.small, .sp-card .btn.small, .sp-hud-btn { min-height:44px; min-width:44px; }
@@ -118,7 +118,7 @@ body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b
   .sp-top { right:auto; width:min(560px, 62vw); }
   .sp-side { top:calc(8px + var(--safe-t)); flex-direction:row; }
   .sp-card { left:auto; width:min(400px, 46vw); right:calc(86px + var(--safe-r)); bottom:calc(10px + var(--safe-b)); max-height:calc(100dvh - 70px); }
-  .sp-debug { top:calc(196px + var(--safe-t)); }
+  .sp-debug { bottom:auto; top:calc(150px + var(--safe-t)); flex-direction:column; }
   body.sp-active .toasts { left:auto; right:calc(12px + var(--safe-r)); transform:none; width:min(36vw, 360px); top:calc(64px + var(--safe-t)); }
   .sp-panel { display:grid; grid-template-columns:minmax(220px, 40%) 1fr; grid-template-rows:auto auto 1fr; }
   .sp-panel-head { grid-column:1 / 3; }

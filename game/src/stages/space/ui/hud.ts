@@ -127,7 +127,7 @@ export class SpaceHud {
   private buildDebug() {
     const st = this.st;
     const toggle = button('🐞', () => { list.style.display = list.style.display === 'none' ? 'flex' : 'none'; }, { cls: 'icon', title: 'Debug' });
-    const list = h('div', { class: 'col', style: 'display:none;align-items:flex-start;gap:6px' },
+    const list = h('div', { class: 'col', style: 'display:none;align-items:flex-start;gap:6px;max-height:60dvh;overflow-y:auto' },
       button('+§1M', () => st.debug('money'), { cls: 'small' }),
       button('+Energy/HP', () => st.debug('energy'), { cls: 'small' }),
       button('All tools', () => st.debug('tools'), { cls: 'small' }),

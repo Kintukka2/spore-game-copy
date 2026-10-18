@@ -97,6 +97,13 @@ export class Fx {
   }
 
   /** Draw in world space (camera transform applied). `zoom` keeps lines readable. */
+  private glows = new Map<string, HTMLCanvasElement>();
+  private glowOf(color: string): HTMLCanvasElement {
+    let c = this.glows.get(color);
+    if (!c) { c = glow(color, 24); this.glows.set(color, c); }
+    return c;
+  }
+
   draw(g: CanvasRenderingContext2D, zoom = 1) {
     // Smoke first (normal blend), then additive light.
     for (const p of this.live) {
@@ -113,7 +120,7 @@ export class Fx {
       const a = p.life / p.max;
       if (p.kind === 0) {
         g.globalAlpha = a;
-        blit(g, glow(p.color, 24), p.x, p.y, p.size * 2);
+        blit(g, this.glowOf(p.color), p.x, p.y, p.size * 2);
       } else if (p.kind === 1) {
         g.globalAlpha = a;
         g.strokeStyle = p.color;

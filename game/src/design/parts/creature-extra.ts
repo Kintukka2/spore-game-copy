@@ -166,7 +166,7 @@ const MOUTHS: PartDef[] = [
     stats: { bite: 1, sing: 1 }, desc: 'Kissy fish lips. Slurps soft fruit, blows bubbly ballads.',
     draw(g, c) {
       const o = c.act * 3.5;
-      const lip = mix(c.colors.base, '#ff6f91', 0.55);
+      const lip = mix('#ff6f91', c.colors.coat, 0.2);
       fillShaded(g, smoothPath([[-5, -7], [5, -6], [9, -1], [6, 6], [-5, 6]]), shade(c.colors.base, 0.06), { y0: -7, y1: 6 });
       g.fillStyle = MOUTH;
       g.beginPath(); g.ellipse(13.5, 0.6 + o * 0.1, 2.4, 1.3 + o * 0.6, 0, 0, TAU); g.fill();
@@ -865,7 +865,7 @@ const WEAPONS: PartDef[] = [
     },
   }),
   P({
-    id: 'w-quills', name: 'Quill Crown', category: 'weapon', tier: 2, cost: 75, snap: 'top', layer: 'back', radius: 21, box: [-17, -22, 5, 3],
+    id: 'w-quills', name: 'Quill Crown', category: 'weapon', tier: 2, cost: 75, snap: 'top', layer: 'back', radius: 18, box: [-17, -22, 5, 3],
     stats: { strike: 2, health: 2 }, desc: 'A crest of porcupine quills. Rattle them to warn off bullies.',
     draw(g, c) {
       const shaft = new Path2D(), tips = new Path2D();
@@ -911,7 +911,7 @@ const WEAPONS: PartDef[] = [
     },
   }),
   P({
-    id: 'w-antler', name: 'Branchy Antlers', category: 'weapon', tier: 3, cost: 150, snap: 'top', layer: 'front', paired: true, radius: 24, box: [-17, -27, 8, 6],
+    id: 'w-antler', name: 'Branchy Antlers', category: 'weapon', tier: 3, cost: 150, snap: 'top', layer: 'front', paired: true, radius: 22, box: [-17, -27, 8, 6],
     stats: { charge: 3, pose: 2, charm: 2 }, desc: 'Handsome forked antlers for jousting and showing off.',
     draw(g, c) {
       const col = farC(c, '#dcc49a');
@@ -922,7 +922,7 @@ const WEAPONS: PartDef[] = [
     },
   }),
   P({
-    id: 'w-elder', name: 'Elder Antlers', category: 'weapon', tier: 4, cost: 250, snap: 'top', layer: 'front', paired: true, radius: 38, box: [-22, -38, 12, 7],
+    id: 'w-elder', name: 'Elder Antlers', category: 'weapon', tier: 4, cost: 250, snap: 'top', layer: 'front', paired: true, radius: 32, box: [-22, -38, 12, 7],
     stats: { charge: 5, pose: 3, health: 2 }, desc: 'Ancient glowing antlers. The whole forest steps aside.',
     draw(g, c) {
       const col = farC(c, '#e3cfa6');
@@ -1095,7 +1095,7 @@ const DETAILS: PartDef[] = [
     },
   }),
   P({
-    id: 'd-sail', name: 'Sunsail', category: 'detail', tier: 4, cost: 250, snap: 'top', layer: 'back', radius: 29, box: [-21, -33, 20, 11],
+    id: 'd-sail', name: 'Sunsail', category: 'detail', tier: 4, cost: 250, snap: 'top', layer: 'back', radius: 26, box: [-21, -33, 20, 11],
     stats: { pose: 4, charm: 3, health: 3 }, desc: 'A towering spined sail that soaks up sun and stares.',
     draw(g, c) {
       const s = 1 + c.act * 0.15;
@@ -1127,7 +1127,7 @@ const DETAILS: PartDef[] = [
 // ======================================================================= WINGS
 const WINGS: PartDef[] = [
   P({
-    id: 'wg-buzz', name: 'Buzzy Wings', category: 'wing', tier: 1, cost: 50, snap: 'top', layer: 'back', paired: true, radius: 22, box: [-19, -18, 2, 2],
+    id: 'wg-buzz', name: 'Buzzy Wings', category: 'wing', tier: 1, cost: 50, snap: 'top', layer: 'back', paired: true, radius: 17, box: [-19, -18, 2, 2],
     stats: { glide: 1, dance: 1 }, desc: 'See-through bug wings. Bzzzz.',
     draw(g, c) {
       const buzz = c.act > 0.02 ? Math.sin(c.t * 60) * 0.45 : Math.sin(c.t * 9) * 0.04;
@@ -1145,7 +1145,7 @@ const WINGS: PartDef[] = [
     },
   }),
   P({
-    id: 'wg-leaf', name: 'Leafy Gliders', category: 'wing', tier: 2, cost: 100, snap: 'top', layer: 'back', paired: true, radius: 34, box: [-29, -30, 3, 2],
+    id: 'wg-leaf', name: 'Leafy Gliders', category: 'wing', tier: 2, cost: 100, snap: 'top', layer: 'back', paired: true, radius: 27, box: [-29, -30, 3, 2],
     stats: { glide: 3, sneak: 1 }, desc: 'Broad leaf wings. Drift down like an autumn leaf.',
     draw(g, c) {
       const lf = mix('#7bc950', c.colors.coat, 0.3);
@@ -1157,7 +1157,7 @@ const WINGS: PartDef[] = [
     },
   }),
   P({
-    id: 'wg-bat', name: 'Batty Wings', category: 'wing', tier: 3, cost: 175, snap: 'top', layer: 'back', paired: true, radius: 35, box: [-29, -34, 4, 4],
+    id: 'wg-bat', name: 'Batty Wings', category: 'wing', tier: 3, cost: 175, snap: 'top', layer: 'back', paired: true, radius: 28, box: [-29, -34, 4, 4],
     stats: { glide: 4, sneak: 2, jump: 1 }, desc: 'Leathery night wings with a clawed thumb.',
     draw(g, c) {
       g.save(); g.rotate(0.55 + c.act * 0.8 + Math.sin(c.t * 1.2) * 0.04 + (c.far ? 0.35 : 0));
@@ -1172,7 +1172,7 @@ const WINGS: PartDef[] = [
     },
   }),
   P({
-    id: 'wg-plume', name: 'Grand Plumes', category: 'wing', tier: 4, cost: 275, snap: 'top', layer: 'back', paired: true, radius: 49, box: [-46, -35, 6, 3],
+    id: 'wg-plume', name: 'Grand Plumes', category: 'wing', tier: 4, cost: 275, snap: 'top', layer: 'back', paired: true, radius: 36, box: [-46, -35, 6, 3],
     stats: { glide: 5, jump: 2, charm: 2, pose: 1 }, desc: 'Magnificent layered feathers. Soar like royalty.',
     draw(g, c) {
       g.save(); g.rotate(0.6 + c.act * 0.75 + Math.sin(c.t * 1.3) * 0.04 + (c.far ? 0.35 : 0));
@@ -1199,7 +1199,7 @@ const WINGS: PartDef[] = [
 // ======================================================================= TAILS
 const TAILS: PartDef[] = [
   P({
-    id: 't-curly', name: 'Curly Q', category: 'tail', tier: 1, cost: 25, snap: 'back', layer: 'back', radius: 18, box: [-15, -20, 6, 5],
+    id: 't-curly', name: 'Curly Q', category: 'tail', tier: 1, cost: 25, snap: 'back', layer: 'back', radius: 16, box: [-15, -20, 6, 5],
     stats: { dance: 1, charm: 1 }, desc: 'A springy corkscrew tail. Boing-boing.',
     draw(g, c) {
       g.save(); tailFrame(g, 0.35 + Math.sin(c.t * 5) * 0.12 + c.act * 0.3);
@@ -1208,7 +1208,7 @@ const TAILS: PartDef[] = [
     },
   }),
   P({
-    id: 't-fox', name: 'Fluffbrush', category: 'tail', tier: 2, cost: 75, snap: 'back', layer: 'back', radius: 35, box: [-37, -29, 3, 4],
+    id: 't-fox', name: 'Fluffbrush', category: 'tail', tier: 2, cost: 75, snap: 'back', layer: 'back', radius: 31, box: [-37, -29, 3, 4],
     stats: { charm: 2, sneak: 2 }, desc: 'A big bushy tail with a snowy tip. Doubles as a blanket.',
     draw(g, c) {
       g.save(); tailFrame(g, 0.35 + Math.sin(c.t * 2.6) * 0.1 + c.act * 0.3);
@@ -1229,7 +1229,7 @@ const TAILS: PartDef[] = [
     },
   }),
   P({
-    id: 't-fish', name: 'Swish Fin', category: 'tail', tier: 2, cost: 75, snap: 'back', layer: 'back', radius: 29, box: [-32, -21, 4, 8],
+    id: 't-fish', name: 'Swish Fin', category: 'tail', tier: 2, cost: 75, snap: 'back', layer: 'back', radius: 26, box: [-32, -21, 4, 8],
     stats: { sprint: 2, speed: 1, dance: 1 }, desc: 'A finned tail for a quick swish and a splashy getaway.',
     draw(g, c) {
       const sw = Math.sin(c.t * 4) * 0.15 + c.act * 0.25;
@@ -1242,7 +1242,7 @@ const TAILS: PartDef[] = [
     },
   }),
   P({
-    id: 't-fan', name: 'Peacock Fan', category: 'tail', tier: 3, cost: 150, snap: 'back', layer: 'back', radius: 29, box: [-31, -30, 2, 3],
+    id: 't-fan', name: 'Peacock Fan', category: 'tail', tier: 3, cost: 150, snap: 'back', layer: 'back', radius: 26, box: [-31, -30, 2, 3],
     stats: { charm: 4, pose: 3 }, desc: 'A fan of eye-spotted plumes. Pop it open and dazzle.',
     draw(g, c) {
       const open = 0.25 + c.act * 0.75;
@@ -1265,7 +1265,7 @@ const TAILS: PartDef[] = [
     },
   }),
   P({
-    id: 't-club', name: 'Thwack Club', category: 'tail', tier: 3, cost: 150, snap: 'back', layer: 'back', radius: 30, box: [-34, -17, 4, 6],
+    id: 't-club', name: 'Thwack Club', category: 'tail', tier: 3, cost: 150, snap: 'back', layer: 'back', radius: 27, box: [-34, -17, 4, 6],
     stats: { strike: 5, health: 2 }, desc: 'A stiff armoured tail ending in a bony club. Thwack!',
     draw(g, c) {
       g.save(); tailFrame(g, 0.15 + Math.sin(c.t * 1.5) * 0.06 + c.act * 0.55);
@@ -1278,7 +1278,7 @@ const TAILS: PartDef[] = [
     },
   }),
   P({
-    id: 't-stinger', name: 'Zinger Stinger', category: 'tail', tier: 3, cost: 150, snap: 'back', layer: 'back', radius: 26, box: [-18, -30, 13, 5],
+    id: 't-stinger', name: 'Zinger Stinger', category: 'tail', tier: 3, cost: 150, snap: 'back', layer: 'back', radius: 24, box: [-18, -30, 13, 5],
     stats: { spit: 4, strike: 3 }, desc: 'A segmented scorpion tail with a dripping barb. Zing!',
     draw(g, c) {
       const k = c.act;
@@ -1296,7 +1296,7 @@ const TAILS: PartDef[] = [
     },
   }),
   P({
-    id: 't-monkey', name: 'Swingaling', category: 'tail', tier: 4, cost: 250, snap: 'back', layer: 'back', radius: 31, box: [-25, -32, 5, 5],
+    id: 't-monkey', name: 'Swingaling', category: 'tail', tier: 4, cost: 250, snap: 'back', layer: 'back', radius: 27, box: [-25, -32, 5, 5],
     stats: { dance: 4, jump: 3, sneak: 2, grasp: 1 }, desc: 'A long curling tail for swinging, balancing and grooving.',
     draw(g, c) {
       g.save(); tailFrame(g, 0.25 + Math.sin(c.t * 1.8) * 0.12 + c.act * 0.3);

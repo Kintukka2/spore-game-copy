@@ -225,7 +225,7 @@ const HATS: PartDef[] = [
     },
   }),
   O({
-    id: 'o-plume-crest', name: 'Chief Plumes', category: 'hat', tier: 3, cost: 60, snap: 'top', layer: 'top', radius: 28, box: [-22, -33, 17, 9],
+    id: 'o-plume-crest', name: 'Sunburst Plumes', category: 'hat', tier: 3, cost: 60, snap: 'top', layer: 'top', radius: 28, box: [-22, -33, 17, 9],
     stats: { social: 3, combat: 1 }, desc: 'A towering fan of plumes. Only the boldest wear it.',
     draw(g, c) {
       const k = headK(c);

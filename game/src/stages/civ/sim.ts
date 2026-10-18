@@ -166,6 +166,8 @@ export class Sim {
   private integrate(v: Vehicle, dt: number) {
     const t = this.S.terrain;
     const nx = v.x + v.vx * dt, ny = clamp(v.y + v.vy * dt, 40, H - 40);
+    // Somehow off valid terrain (pushed, or a stale save): move freely until back on it.
+    if (!t.canStand(v.medium, v.x, v.y)) { v.x = wrapX(nx); v.y = ny; if (Math.abs(v.vx) > 6) v.facing = v.vx > 0 ? 1 : -1; return; }
     if (t.canStand(v.medium, nx, ny)) { v.x = wrapX(nx); v.y = ny; }
     else if (t.canStand(v.medium, nx, v.y)) { v.x = wrapX(nx); v.vy *= 0.5; }
     else if (t.canStand(v.medium, v.x, ny)) { v.y = ny; v.vx *= 0.5; }
@@ -235,7 +237,7 @@ export class Sim {
         const c = S.cities[tg.city];
         const tu = c.turrets[tg.i];
         if (!tu?.alive) return;
-        this.recordHit(c.owner, by);
+        this.recordHit(c.owner, by, true);
         c.lastHit = 0; c.lastHitBy = by;
         if (kind === 'faith') { tu.off = Math.min(10, tu.off + 5); return; }
         tu.hp -= dmg;
@@ -249,7 +251,7 @@ export class Sim {
       }
       case 'hall': {
         const c = S.cities[tg.city];
-        this.recordHit(c.owner, by);
+        this.recordHit(c.owner, by, true);
         c.lastHit = 0; c.lastHitBy = by;
         if (kind === 'faith') {
           // Faith beams shut entertainment down instead of hurting the hall.
@@ -264,7 +266,7 @@ export class Sim {
       case 'der': {
         const g = S.geysers[tg.g];
         if (g.owner < 0) return;
-        this.recordHit(g.owner, by);
+        this.recordHit(g.owner, by, true);
         if (kind === 'faith') return;
         g.hp -= dmg;
         if (g.hp <= 0) {
@@ -294,7 +296,7 @@ export class Sim {
   }
 
   /** Track who hurt whom: relations, war, danger music. */
-  recordHit(victim: number, by: number) {
+  recordHit(victim: number, by: number, asset = false) {
     const S = this.S;
     if (victim < 0 || by < 0 || victim === by) return;
     if (by === PLAYER) {
@@ -309,7 +311,7 @@ export class Sim {
       n.truce = 0;
     } else if (victim === PLAYER) {
       S.nations[by].hostileT = 0;
-      S.underAttack();
+      S.underAttack(asset);
     } else {
       const a = S.nations[victim], b = S.nations[by];
       a.relAI[by] = Math.max(-100, a.relAI[by] - 0.4);

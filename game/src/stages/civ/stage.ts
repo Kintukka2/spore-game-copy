@@ -243,8 +243,8 @@ export class CivStage implements Scene {
     this.toastT = 1.6;
   }
 
-  underAttack() {
-    if (this.dangerT <= 0) this.hint('attacked', 'You are under attack! Select your military vehicles and tap the raiders, or build turrets in the City Planner.', '🚨');
+  underAttack(asset = true) {
+    if (asset && this.dangerT <= 0) this.hint('attacked', 'You are under attack! Select your military vehicles and tap the raiders, or build turrets in the City Planner.', '🚨');
     this.dangerT = 10;
   }
 

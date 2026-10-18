@@ -63,7 +63,20 @@ const CSS = `
 .civ-pl-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .civ-pl-pick .btn { min-height: 48px; font-size: 14px; }
 .civ-intro-art { width: 100%; height: 150px; display: block; border-radius: 12px; background: radial-gradient(ellipse at 50% 60%, #49688a, #1b2b40); margin-bottom: 8px; }
-@media (min-width: 700px) { .civ-ctx, .civ-sheet { right: auto; width: 520px; } .civ-cmd { max-width: 560px; left: 50%; transform: translateX(-50%); } }
+@media (min-width: 700px) {
+  .civ-ctx, .civ-sheet { right: auto; width: 520px; }
+  .civ-cmd { width: 560px; left: 50%; right: auto; transform: translateX(-50%); background: none; }
+}
+@media (max-height: 520px) and (min-width: 600px) {
+  .civ-ctx, .civ-sheet { left: calc(8px + var(--safe-l)); right: auto; width: min(420px, 48vw); top: calc(60px + var(--safe-t)); bottom: calc(8px + var(--safe-b)); max-height: none; margin: 0; }
+  .civ-ctx { bottom: auto; max-height: calc(100% - 76px - var(--safe-t)); }
+  .civ-cmd { width: min(420px, 48vw); left: auto; right: calc(8px + var(--safe-r)); transform: none; padding-right: 0; }
+  .civ-cbtn { height: 54px; }
+  .civ-planner canvas { height: 170px; }
+  .civ-hud .objective { left: auto !important; right: calc(12px + var(--safe-r)); transform: none; bottom: calc(76px + var(--safe-b)); max-width: min(420px, 48vw); }
+  .civ-target { left: auto; right: calc(12px + var(--safe-r)); transform: none; bottom: calc(76px + var(--safe-b)); }
+  .civ-debug { left: auto; right: calc(12px + var(--safe-r)); top: calc(170px + var(--safe-t)); align-items: flex-end; }
+}
 `;
 
 let injected = false;

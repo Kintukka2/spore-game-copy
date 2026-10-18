@@ -1,7 +1,8 @@
+// Stage 3: Tribal. A touch-first village RTS: gather food, build tool huts, and win over
+// (music) or defeat (fire) the four neighbouring tribes. See docs/DESIGN.md, "Stage 3: Tribal".
 import type { Scene } from '../../game/game';
-import { StubStage } from '../stub';
+import { TribalStage } from './stage';
 
-/** Entry point for the tribal stage. Replace StubStage with the real implementation. */
 export function createTribalStage(): Scene {
-  return new StubStage('tribal');
+  return new TribalStage();
 }

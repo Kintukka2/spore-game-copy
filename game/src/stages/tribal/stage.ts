@@ -109,6 +109,7 @@ export class TribalStage implements Scene {
   private camTween: { x: number; y: number; t: number } | null = null;
   private dragging = false;
   private resolvedAnnounced = false;
+  private exited = false;
   private hintQ: { id: string; text: string; icon: string }[] = [];
   private hintCd = 2.5;
 
@@ -159,6 +160,7 @@ export class TribalStage implements Scene {
   }
 
   exit() {
+    this.exited = true;
     this.hud?.destroy();
     this.concert?.destroy();
   }
@@ -211,7 +213,7 @@ export class TribalStage implements Scene {
         style: diet === 'herbivore' ? 'clay' : diet === 'carnivore' ? 'hide' : 'wood',
         x: v.x, y: v.y, hutHp: hutMax, hutMax, burn: 0, relation: base[i], base: base[i], admiration: 0,
         state: 'active', food: 30, maxMembers: maxM[i], weapon: (['axe', 'spear', 'torch', 'axe'] as ToolId[])[i],
-        raidT: game.diff(260, 170, 95) + i * 20, giftT: 50 + i * 10, thiefT: game.diff(140, 100, 70) + i * 15,
+        raidT: game.diff(260, 170, 120) + i * 20, giftT: 50 + i * 10, thiefT: game.diff(140, 100, 70) + i * 15,
         spawnT: 10, chiefT: 0, alarm: 0, concertCd: 0, since: 0, hitT: 0,
       });
     }
@@ -518,7 +520,7 @@ export class TribalStage implements Scene {
 
   // ------------------------------------------------------------------ outfitter
   async offerOutfitter() {
-    if (this.outfitOffered || this.finished) return;
+    if (this.outfitOffered || this.finished || this.exited) return;
     this.outfitOffered = true;
     this.paused = true;
     const body = h('div', { class: 'col' },
@@ -617,7 +619,7 @@ export class TribalStage implements Scene {
     const newTools = unlockedTools(this.diet, n).filter((x) => !unlockedTools(this.diet, n - 1).includes(x));
     const cap = this.popCap;
     setTimeout(() => {
-      if (n >= NUM_TRIBES || this.finished) return;
+      if (n >= NUM_TRIBES || this.finished || this.exited) return;
       const tools = newTools.length ? ` New tools: ${newTools.map((x) => TOOLS[x].icon + ' ' + TOOLS[x].name).join(', ')}.` : '';
       ui.toast(`Your tribe can now grow to ${cap}.${tools}`, { icon: '🗿', kind: 'good', ms: 4500 });
     }, 1500);
@@ -629,6 +631,7 @@ export class TribalStage implements Scene {
     if (this.resolvedAnnounced) return;
     this.resolvedAnnounced = true;
     setTimeout(() => {
+      if (this.exited) return;
       this.game.banner('The totem is complete', 'Found a city!');
       audio.music('victory');
       this.hud.refresh(true);
@@ -1167,6 +1170,7 @@ export class TribalStage implements Scene {
         // The ancestors watch over a wiped-out tribe.
         const H = this.home;
         setTimeout(() => {
+          if (this.exited) return;
           for (let i = 0; i < 2; i++) this.spawnMember(PLAYER, H.hut.x + (i - 0.5) * 30, H.hut.y + 56, {});
           ui.toast('Two wanderers have joined your tribe.', { icon: '🧭', kind: 'good' });
         }, 3000);

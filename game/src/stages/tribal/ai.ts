@@ -121,7 +121,8 @@ export function updateTribes(st: TribalStage, dt: number) {
     if (t.relation <= -50 && t.raidT <= 0 && !night && st.time > 30 && !bandHere) {
       if (raidingTribes(st) < g.diff(1, 1, 2)) {
         const [lo, hi] = g.diff([2, 3], [3, 4], [4, 7]);
-        const size = Math.round(lerp(lo, hi, t.rank / 3) + (t.rank === 3 && g.difficulty === 'hard' ? 1 : 0));
+        // Raids grow with the stage: small early probes, full war parties later.
+        const size = Math.min(Math.round(lerp(lo, hi, t.rank / 3) + (t.rank === 3 && g.difficulty === 'hard' ? 1 : 0)), 2 + Math.floor(st.time / 75));
         if (launchRaid(st, t, size, false)) t.raidT = g.diff(190, 140, 85) * (1 - t.rank * 0.05) * (0.85 + Math.random() * 0.3);
         else t.raidT = 20;
       } else t.raidT = 15;

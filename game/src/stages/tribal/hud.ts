@@ -361,7 +361,7 @@ export class TribalHud {
     btnRow.append(gift, play);
     const tip = h('div', { class: 'ln', style: 'font-size:12px;opacity:.75' });
     this.openPanel('tribe:' + t.id,
-      h('h3', null, h('span', { style: `width:14px;height:14px;border-radius:50%;background:${t.color};display:inline-block` }), t.name, face),
+      h('h3', null, h('span', { style: `width:14px;height:14px;border-radius:50%;background:${t.color};display:inline-block;flex:0 0 auto` }), h('span', null, t.name), face),
       state, h('div', { class: 'ln' }, '💗', adm), h('div', { class: 'ln' }, '🛖', hut), info, tip, btnRow);
     this.panelRefresh = () => {
       const f = relationFace(t);
@@ -394,7 +394,7 @@ export class TribalHud {
     const count = h('div', { class: 'ln' });
     const tear = h('button', { class: 'btn danger' }, '🔨 Tear down · +10 🍎');
     tear.addEventListener('click', (e) => { e.stopPropagation(); st.demolishToolHut(slot); this.closePanel(); });
-    this.openPanel('tool:' + slot, h('h3', null, def.icon, `${def.name} hut`), h('div', { class: 'ln' }, def.desc), count,
+    this.openPanel('tool:' + slot, h('h3', null, h('span', null, def.icon), h('span', null, `${def.name} hut`)), h('div', { class: 'ln' }, def.desc), count,
       h('div', { class: 'ln', style: 'font-size:12px;opacity:.75' }, st.selected().length ? '' : 'Select members, then tap this hut to equip them.'),
       h('div', { class: 'rowb' }, tear));
     this.panelRefresh = () => {
@@ -417,7 +417,7 @@ export class TribalHud {
       grid.append(el);
       tiles.push({ tool, el, s });
     }
-    this.openPanel('build', h('h3', null, '🛖 Build a tool hut'), head, grid,
+    this.openPanel('build', h('h3', null, h('span', null, '🛖 Build a tool hut')), head, grid,
       h('div', { class: 'ln', style: 'font-size:12px;opacity:.75' }, '🎶 Instruments win tribes over · ⚔️ weapons defeat them · 🎣🧺 gather faster · 🌿 heal'));
     this.panelRefresh = () => {
       const used = st.toolHuts.filter(Boolean).length;
@@ -446,7 +446,7 @@ export class TribalHud {
       list.append(el);
       rows.push({ t, el, f, sub });
     }
-    this.openPanel('gift', h('h3', null, '🎁 Send a gift'), h('div', { class: 'ln' }, 'Gifts raise relations and admiration. Wary tribes must be won back before they will hear your music.'), list);
+    this.openPanel('gift', h('h3', null, h('span', null, '🎁 Send a gift')), h('div', { class: 'ln' }, 'Gifts raise relations and admiration. Wary tribes must be won back before they will hear your music.'), list);
     this.panelRefresh = () => {
       for (const r of rows) {
         const f = relationFace(r.t);
@@ -467,7 +467,7 @@ export class TribalHud {
     buy.addEventListener('click', (e) => { e.stopPropagation(); st.buyMember(); });
     const outfit = h('button', { class: 'btn' }, '👕 Outfitter');
     outfit.addEventListener('click', (e) => { e.stopPropagation(); this.closePanel(); st.outfitter(false); });
-    this.openPanel('home', h('h3', null, '🏠', st.homeName), info, pets, bonus, h('div', { class: 'rowb' }, buy, outfit));
+    this.openPanel('home', h('h3', null, h('span', null, '🏠'), h('span', null, st.homeName)), info, pets, bonus, h('div', { class: 'rowb' }, buy, outfit));
     this.panelRefresh = () => {
       info.textContent = `👥 ${st.pop()}/${st.popCap} members · 🗿 ${st.resolved}/${NUM_TRIBES} tribes · 🍎 ${Math.floor(st.food)}`;
       pets.textContent = `🐾 ${st.pets().length}/${MAX_PETS} pets · 🥚 ${Math.floor(st.eggNode.amount)} eggs in the basket`;

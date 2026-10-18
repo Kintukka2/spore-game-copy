@@ -98,7 +98,7 @@ export function tickCommon(st: TribalStage, u: Unit, dt: number) {
   }
   if (u.burn > 0) {
     u.burn -= dt;
-    u.hp -= 3 * dt;
+    u.hp -= 2 * dt;
     if (u.hp <= 0) killUnit(st, u, null);
   }
 }

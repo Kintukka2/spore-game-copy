@@ -88,7 +88,7 @@ export function generateCreature(r: RNG, o: CreatureGenOpts = {}): Design {
   }
   if (r.chance(0.6)) {
     const d = pickPart(r, 'creature', 'detail', level);
-    const ni = r.int(0, n - 1);
+    const ni = r.int(0, Math.max(0, n - 2));
     if (d) parts.push(inst(d, ni, 0, -spine[ni].r * 0.85, 0, r.range(0.8, 1.3)));
   }
   if (r.chance(0.65)) {

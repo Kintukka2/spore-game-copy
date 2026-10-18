@@ -584,7 +584,7 @@ const LEGS: PartDef[] = [
     },
   }),
   P({
-    id: 'l-paw', name: 'Pussyfoot Pads', category: 'leg', tier: 1, cost: 50, snap: 'bottom', layer: 'front', paired: true, limbLength: 32, radius: 17,
+    id: 'l-paw', name: 'Tiptoe Pads', category: 'leg', tier: 1, cost: 50, snap: 'bottom', layer: 'front', paired: true, limbLength: 32, radius: 17,
     stats: { sneak: 1, dance: 1 }, desc: 'Soft toe-beans for sneaking up and boogieing down.',
     draw(g, c) {
       if (!c.limb) return;

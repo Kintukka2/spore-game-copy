@@ -165,11 +165,13 @@ export class EditorScene implements Scene {
   private elTrash!: HTMLElement;
   private elName!: HTMLInputElement;
   private bottomH = 170;
+  private isOutfit = false;
 
   constructor(private cfg: EditorConfig, private resolve: (r: EditorResult | null) => void) {
     this.d = cloneDesign(cfg.design);
     this.origCost = designCost(cfg.design);
     const isOutfit = (cfg.tabs ?? []).some((t) => t.cats?.includes('hat'));
+    this.isOutfit = isOutfit;
     this.tabs = cfg.tabs ?? defaultTabs(this.d.kind);
     if (cfg.allowBody === false && !cfg.bodyResizeOnly) this.tabs = this.tabs.filter((t) => t.special !== 'body');
     this.tab = this.tabs.find((t) => t.cats) ?? this.tabs[0];
@@ -377,7 +379,7 @@ export class EditorScene implements Scene {
   private refreshInfo() {
     // Stats
     const stats = computeStats(this.d);
-    const which = this.cfg.stats ?? (this.kind === 'creature' ? CREATURE_STATS : this.kind === 'cell' ? CELL_STATS : this.kind === 'vehicle' ? VEHICLE_STATS : this.kind === 'ship' ? SHIP_STATS : BUILDING_STATS);
+    const which = this.cfg.stats ?? (this.isOutfit ? OUTFIT_STATS : this.kind === 'creature' ? CREATURE_STATS : this.kind === 'cell' ? CELL_STATS : this.kind === 'vehicle' ? VEHICLE_STATS : this.kind === 'ship' ? SHIP_STATS : BUILDING_STATS);
     this.elStats.innerHTML = '';
     const max = this.kind === 'vehicle' || this.kind === 'ship' ? 10 : 5;
     for (const id of which) {

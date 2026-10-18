@@ -4,6 +4,7 @@ import { renderDesign, type Pose } from '../../design/render';
 import { clamp, easeOutBack, lerp } from '../../engine/math';
 import { hexToRgb, mix, shade } from '../../design/color';
 import { PLAYER, WILD, WORLD, relationFace, type ResourceNode, type Tribe, type Unit } from './types';
+import type { Design } from '../../design/types';
 import type { TribalStage } from './stage';
 import { TERRAIN_SCALE, coastY } from './world';
 import { FRUIT_COLS, FRUIT_SLOTS, drawIcon, drawSprite, mainHutSprite, penSprite, ruinSprite, toolHutSprite, treeSprite } from './sprites';
@@ -61,10 +62,12 @@ export function renderWorld(st: TribalStage, g: CanvasRenderingContext2D, w: num
     if (n.kind === 'tree') { if (vis(n.x, n.y - 40, 70)) push(n.y, K_FRUIT, n); }
     else if (n.kind === 'carcass' || n.kind === 'cache') { if (vis(n.x, n.y, 30)) push(n.y, K_NODE, n); }
   }
+  let shownUnits = 0;
   for (const u of st.units) {
     const hgt = u.hgt * u.size;
-    if (vis(u.x, u.y - hgt / 2, Math.max(40, hgt))) push(u.y, K_UNIT, u);
+    if (vis(u.x, u.y - hgt / 2, Math.max(40, hgt))) { push(u.y, K_UNIT, u); shownUnits++; }
   }
+  impostorPx = shownUnits > 36 ? 44 : shownUnits > 24 ? 34 : 26;
   const H = st.home;
   if (vis(H.hut.x, H.hut.y - 60, 120)) push(H.hut.y, K_HOME, null);
   st.toolHuts.forEach((th, i) => { if (th && vis(H.slots[i].x, H.slots[i].y - 40, 70)) push(H.slots[i].y, K_TOOL, i); });
@@ -485,8 +488,57 @@ function drawTotemHead(g: CanvasRenderingContext2D, x: number, y: number, base: 
 
 // ------------------------------------------------------------------ units
 
+// ------------------------------------------------------------------ creature impostors (LOD)
+// Small on-screen creatures are blitted from a cached bitmap instead of being re-tessellated every
+// frame; up close they get the full procedural renderDesign animation.
+interface Impostor { cv: HTMLCanvasElement; s: number; ax: number; ay: number; w: number; h: number }
+const impostors = new WeakMap<Design, Impostor>();
+function impostorOf(d: Design): Impostor {
+  let im = impostors.get(d);
+  if (!im) {
+    const L = layoutOf(d);
+    const s = Math.min(2.4, 80 / Math.max(10, L.height, L.width * 0.6));
+    const pad = 10 + Math.max(L.width, L.height) * s * 0.18;
+    const w = Math.ceil(L.width * s + pad * 2), h = Math.ceil(L.height * s + pad * 2);
+    const cv = document.createElement('canvas');
+    cv.width = w;
+    cv.height = h;
+    const ax = pad + (L.cx - L.left) * s, ay = pad + (L.groundY - L.top) * s;
+    renderDesign(cv.getContext('2d')!, d, ax, ay, s, { t: 0.4 }, { shadow: false });
+    im = { cv, s, ax, ay, w, h };
+    impostors.set(d, im);
+  }
+  return im;
+}
+/** On-screen height (px) below which impostors are used; raised when the view is crowded. */
+let impostorPx = 26;
+
+function drawImpostor(g: CanvasRenderingContext2D, u: Unit, s: number) {
+  const im = impostorOf(u.design);
+  const L = layoutOf(u.design);
+  const k = s / im.s;
+  g.fillStyle = 'rgba(0,0,0,0.22)';
+  g.beginPath();
+  g.ellipse(u.x, u.y, L.width * 0.45 * s, Math.max(1.5, L.width * 0.09 * s), 0, 0, Math.PI * 2);
+  g.fill();
+  const bob = Math.abs(Math.sin(u.phase * Math.PI * 2)) * 2.2 * u.walk;
+  const lunge = u.action && u.action !== 'dance' ? Math.sin(clamp(u.actionT / u.actionDur, 0, 1) * Math.PI) * 4 : 0;
+  const hop = u.action === 'dance' ? Math.abs(Math.sin(u.actionT * 9)) * 3 : 0;
+  g.save();
+  if (u.kind === 'porter') g.globalAlpha = 0.95;
+  g.translate(u.x + u.facing * lunge, u.y - bob - hop);
+  if (u.facing < 0) g.scale(-1, 1);
+  g.drawImage(im.cv, -im.ax * k, -im.ay * k, im.w * k, im.h * k);
+  g.restore();
+}
+
 function drawUnit(st: TribalStage, g: CanvasRenderingContext2D, u: Unit) {
   const s = u.size * growth(u);
+  if (!u.dead && u.flash <= 0 && u.burn <= 0 && u.hgt * s * st.cam.zoom < impostorPx) {
+    drawImpostor(g, u, s);
+    drawUnitExtras(st, g, u, s);
+    return;
+  }
   pose.t = u.t;
   pose.walk = u.walk;
   pose.phase = u.phase;
@@ -500,8 +552,13 @@ function drawUnit(st: TribalStage, g: CanvasRenderingContext2D, u: Unit) {
   else { pose.flash = undefined; pose.flashAmt = 0; }
   pose.down = u.dead && !u.fear ? clamp(u.actionT * 3, 0, 1) : 0;
   pose.alpha = u.dead ? clamp(u.dying / 0.8, 0, 1) : u.kind === 'porter' ? 0.95 : 1;
-  renderDesign(g, u.design, u.x, u.y, s, pose, { lodPx: 9 });
-  if (u.dead || u.kind === 'animal') return;
+  renderDesign(g, u.design, u.x, u.y, s, pose, { lodPx: 6 });
+  if (!u.dead) drawUnitExtras(st, g, u, s);
+}
+
+/** Tools, the chief's headdress and carried food. */
+function drawUnitExtras(st: TribalStage, g: CanvasRenderingContext2D, u: Unit, s: number) {
+  if (u.kind === 'animal') return;
   const L = layoutOf(u.design);
   const wdt = L.width * s, hgt = L.height * s;
   if (u.age >= 1) {
@@ -611,7 +668,7 @@ function drawShots(st: TribalStage, g: CanvasRenderingContext2D) {
 
 const DAY_KEYS: [number, string, number][] = [
   [0, '#ffae78', 0.34], [0.08, '#ffe2b0', 0.12], [0.2, '#fff4dc', 0.05], [0.5, '#fff4dc', 0.05], [0.62, '#ffc48a', 0.2],
-  [0.69, '#d9779a', 0.34], [0.75, '#4b5aa8', 0.5], [0.92, '#4b5aa8', 0.5], [0.97, '#a0789a', 0.38], [1, '#ffae78', 0.34],
+  [0.69, '#d9779a', 0.36], [0.75, '#34449a', 0.62], [0.92, '#34449a', 0.62], [0.97, '#a0789a', 0.4], [1, '#ffae78', 0.34],
 ];
 
 function dayTint(d: number): string {

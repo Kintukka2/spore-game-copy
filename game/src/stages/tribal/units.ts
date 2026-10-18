@@ -403,7 +403,7 @@ function gatherStep(st: TribalStage, u: Unit, o: Extract<Order, { type: 'gather'
     if (u.carry > 0) { o.phase = 'return'; return; }
     const next = n ? findNode(st, n.food, n.x, n.y, 450, n.id, 0) : null;
     if (next) { o.node = next.id; o.phase = 'go'; }
-    else { u.order = { type: 'idle' }; if (n?.kind === 'eggs') ui.toast('The egg basket is empty. Pets lay more over time.', { icon: '🥚' }); }
+    else { u.order = { type: 'idle' }; if (n?.kind === 'eggs') st.notify('eggs-empty', 'The egg basket is empty. Pets lay more over time.', '🥚'); }
     return;
   }
   const sp = nodeStand(n, u.slot);

@@ -326,7 +326,7 @@ export class TribalStage implements Scene {
     const u = newUnit(this, {
       kind: 'animal', team: WILD, design: des, dIdx, x, y, hp: Math.round(hp),
       speed: wild === 'titan' ? 36 : wild === 'hunter' ? 66 : 48 + (st.speed ?? 1) * 4, chief: false, age: 1,
-      scaleMul: wild === 'titan' ? 2.6 : wild === 'hunter' ? 1.05 : 0.95,
+      scaleMul: wild === 'titan' ? 3.2 : wild === 'hunter' ? 1.05 : 0.95,
     });
     u.wild = wild;
     u.herd = herd;
@@ -392,7 +392,7 @@ export class TribalStage implements Scene {
   spend(n: number, what: string): boolean {
     if (this.food < n) {
       audio.sfx('error');
-      ui.toast(`Not enough food for ${what} (${n} 🍎 needed).`, { icon: '🍎', kind: 'bad' });
+      this.notify('food:' + what, `Not enough food for ${what} (${n} 🍎 needed).`, '🍎', 'bad', 2);
       this.hud.flashFood();
       return false;
     }
@@ -1150,7 +1150,7 @@ export class TribalStage implements Scene {
       if (u.chief) {
         this.chiefT = 40;
         ui.toast('Your Chieftain has fallen! They will return to the hut in 40 seconds.', { icon: '🪶', kind: 'bad', ms: 4000 });
-      } else ui.toast(u.age < 1 ? 'A baby of your tribe was killed!' : 'A member of your tribe has fallen.', { icon: '💀', kind: 'bad' });
+      } else this.notify('death', u.age < 1 ? 'A baby of your tribe was killed!' : 'A member of your tribe has fallen.', '💀', 'bad', 4);
       if (this.members().filter((m) => m.age >= 1).length === 0 && this.chiefT > 0) {
         // The ancestors watch over a wiped-out tribe.
         const H = this.home;
@@ -1165,7 +1165,14 @@ export class TribalStage implements Scene {
     } else if (u.team === WILD) {
       if (by?.team === PLAYER) this.stats.kills++;
       const food = u.wild === 'titan' ? 160 : u.wild === 'hunter' ? 22 : 16;
-      this.addNode('carcass', 'meat', u.x, u.y, u.x, u.y + 4, food, food, 0, 0, -1, 90);
+      const meat = this.addNode('carcass', 'meat', u.x, u.y, u.x, u.y + 4, food, food, 0, 0, -1, 90);
+      // Hunters who chose this prey butcher it and carry the meat home.
+      let i = 0;
+      for (const m of this.units) {
+        if (m.team !== PLAYER || m.kind !== 'member' || m.dead || m.order.type !== 'attack' || m.order.target !== u.id || m.resume) continue;
+        m.order = { type: 'gather', node: meat.id, phase: 'go', t: 0 };
+        m.slot = i++;
+      }
       if (u.wild === 'titan') {
         this.stats.titans++;
         this.game.banner('Titan slain!', u.design.name);
@@ -1181,6 +1188,15 @@ export class TribalStage implements Scene {
       this.addNode('cache', u.carryKind ?? 'fruit', u.x, u.y, u.x, u.y + 4, u.carry, u.carry, 0, 0, -1, 60);
       u.carry = 0;
     }
+  }
+
+  private notified = new Map<string, number>();
+  /** A toast that is shown at most once every `cooldown` seconds per key. */
+  notify(key: string, msg: string, icon: string, kind: 'info' | 'good' | 'bad' = 'info', cooldown = 8) {
+    const last = this.notified.get(key);
+    if (last !== undefined && this.time - last < cooldown) return;
+    this.notified.set(key, this.time);
+    ui.toast(msg, { icon, kind });
   }
 
   // ------------------------------------------------------------------ danger, hints, objective

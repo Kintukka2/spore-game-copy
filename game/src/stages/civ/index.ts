@@ -1,7 +1,7 @@
 import type { Scene } from '../../game/game';
-import { StubStage } from '../stub';
+import { CivStage } from './stage';
 
-/** Entry point for the civ stage. Replace StubStage with the real implementation. */
+/** Entry point for the Civilization stage. */
 export function createCivStage(): Scene {
-  return new StubStage('civ');
+  return new CivStage();
 }

@@ -16,6 +16,7 @@ import { openEditor } from './editor/editor';
 import { blankDesign } from './design/generate';
 import type { StageId } from './game/cards';
 import type { DesignKind } from './design/types';
+import { GalleryScene } from './dev/gallery';
 
 const game = new Game(document.getElementById('game') as HTMLCanvasElement, document.getElementById('ui') as HTMLElement);
 game.registerScreen('title', () => new TitleScreen());
@@ -44,6 +45,8 @@ if (stage) {
 } else if (editor) {
   game.setScene(new TitleScreen());
   openEditor(game, { design: blankDesign(editor, 'Test ' + editor), mode: 'free' });
+} else if (q.get('gallery')) {
+  game.setScene(new GalleryScene(q.get('gallery')!));
 } else if (screen) {
   game.setScene(game.screen(screen));
 } else {

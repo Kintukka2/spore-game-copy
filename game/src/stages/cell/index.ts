@@ -1,7 +1,7 @@
 import type { Scene } from '../../game/game';
-import { StubStage } from '../stub';
+import { CellStage } from './stage';
 
-/** Entry point for the cell stage. Replace StubStage with the real implementation. */
+/** Entry point for the Cell stage: a microbe in a glowing tide pool. */
 export function createCellStage(): Scene {
-  return new StubStage('cell');
+  return new CellStage();
 }

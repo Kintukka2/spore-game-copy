@@ -194,7 +194,7 @@ export function generateWorld(t: Terrain, seed: number, o: {
       slots = layout(nSlots, pat.map((k) => (r.chance(0.15) ? null : k)));
     }
     const turrets = makeTurrets(nTur);
-    const nt = i === 0 ? 1 : Math.max(0, Math.min(nTur, (large ? 2 : 1) + (nat.type === 'military' ? 1 : 0) + o.aiTurrets));
+    const nt = i === 0 ? 2 : Math.max(0, Math.min(nTur, (large ? 2 : 1) + (nat.type === 'military' ? 1 : 0) + o.aiTurrets));
     const order = r.shuffle(Array.from({ length: nTur }, (_, k) => k));
     for (let k = 0; k < nt; k++) { const tu = turrets[order[k]]; tu.alive = true; tu.hp = TURRET_HP; }
     const defMax = large ? 900 : 600;

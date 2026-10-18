@@ -196,6 +196,8 @@ export class Sim {
       S.fx.beam(sx, sy, p.x, p.y, '#ffe58a', 0.35, 3, 40);
       S.fx.burst(PK.Glow, p.x, p.y, 4, 30, { life: 0.5, size: 6, color: '#fff2a8' });
       this.damage(tg, 5 + v.pow * 2, v.nation, 'faith');
+      // Awe: faith briefly stops enemy vehicles in their tracks.
+      if (tg.t === 'v') { const o = this.vehicle(tg.id); if (o && o.frozen <= 0 && o.invuln <= 0 && Math.random() < 0.45) o.frozen = 0.7; }
       v.cool = 1.4;
       S.sfxAt('bell', v.x, v.y, 0.25, 1.4 + Math.random() * 0.3);
       return;
@@ -237,9 +239,9 @@ export class Sim {
         const c = S.cities[tg.city];
         const tu = c.turrets[tg.i];
         if (!tu?.alive) return;
+        if (kind === 'faith') { this.faithHit(c.owner, by); tu.off = Math.min(10, tu.off + 5); return; }
         this.recordHit(c.owner, by, true);
         c.lastHit = 0; c.lastHitBy = by;
-        if (kind === 'faith') { tu.off = Math.min(10, tu.off + 5); return; }
         tu.hp -= dmg;
         if (tu.hp <= 0) {
           tu.alive = false;
@@ -251,7 +253,8 @@ export class Sim {
       }
       case 'hall': {
         const c = S.cities[tg.city];
-        this.recordHit(c.owner, by, true);
+        if (kind !== 'faith') this.recordHit(c.owner, by, true);
+        else this.faithHit(c.owner, by);
         c.lastHit = 0; c.lastHitBy = by;
         if (kind === 'faith') {
           // Faith beams shut entertainment down instead of hurting the hall.
@@ -266,8 +269,8 @@ export class Sim {
       case 'der': {
         const g = S.geysers[tg.g];
         if (g.owner < 0) return;
+        if (kind === 'faith') { this.faithHit(g.owner, by); return; }
         this.recordHit(g.owner, by, true);
-        if (kind === 'faith') return;
         g.hp -= dmg;
         if (g.hp <= 0) {
           S.fx.explode(g.x, g.y, 1.2);
@@ -290,9 +293,26 @@ export class Sim {
       for (const s of c.slots) if (Math.random() < 0.35) s.kind = null;
       S.fx.explode(c.x, c.y - 20, 1.6);
       S.toast(`${c.name} was sacked but holds! Rebuild its defences.`, '🛡️', 'bad');
+      // The raiders take their loot and go home.
+      for (const v of S.vehicles) if (v.nation === by && v.order.k === 'city' && v.order.city === c.id) this.setOrder(v, { k: 'idle' });
+      if (S.nations[by]) S.nations[by].waveT = 0;
       return;
     }
     this.capture(c, by, 'military');
+  }
+
+  /** Preaching at someone's buildings sours relations slowly instead of declaring war outright. */
+  private faithHit(victim: number, by: number) {
+    const S = this.S;
+    if (victim < 0 || by < 0 || victim === by) return;
+    if (by === PLAYER) {
+      const n = S.nations[victim];
+      n.rel = Math.max(-100, n.rel - 0.5);
+      if (n.allied && n.rel < 40) { n.allied = false; S.toast(`Your preaching broke your alliance with the ${n.name}.`, '💔', 'bad'); }
+    } else if (victim === PLAYER) {
+      S.nations[by].hostileT = Math.min(S.nations[by].hostileT, 10);
+      S.underAttack(true);
+    }
   }
 
   /** Track who hurt whom: relations, war, danger music. */

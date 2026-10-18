@@ -8,6 +8,7 @@ import { RNG } from '../engine/rng';
 import type { Design, DesignKind } from '../design/types';
 import { openEditor } from '../editor/editor';
 import { ACHIEVEMENTS } from '../game/achievements';
+import { communityAuthors, communityDesigns, sharingAvailable } from '../game/share';
 
 const KINDS: { kind: DesignKind; label: string }[] = [
   { kind: 'creature', label: 'Creatures' }, { kind: 'cell', label: 'Cells' }, { kind: 'vehicle', label: 'Vehicles' },
@@ -50,10 +51,14 @@ export class CodexScreen implements Scene {
         wild.push({ id: 'wild' + i, design: d, author: 'Wild', created: 0, origin: 'wild' });
       }
     }
+    const comm: CodexEntry[] = communityDesigns(this.kind).slice(0, 48).map((d, i) => ({ id: 'comm' + i, design: d, author: 'Explorer', created: 0, origin: 'wild' as const }));
+    if (sharingAvailable()) {
+      this.grid.append(h('div', { class: 'dim', style: 'grid-column:1/-1;font-size:13px;padding:2px 6px' }, `🌐 Community sharing is on: ${communityDesigns().length} creations from ${communityAuthors()} other explorers can appear in your worlds. Your saved creations are shared too.`));
+    }
     if (mine.length === 0) this.grid.append(h('div', { class: 'dim', style: 'grid-column:1/-1;padding:8px;font-size:14px' }, 'Nothing saved here yet. Creations you save in any editor appear here, and wander into your future worlds.'));
-    for (const e of [...mine, ...wild]) {
+    for (const e of [...mine, ...comm, ...wild]) {
       const c = h('canvas', { style: 'width:92px;height:80px' }) as HTMLCanvasElement;
-      const item = h('div', { class: 'codex-item' }, c, h('div', { class: 'cn' }, e.design.name), h('div', { class: 'ca' }, e.origin === 'wild' ? '🌿 Wild' : '★ ' + e.author));
+      const item = h('div', { class: 'codex-item' }, c, h('div', { class: 'cn' }, e.design.name), h('div', { class: 'ca' }, e.id.startsWith('comm') ? '🌐 Community' : e.origin === 'wild' ? '🌿 Wild' : '★ ' + e.author));
       item.addEventListener('click', () => this.open(e));
       this.grid.append(item);
       requestAnimationFrame(() => drawThumb(c, e.design));

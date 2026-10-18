@@ -17,6 +17,7 @@ import { blankDesign } from './design/generate';
 import type { StageId } from './game/cards';
 import type { DesignKind } from './design/types';
 import { GalleryScene } from './dev/gallery';
+import { initSharing } from './game/share';
 
 const game = new Game(document.getElementById('game') as HTMLCanvasElement, document.getElementById('ui') as HTMLElement);
 game.registerScreen('title', () => new TitleScreen());
@@ -53,6 +54,7 @@ if (stage) {
   game.setScene(new TitleScreen());
 }
 game.start();
+initSharing();
 
 // Installable app: register the service worker when served over HTTPS as a top-level page.
 if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window.self && !game.debug) {

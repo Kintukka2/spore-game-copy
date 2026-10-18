@@ -4,6 +4,7 @@ import { loadJSON, saveJSON } from '../engine/storage';
 import { RNG, uid } from '../engine/rng';
 import type { Design, DesignKind } from '../design/types';
 import { generateCell, generateCreature } from '../design/generate';
+import { communityDesigns, shareCreation } from './share';
 
 export interface CodexEntry {
   id: string;
@@ -35,11 +36,13 @@ export function codexSave(design: Design, author = 'You'): CodexEntry {
     existing.design = copy;
     existing.created = Date.now();
     saveJSON(KEY, list);
+    shareCreation(copy);
     return existing;
   }
   const e: CodexEntry = { id: uid(), design: copy, author, created: Date.now(), origin: 'player' };
   list.push(e);
   saveJSON(KEY, list);
+  shareCreation(copy);
   return e;
 }
 
@@ -56,14 +59,21 @@ export function codexCount(): number {
   return load().length;
 }
 
-/** Wildlife pool for populating worlds: player creations mixed with generated species. */
+/**
+ * Wildlife pool for populating worlds: the player's own creations, other players' creations
+ * (when community sharing is available) and procedurally generated species.
+ */
 export function wildPool(kind: DesignKind, count: number, seed: number, level = 2): Design[] {
   const r = new RNG(seed);
   const own = codexAll(kind).map((e) => e.design);
   r.shuffle(own);
   const out: Design[] = [];
-  const fromPlayer = Math.min(own.length, Math.floor(count * 0.4));
+  const fromPlayer = Math.min(own.length, Math.floor(count * 0.3));
   for (let i = 0; i < fromPlayer; i++) out.push(JSON.parse(JSON.stringify(own[i])));
+  const comm = communityDesigns(kind).slice();
+  r.shuffle(comm);
+  const fromCommunity = Math.min(comm.length, Math.floor(count * 0.35));
+  for (let i = 0; i < fromCommunity; i++) out.push(JSON.parse(JSON.stringify(comm[i])));
   while (out.length < count) {
     if (kind === 'cell') out.push(generateCell(r, r.pick(['herbivore', 'carnivore', 'omnivore']), level));
     else out.push(generateCreature(r, { level }));

@@ -25,7 +25,14 @@ if (flags.actions) {
   for (const a of actions) {
     if (a.tap) await page.touchscreen.tap(a.tap[0], a.tap[1]);
     if (a.click) await page.mouse.click(a.click[0], a.click[1]);
-    if (a.text) await page.getByText(a.text, { exact: false }).first().click();
+    if (a.text) {
+      try { await page.getByText(a.text, { exact: !!a.exact }).first().click({ timeout: a.timeout ?? 4000, force: true }); logs.push('[click] ' + a.text); }
+      catch { logs.push('[miss] ' + a.text); }
+    }
+    if (a.role) {
+      try { await page.getByRole('button', { name: a.role }).first().click({ timeout: a.timeout ?? 4000 }); logs.push('[click] ' + a.role); }
+      catch { logs.push('[miss] ' + a.role); }
+    }
     if (a.eval) logs.push('[eval] ' + JSON.stringify(await page.evaluate(a.eval)));
     if (a.key) await page.keyboard.press(a.key);
     if (a.hold) { await page.keyboard.down(a.hold); await page.waitForTimeout(a.ms ?? 500); await page.keyboard.up(a.hold); }

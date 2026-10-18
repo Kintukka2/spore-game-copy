@@ -59,6 +59,10 @@ export interface Specimen {
   seed: number;
   name: string;
   diet: 'herbivore' | 'carnivore' | 'omnivore' | 'plant';
+  /** Spliced in the Xeno-Lab: carries its own design and fits any animal slot. */
+  hybrid?: boolean;
+  design?: Design;
+  parents?: [string, string];
 }
 
 export interface Buildings {
@@ -200,4 +204,8 @@ export interface SpaceSave {
   tradeEarned: number;
   homeStar: number;
   knownTwins: number[];
+  /** Xeno-Lab: every species ever collected, the homeworld Menagerie, and unpaid tourism takings. */
+  catalog?: Specimen[];
+  zoo?: Specimen[];
+  zooAcc?: number;
 }

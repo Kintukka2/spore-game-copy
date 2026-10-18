@@ -15,6 +15,7 @@ import { deliver, deliverables, onScan, tutorialEvent } from '../missions';
 import { resolve as resolveEvent } from '../events';
 import type { Empire, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
+import { catalogue, inXenopedia } from '../xenolab';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './common';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
@@ -236,6 +237,9 @@ export class PlanetPanel {
       this.badge.append(h('div', { class: 'chip' }, `T${t} `, h('span', { style: 'color:#ffd166' }, '★'.repeat(t) + '☆'.repeat(3 - t))));
       if (t > rows && !ps.destroyed) this.badge.append(h('div', { class: 'chip', style: 'border-color:#ffb347;color:#ffcf80' }, '⚠ Unstable'));
     } else this.badge.append(h('div', { class: 'chip' }, 'Gas giant'));
+    this.badge.append(w.explored(this.star, this.idx)
+      ? h('div', { class: 'chip', style: 'border-color:#3ee6c4;color:#3ee6c4' }, '✓ Explored')
+      : h('div', { class: 'chip', style: 'color:var(--ink-faint)' }, '? Unscanned'));
     const o = ps.owner;
     if (o) {
       const col = o === 'player' ? '#3ee6c4' : o === 'hollow' ? '#ff8a96' : w.emap.get(o)?.color ?? '#fff';
@@ -507,7 +511,7 @@ export class PlanetPanel {
       const grid = h('div', { class: 'sp-species' });
       const nat = w.natives(pl).slice(0, Math.max(1, tScoreOf(pl.atm, pl.temp)) * 4);
       for (const sp of nat) {
-        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name), h('span', null, `${dietIcon(sp.diet)} ${sp.diet === 'plant' ? 'Gather seeds' : 'Beam up'}`));
+        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name, ' ', this.xenoTag(sp)), h('span', null, `${dietIcon(sp.diet)} ${sp.diet === 'plant' ? 'Gather seeds' : 'Beam up'}`));
         cell.addEventListener('click', () => this.beamUp(sp));
         grid.append(cell);
       }
@@ -516,7 +520,7 @@ export class PlanetPanel {
       B.append(h('div', { class: 'sp-section' }, 'Native life'));
       const grid = h('div', { class: 'sp-species' });
       for (const sp of w.natives(pl).slice(0, 6)) {
-        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name), h('span', null, sp.diet === 'plant' ? '🌿' : '🛸 Abduct (they will notice)'));
+        const cell = h('div', { class: 'sp-spec', role: 'button' }, specimenThumb(w, sp, 90, 52), h('b', null, sp.name, ' ', this.xenoTag(sp)), h('span', null, sp.diet === 'plant' ? '🌿' : '🛸 Abduct (they will notice)'));
         cell.addEventListener('click', () => this.beamUp(sp));
         grid.append(cell);
       }
@@ -525,17 +529,25 @@ export class PlanetPanel {
     B.append(h('div', { class: 'sp-mini' }, `Cargo: ${w.s.specimens.length} specimens · ${w.count('seeds')} seed pods · hold ${w.cargoUsed}/${w.cargoCap}`));
   }
 
+  /** Marks species the Xenopedia has not seen yet (worth a research grant). */
+  private xenoTag(sp: Specimen): HTMLElement {
+    return inXenopedia(this.w, sp) ? h('span', { class: 'xl-known', title: 'Already in your Xenopedia' }, '📖') : h('span', { class: 'xl-new', title: 'New species: research grant on first collection' }, 'NEW');
+  }
+
   private beamUp(sp: Specimen) {
     const w = this.w;
     if (sp.diet === 'plant') {
       if (w.count('seeds') >= 60) { this.st.ui.toast('Your seed vault is full.', '🌱'); return; }
       w.give('seeds', 2);
       audio.sfx('pop');
-      this.st.ui.toast(`Gathered seeds of ${sp.name}. +2 seed pods.`, '🌱', 'good');
+      const grant = catalogue(w, sp);
+      this.st.ui.toast(`Gathered seeds of ${sp.name}. +2 seed pods.` + (grant ? ` New to the Xenopedia: ${money(grant)} grant.` : ''), '🌱', 'good');
     } else {
       const err = abduct(w, this.star, this.idx, sp);
       if (err) { this.st.ui.toast(err, '📦', 'bad'); audio.sfx('error'); return; }
-      this.st.ui.toast(`${sp.name} beamed aboard.`, '🛸', 'good');
+      const grant = catalogue(w, sp);
+      this.st.ui.toast(`${sp.name} beamed aboard.` + (grant ? ` New to the Xenopedia: ${money(grant)} research grant.` : ''), grant ? '📖' : '🛸', 'good');
+      if (!w.s.flags.labHint) { w.s.flags.labHint = true; setTimeout(() => this.st.ui.toast('Specimens can be exhibited, spliced into hybrids or released into ecosystems. See Ship → 🧬 Xeno-Lab.', '🧬'), 1800); }
       this.bursts.push({ t: 0.4, color: '#9fe3ff' });
       if (this.star === w.gal.homeStar) tutorialEvent(w, 'abduct');
     }
@@ -558,7 +570,7 @@ export class PlanetPanel {
     w.s.specimens.forEach((sp, i) => {
       if (!fits(sp, slot)) return;
       any = true;
-      sh.body.append(h('div', { class: 'sp-item' }, specimenThumb(w, sp, 70, 46), h('div', { class: 'sp-txt' }, h('b', null, sp.name), `${dietIcon(sp.diet)} ${sp.diet}`), button('Release', () => fill(i), { cls: 'primary' })));
+      sh.body.append(h('div', { class: 'sp-item' }, specimenThumb(w, sp, 70, 46), h('div', { class: 'sp-txt' }, h('b', null, sp.name), sp.hybrid ? '🧬 Hybrid: fits any animal slot' : `${dietIcon(sp.diet)} ${sp.diet}`), button('Release', () => fill(i), { cls: 'primary' })));
     });
     if (!any && slotKind(slot) !== 'plant') sh.body.append(h('p', { class: 'dim' }, 'No fitting creatures in your hold. Beam some up from a living world first (Life tab on any world with life).'));
     if (slotKind(slot) === 'plant' && w.count('seeds') <= 0) sh.body.append(h('p', { class: 'dim' }, 'Gather seeds on living worlds, or buy Seed Pods at your tool shop.'));

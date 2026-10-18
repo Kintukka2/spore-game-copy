@@ -307,6 +307,13 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 3. **Planet panel:** a 2D close-up of the planet sphere with its stats (T-score 0–3, atmosphere and temperature sliders, spice colour and amount, cities and owners). The available actions depend on context:
    - Scan, Colonize (Colony Pack), Terraform (atmosphere and temperature tools), Plant (flora) and Abduct/Place animals (to fill the ecosystem)
    - Collect spice, Trade (if owned by an empire), Attack (if at war: destroy turrets, then the city), Abduct, Use superpower
+4. **Exploration marks:** visited systems carry a teal check on the galaxy map (gold once every planet is scanned or settled). Planet labels in the system view carry a check when explored or a "?" when not. The galaxy HUD counts systems explored and fully surveyed.
+
+**Xeno-Lab (specimens)** (`xenolab.ts`, Ship → 🧬 Xeno-Lab)
+- **Xenopedia:** the first sample of each species is catalogued for a research grant (§2,500 animal, §1,000 plant, §4,000 hybrid). It counts toward the *Xenobiologist* badge. The Life tab tags species not yet catalogued as NEW.
+- **Menagerie:** while in a home or colony system, exhibit specimens at the homeworld zoo, up to 24, one per species. Each pays §150/min in tourism; hybrids pay triple.
+- **Gene Splicer:** fuse two cargo animals for §6,000. The hybrid keeps parent A's skeleton with blended girth, and takes each organ group (mouths, eyes, limbs, weapons, frills) from one parent. It opens in the creature editor to be named and tweaked. Hybrids count as omnivores, so they fit any animal ecosystem slot.
+- Specimens still fill ecosystem slots on terraformed worlds.
 
 **Terraforming**
 - Each planet has atmosphere and temperature from 0..1 (the T-zone).

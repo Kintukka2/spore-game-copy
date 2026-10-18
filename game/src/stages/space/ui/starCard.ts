@@ -59,6 +59,12 @@ export class StarCard {
         kv.append(h('span', null, 'Planets'), h('b', null, `${pls.length} · best T${best}`));
         kv.append(h('span', null, 'Spice'), seen.size ? spices : h('span', null, 'none'));
       } else kv.append(h('span', null, 'Planets'), h('span', null, pls.length ? `${pls.length} (unexplored)` : 'none'));
+      if (pls.length) {
+        const sv = w.surveyed(this.id);
+        kv.append(h('span', null, 'Explored'), !visited ? h('span', { class: 'dim' }, '? Never visited')
+          : sv.done >= sv.total ? h('b', { style: 'color:#ffd166' }, `✓ Fully surveyed (${sv.total}/${sv.total})`)
+          : h('b', { style: 'color:#3ee6c4' }, `✓ Visited · ${sv.done}/${sv.total} planets scanned`));
+      }
     }
     // Events / missions here
     const ev = w.s.events.find((x) => x.star === this.id);

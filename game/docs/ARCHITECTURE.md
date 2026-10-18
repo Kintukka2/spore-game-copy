@@ -155,6 +155,8 @@ Drawing conventions for `draw(g, ctx)`:
 - Limbs receive `ctx.limb` (`knee` and `foot`, already solved by IK); draw with `drawLimb()`.
 - Mechanical kinds are drawn the same way. Wheels can spin with `ctx.t`.
 
+Draw order: each `PartInstance` may carry a player-set `layer` (`back` < `front` < `limb` < `top`). Without one, limbs use `limb` and other parts use their def's `layer`. `drawOrder(design)` in render.ts sorts by layer, then by array order. The renderer, the editor's hit-testing and its ⤓/⤒ buttons all use it.
+
 Part ID prefixes: creature `m- e- l- a- w- d- t- wg-`; outfit `o-`; cell `c-`; vehicle `v-`; building `b-`; ship `s-`. Vehicle tool parts carry their role in the id (`v-mil-…`, `v-eco-…`, `v-rel-…`) and their medium (`…-sea-…`, `…-air-…`).
 
 ## Rules for contributors (and agents)

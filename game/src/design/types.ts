@@ -29,7 +29,13 @@ export interface PartInstance {
   flip?: boolean;
   /** Top-down designs (cells): also draw a copy mirrored across the body axis. */
   sym?: boolean;
+  /** Player override of the draw layer (defaults to the part's own layer; limbs default to 'limb'). */
+  layer?: DrawLayer;
 }
+
+/** Draw layers from back to front: behind the body, on the body, with the near limbs, on top of everything. */
+export type DrawLayer = 'back' | 'front' | 'limb' | 'top';
+export const DRAW_LAYERS: DrawLayer[] = ['back', 'front', 'limb', 'top'];
 
 export type PatternId = 'none' | 'spots' | 'stripes' | 'bands' | 'belly' | 'patches' | 'dots' | 'tiger' | 'gradient' | 'scales';
 

@@ -25,6 +25,9 @@ if (flags.actions) {
   for (const a of actions) {
     if (a.tap) await page.touchscreen.tap(a.tap[0], a.tap[1]);
     if (a.click) await page.mouse.click(a.click[0], a.click[1]);
+    if (a.hover) await page.mouse.move(a.hover[0], a.hover[1], { steps: 4 });
+    if (a.hoverSel) { try { await page.locator(a.hoverSel).first().hover({ force: true, timeout: 3000 }); logs.push('[hover] ' + a.hoverSel); } catch { logs.push('[miss] ' + a.hoverSel); } }
+    if (a.clickSel) { try { await page.locator(a.clickSel).first().click({ force: true, timeout: 3000 }); logs.push('[click] ' + a.clickSel); } catch { logs.push('[miss] ' + a.clickSel); } }
     if (a.text) {
       try { await page.getByText(a.text, { exact: !!a.exact }).first().click({ timeout: a.timeout ?? 4000, force: true }); logs.push('[click] ' + a.text); }
       catch { logs.push('[miss] ' + a.text); }

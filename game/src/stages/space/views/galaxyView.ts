@@ -8,6 +8,7 @@ import { GALAXY_R, RING_IN, RING_OUT } from '../data';
 import { blit, canvas, glow, starSprite } from '../art/sprites';
 import type { SpaceStage } from '../stage';
 import type { Star } from '../types';
+import { drawExploreBadge } from './badge';
 
 const E = GALAXY_R * 1.15;
 const PLAYER_COLOR = '#3ee6c4';
@@ -22,6 +23,9 @@ export class GalaxyView {
   private t = 0;
   private vel = { x: 0, y: 0 };
   private dragging = false;
+  /** Visited systems, mapped to whether every planet in them has been surveyed. */
+  explored = new Map<number, boolean>();
+  private exploredT = 0;
 
   constructor(private st: SpaceStage) {
     this.cam.minZoom = 0.16;
@@ -35,6 +39,7 @@ export class GalaxyView {
     if (this.cam.zoom < 0.5 || this.cam.zoom > 2.5) this.cam.zoom = 1.3;
     if (!this.glowLayer) this.buildGlow();
     this.vel.x = this.vel.y = 0;
+    this.refreshExplored();
   }
 
   focus(id: number, zoom?: number) {
@@ -126,9 +131,22 @@ export class GalaxyView {
   }
 
   // ------------------------------------------------------------------ loop
+  /** Recount visited / fully surveyed systems (cheap; runs about once a second). */
+  refreshExplored() {
+    const w = this.st.w;
+    this.explored.clear();
+    for (const id of w.s.visited) {
+      const sv = w.surveyed(id);
+      this.explored.set(id, sv.total > 0 && sv.done >= sv.total);
+    }
+    this.exploredT = 1;
+  }
+
   update(dt: number) {
     this.t += dt;
     this.terrT -= dt;
+    this.exploredT -= dt;
+    if (this.exploredT <= 0) this.refreshExplored();
     if (this.st.w.dirtyTerritory && this.terrT <= 0) { this.buildTerritory(); this.terrT = 1; }
     if (!this.dragging) {
       this.cam.x += this.vel.x * dt;
@@ -192,6 +210,7 @@ export class GalaxyView {
       g.drawImage(this.starLayer!, -E, -E, 2 * E, 2 * E);
       this.drawCore(g);
       if (z > 0.3) this.drawOverlays(g, this.visibleStars(), 2.2 * px, z);
+      else this.drawExploredDots(g, px);
     } else {
       const vis = this.visibleStars();
       const pr = clamp(1.4 + z * 2.4, 1.9, 7) * px;
@@ -346,6 +365,20 @@ export class GalaxyView {
         g.lineWidth = rr * 0.25;
         g.beginPath(); g.rect(s.x - rr * 1.5, s.y - rr * 1.5, rr * 3, rr * 3); g.stroke();
       }
+      const full = this.explored.get(s.id);
+      if (full !== undefined) {
+        const px = 1 / z, br = clamp(3.4 + z * 1.2, 3.8, 6) * px, off = rr * 1.25 + br * 0.8;
+        drawExploreBadge(g, s.x + off, s.y - off, br, full ? 'full' : 'seen');
+      }
+    }
+  }
+
+  /** Fully zoomed out: explored systems become small teal (or gold) pips. */
+  private drawExploredDots(g: CanvasRenderingContext2D, px: number) {
+    for (const [id, full] of this.explored) {
+      const s = this.st.w.star(id);
+      g.fillStyle = full ? '#ffd166' : '#3ee6c4';
+      g.beginPath(); g.arc(s.x + 5 * px, s.y - 5 * px, 2.4 * px, 0, TAU); g.fill();
     }
   }
 
@@ -377,7 +410,7 @@ export class GalaxyView {
       g.fillStyle = 'rgba(0,0,0,0.55)';
       const tw = g.measureText(name).width;
       g.fillRect(p.x - tw / 2 - 4, y - 1, tw + 8, 15);
-      g.fillStyle = id === w.s.loc ? PLAYER_COLOR : id === this.selected ? '#ffffff' : 'rgba(225,235,250,0.85)';
+      g.fillStyle = id === w.s.loc ? PLAYER_COLOR : id === this.selected ? '#ffffff' : this.explored.has(id) ? 'rgba(225,235,250,0.92)' : 'rgba(170,185,205,0.62)';
       g.fillText(name, p.x, y);
     }
   }

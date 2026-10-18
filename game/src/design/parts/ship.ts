@@ -561,7 +561,7 @@ export const SHIP_PARTS: PartDef[] = [
       const v = smoothPath([[-12, 1.5], [-8, -4], [2, -7.5], [10, -5], [14, 1.5]]);
       g.save();
       g.clip(v);
-      pilot(g, 2, -2, 0.8);
+      pilot(g, 2.5, -1.8, 0.8, c.colors.coat);
       g.restore();
       glassFill(g, v, -7.5, 1.5, '#9fd8ff');
       g.strokeStyle = 'rgba(255,255,255,0.7)';

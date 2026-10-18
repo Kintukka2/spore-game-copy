@@ -93,18 +93,32 @@ export function capsule(x0: number, x1: number, y: number, r: number): Path2D {
   return p;
 }
 
-/** A little pilot silhouette looking forward (+x), for canopies and cabs. */
-export function pilot(g: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  g.fillStyle = 'rgba(18,22,38,0.72)';
+/** A little helmeted pilot looking forward (+x), for canopies and cabs. `suit` tints the suit and helmet stripe. */
+export function pilot(g: CanvasRenderingContext2D, x: number, y: number, s: number, suit = '#e9483b') {
+  g.lineWidth = 1.1 * s;
+  g.strokeStyle = '#231f29';
+  g.fillStyle = suit;
   g.beginPath();
-  g.ellipse(x - s * 0.6, y + s * 5.6, s * 5.8, s * 3.4, 0, 0, TAU);
-  g.moveTo(x + s * 4.2, y);
-  g.ellipse(x, y, s * 4.2, s * 4.5, 0, 0, TAU);
+  g.ellipse(x - s * 0.8, y + s * 6.2, s * 5.6, s * 3.2, 0, 0, TAU);
   g.fill();
-  g.fillStyle = '#fffdf2';
+  g.stroke();
+  g.fillStyle = '#f6f3ec';
   g.beginPath();
-  g.arc(x + s * 1.5, y - s * 0.7, s * 1.15, 0, TAU);
-  g.arc(x + s * 3.4, y - s * 0.5, s * 0.9, 0, TAU);
+  g.arc(x, y, s * 4.2, 0, TAU);
+  g.fill();
+  g.stroke();
+  g.strokeStyle = suit;
+  g.lineWidth = 1.5 * s;
+  g.beginPath();
+  g.arc(x, y, s * 3.2, Math.PI * 1.15, Math.PI * 1.6);
+  g.stroke();
+  g.fillStyle = '#25304a';
+  g.beginPath();
+  g.ellipse(x + s * 1.7, y + s * 0.3, s * 2.4, s * 2.1, 0, 0, TAU);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.85)';
+  g.beginPath();
+  g.ellipse(x + s * 2.3, y - s * 0.6, s * 0.9, s * 0.55, -0.5, 0, TAU);
   g.fill();
 }
 
@@ -158,15 +172,27 @@ export function emblem(g: CanvasRenderingContext2D, x: number, y: number, s: num
   g.restore();
 }
 
+/** Centred bold text that stays readable when the design is mirrored (facing left or flipped). */
+export function uprightText(g: CanvasRenderingContext2D, txt: string, x: number, y: number, size: number) {
+  const m = g.getTransform();
+  const mirrored = m.a * m.d - m.b * m.c < 0;
+  g.font = `bold ${size.toFixed(1)}px sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  if (!mirrored) { g.fillText(txt, x, y); return; }
+  g.save();
+  g.translate(x, y);
+  g.scale(-1, 1);
+  g.fillText(txt, 0, 0);
+  g.restore();
+}
+
 /** Coin with a § mark (Sporebucks). */
 export function coin(g: CanvasRenderingContext2D, x: number, y: number, r: number, squash = 1) {
   fillShaded(g, ellipsePath(x, y, r, r * squash), '#ffd24a', { ol: '#7a4b0c', lw: 1.4, y0: y - r, y1: y + r });
   if (squash > 0.6) {
     g.fillStyle = '#b07510';
-    g.font = `bold ${(r * 1.5).toFixed(1)}px sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText('§', x, y + r * 0.08);
+    uprightText(g, '§', x, y + r * 0.08, r * 1.5);
   }
 }
 
@@ -329,16 +355,21 @@ export const VEHICLE_PARTS: PartDef[] = [
       const fx = Math.sin(ph) * 7, lift = Math.max(0, Math.cos(ph)) * 4;
       const ax = fx, ay = 22.5 - lift;
       const k = ik(0, 1, ax, ay, 13, 13, 1);
-      const legCol = c.colors.base;
-      // Shin, piston, thigh.
-      bar(g, k.x, k.y, ax, ay, 4.8, GUNMETAL);
-      bar(g, k.x * 0.4, 1 + (k.y - 1) * 0.4, k.x * 0.4 + ax * 0.6, k.y * 0.4 + ay * 0.6, 1.8, STEEL);
-      const tx = k.x, ty = k.y;
-      const thigh = smoothPath([[-5, -1], [5, 0], [tx + 3.5, ty - 1], [tx + 1, ty + 4], [tx - 3, ty + 2], [-5, 4]]);
-      fillShaded(g, thigh, legCol, { y0: -1, y1: ty + 4 });
-      fillShaded(g, circlePath(k.x, k.y, 3.8), c.colors.coat, { y0: k.y - 4, y1: k.y + 4, lw: 1.8 });
-      fillShaded(g, circlePath(0, 1, 4.6), mix(STEEL, legCol, 0.4), { y0: -4, y1: 6, lw: 1.8 });
-      rivets(g, [[0, 1]], 1.3);
+      const legCol = c.colors.coat;
+      // Piston behind, then shin, then an armoured thigh plate.
+      bar(g, k.x * 0.45, 1 + (k.y - 1) * 0.45, k.x * 0.35 + ax * 0.65, k.y * 0.35 + ay * 0.65, 2, STEEL);
+      bar(g, k.x, k.y, ax, ay, 5, GUNMETAL);
+      bar(g, 0, 1, k.x, k.y, 7.5, legCol);
+      const mx = k.x * 0.5, my = 1 + (k.y - 1) * 0.5, ang = Math.atan2(k.y - 1, k.x);
+      g.save();
+      g.translate(mx, my);
+      g.rotate(ang);
+      g.fillStyle = 'rgba(255,255,255,0.3)';
+      g.fillRect(-4.5, -3.2, 9, 1.4);
+      g.restore();
+      fillShaded(g, circlePath(k.x, k.y, 3.9), mix(STEEL, legCol, 0.25), { y0: k.y - 4, y1: k.y + 4, lw: 1.8 });
+      fillShaded(g, circlePath(0, 1, 4.8), GUNMETAL, { y0: -4, y1: 6, lw: 1.8 });
+      rivets(g, [[0, 1], [k.x, k.y]], 1.3);
       // Clawed foot.
       const foot = smoothPath([[ax - 7.5, ay + 5.5], [ax - 5, ay - 0.8], [ax + 4, ay - 0.8], [ax + 10.5, ay + 5.5]]);
       fillShaded(g, foot, GUNMETAL, { y0: ay - 1, y1: ay + 6 });
@@ -794,10 +825,7 @@ export const VEHICLE_PARTS: PartDef[] = [
       fillShaded(g, polyPath([[-14, -16.5], [14, -16.5], [14, -13.5], [-14, -13.5]]), shade(c.colors.coat, 0.2), { y0: -17, y1: -13, lw: 1.6 });
       fillShaded(g, polyPath([[-5, -11], [5, -11], [5, -4], [-5, -4]]), '#fff6dc', { lw: 1.3, y0: -11, y1: -4 });
       g.fillStyle = '#2f7a3e';
-      g.font = 'bold 7px sans-serif';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText('§', 0, -7.3);
+      uprightText(g, '§', 0, -7.3, 7);
     },
   }),
   V({
@@ -1103,7 +1131,7 @@ export const VEHICLE_PARTS: PartDef[] = [
       dome.closePath();
       g.save();
       g.clip(dome);
-      pilot(g, 0.8, -3.6 + Math.sin(c.t * 1.7) * 0.4, 0.78);
+      pilot(g, 0.6, -3.8 + Math.sin(c.t * 1.7) * 0.4, 0.82, c.colors.coat);
       g.restore();
       glassFill(g, dome, -11, 1);
       g.strokeStyle = 'rgba(255,255,255,0.75)';
@@ -1117,20 +1145,31 @@ export const VEHICLE_PARTS: PartDef[] = [
     id: 'v-cabin', name: 'Driver Cab', category: 'cockpit', tier: 1, cost: 80, snap: 'top', layer: 'top', radius: 15,
     stats: { armor: 1 }, desc: 'A sturdy cab with a wide windscreen.',
     draw(g, c) {
-      const cab = smoothPath([[-12, 1.5], [-12, -12], [-9, -14.5], [3, -14.5], [12, 1.5]]);
+      const cab = new Path2D();
+      cab.moveTo(-12, 1.5);
+      cab.lineTo(-12, -11);
+      cab.quadraticCurveTo(-12, -15, -8, -15);
+      cab.lineTo(3, -15);
+      cab.quadraticCurveTo(6, -15, 7.5, -12);
+      cab.lineTo(13, 1.5);
+      cab.closePath();
       fillShaded(g, cab, c.colors.base, { y0: -15, y1: 1.5 });
-      const win = polyPath([[-1, -12], [3, -12], [9.5, -1], [-1, -1]]);
+      // Side window with the driver, and the raked windscreen.
+      const side = polyPath([[-9.5, -12.5], [1.5, -12.5], [1.5, -3.5], [-9.5, -3.5]]);
       g.save();
-      g.clip(win);
-      pilot(g, 3.2, -6.4, 0.8);
+      g.clip(side);
+      pilot(g, -3, -7.5, 0.75, c.colors.coat);
       g.restore();
-      glassFill(g, win, -12, -1);
-      const side = polyPath([[-9.5, -12], [-4, -12], [-4, -4.5], [-9.5, -4.5]]);
-      glassFill(g, side, -12, -4.5);
-      g.strokeStyle = 'rgba(255,255,255,0.7)';
+      glassFill(g, side, -12.5, -3.5);
+      const ws = polyPath([[4, -12.5], [6, -12], [10.4, -1.8], [4, -1.8]]);
+      glassFill(g, ws, -12.5, -1.8);
+      g.fillStyle = c.colors.coat;
+      g.fillRect(-12, -1.6, 25, 2.2);
+      g.strokeStyle = 'rgba(255,255,255,0.75)';
       g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(1.5, -10); g.lineTo(4, -4); g.stroke();
-      gloss(g, -6, -13, 1.6, 0.5);
+      g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-7.5, -10.5); g.lineTo(-5, -6); g.moveTo(5.5, -10); g.lineTo(6.5, -7); g.stroke();
+      fillShaded(g, polyPath([[-6, -15], [-2, -15], [-2.5, -17.2], [-5.5, -17.2]]), '#ffb84d', { lw: 1.3, y0: -17, y1: -15 });
     },
   }),
   V({

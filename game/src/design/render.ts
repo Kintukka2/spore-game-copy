@@ -255,19 +255,6 @@ function roundRect4(p: Path2D, x: number, y: number, w: number, h: number, tl: n
   p.closePath();
 }
 
-function roundRectPath(p: Path2D, x: number, y: number, w: number, h: number, r: number) {
-  r = Math.max(0, Math.min(r, w / 2, h / 2));
-  p.moveTo(x + r, y);
-  p.lineTo(x + w - r, y);
-  p.arcTo(x + w, y, x + w, y + r, r);
-  p.lineTo(x + w, y + h - r);
-  p.arcTo(x + w, y + h, x + w - r, y + h, r);
-  p.lineTo(x + r, y + h);
-  p.arcTo(x, y + h, x, y + h - r, r);
-  p.lineTo(x, y + r);
-  p.arcTo(x, y, x + r, y, r);
-  p.closePath();
-}
 
 function drawPattern(g: CanvasRenderingContext2D, d: Design, nodes: SpineNode[], L: Layout) {
   const c = d.colors;
@@ -493,11 +480,46 @@ function decorateVehicle(g: CanvasRenderingContext2D, c: Palette, nodes: SpineNo
   g.beginPath();
   for (const n of nodes) { const x = n.x - n.r * 0.62, y = n.y - n.r * 0.6; g.moveTo(x + 1.6, y); g.ellipse(x, y, 1.6, 1, -0.4, 0, TAU); }
   g.fill();
+  // Headlight on the nose, tail light at the back, so front and back read at any size.
+  if (nodes.length > 1) {
+    const hd = nodes[nodes.length - 1], tl = nodes[0];
+    const dir = hd.x >= tl.x ? 1 : -1;
+    const lamp = (n: SpineNode, side: number, col: string, rim: string) => {
+      const x = n.x + side * n.r * 1.05, y = n.y + n.r * 0.02;
+      g.fillStyle = rim;
+      g.beginPath(); g.ellipse(x, y, 3, Math.max(2.6, n.r * 0.24), 0, 0, TAU); g.fill();
+      g.fillStyle = col;
+      g.beginPath(); g.ellipse(x, y, 2, Math.max(1.8, n.r * 0.17), 0, 0, TAU); g.fill();
+    };
+    lamp(hd, dir, '#fff6c4', shade(c.base, -0.55));
+    lamp(tl, -dir, '#ff5a4f', shade(c.base, -0.55));
+  }
 }
 
 function decorateShip(g: CanvasRenderingContext2D, c: Palette, nodes: SpineNode[]) {
   const n = nodes.length;
   const dark = shade(c.base, -0.6);
+  // Painted nose cap past the head node, with a dark seam.
+  if (n > 1) {
+    const z = nodes[n - 1], y0 = nodes[n - 2];
+    const dx = z.x - y0.x, dy = z.y - y0.y, l = Math.hypot(dx, dy) || 1;
+    const ux = dx / l, uy = dy / l;
+    const cx = z.x + ux * z.r * 0.62, cy = z.y + uy * z.r * 0.62;
+    const nose = new Path2D();
+    nose.moveTo(cx - uy * z.r * 2, cy + ux * z.r * 2);
+    nose.quadraticCurveTo(cx + ux * z.r * 0.25, cy + uy * z.r * 0.25, cx + uy * z.r * 2, cy - ux * z.r * 2);
+    nose.lineTo(cx + uy * z.r * 2 + ux * z.r * 3, cy - ux * z.r * 2 + uy * z.r * 3);
+    nose.lineTo(cx - uy * z.r * 2 + ux * z.r * 3, cy + ux * z.r * 2 + uy * z.r * 3);
+    nose.closePath();
+    g.fillStyle = rgba(c.coat, 0.92);
+    g.fill(nose);
+    g.strokeStyle = rgba(dark, 0.55);
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(cx - uy * z.r * 2, cy + ux * z.r * 2);
+    g.quadraticCurveTo(cx + ux * z.r * 0.25, cy + uy * z.r * 0.25, cx + uy * z.r * 2, cy - ux * z.r * 2);
+    g.stroke();
+  }
   // Hull plate seams across the body between nodes.
   g.strokeStyle = rgba(dark, 0.45);
   g.lineWidth = 1;

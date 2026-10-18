@@ -7,7 +7,7 @@ import { FOOD_DNA, sizeClass, type SizeClass } from './config';
 import { bodyR, bodyX, bodyY, mouthPos, type Cell } from './entities';
 import type { World } from './world';
 
-// Player attacks, per victim class (NPC hp is 6 x difficulty; giants 30).
+// Player attacks, per victim class (NPC hp is 6 x difficulty; giants 20).
 const P_BITE: Record<SizeClass, number> = { prey: 99, peer: 3, predator: 1.5, giant: 0 };
 const P_RAM: Record<SizeClass, number> = { prey: 6, peer: 3, predator: 3, giant: 2.6 };
 const P_POISON: Record<SizeClass, number> = { prey: 6, peer: 3, predator: 1.5, giant: 1.1 };

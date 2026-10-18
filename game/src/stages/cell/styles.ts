@@ -40,9 +40,18 @@ body.cell-active .toasts { top: calc(170px + var(--safe-t)); }
 .cell-card .nm { font-size: 20px; font-weight: 700; }
 .cell-card .mouth { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-dim); }
 .cell-card .ds { font-size: 13px; color: var(--ink-dim); line-height: 1.35; min-height: 52px; }
-.cell-card .go { margin-top: 4px; font-size: 15px; font-weight: 700; padding: 9px 16px; border-radius: 999px; background: rgba(255,255,255,0.14); }
+.cell-card .go { margin-top: auto; font-size: 15px; font-weight: 700; padding: 9px 16px; border-radius: 999px; background: rgba(255,255,255,0.14); }
 .cell-card.herb .go { background: linear-gradient(180deg, #6ff0a0, #1f9a54); color: #032312; }
 .cell-card.carn .go { background: linear-gradient(180deg, #ff8a80, #c22f2a); color: #2a0400; }
+@media (max-height: 560px) {
+  .cell-choice { gap: 8px; justify-content: center; overflow-y: auto; }
+  .cell-choice .title-tag, .cell-choice .sub, .cell-choice .faint { display: none; }
+  .cell-choice h1 { font-size: 22px; }
+  .cell-card { padding: 8px 10px 10px; gap: 3px; }
+  .cell-card canvas { height: 72px; }
+  .cell-card .ds { min-height: 0; font-size: 12px; }
+  .cell-card .go { padding: 7px 14px; }
+}
 .cell-caption { position: absolute; left: 0; right: 0; bottom: calc(110px + var(--safe-b)); text-align: center; font-size: 19px; font-weight: 600; color: #fff8e6; padding: 0 24px; text-shadow: 0 2px 12px rgba(0,0,0,0.8); opacity: 0; transition: opacity .8s ease; pointer-events: none !important; }
 .cell-caption.on { opacity: 1; }
 `;

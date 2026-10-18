@@ -182,6 +182,13 @@ export class CellStage implements Scene, WorldHost {
     document.body.classList.remove('cell-active');
   }
 
+  /** Back from the Cell Creator: the game restored the stage's base mood. */
+  resume() {
+    this.mood = 'cell';
+    this.dangerT = 0;
+    this.steerPtr = null;
+  }
+
   onResize(w: number, h: number) {
     this.cam.setViewport(w, h);
     this.joy?.setViewportWidth(w);
@@ -250,7 +257,6 @@ export class CellStage implements Scene, WorldHost {
     p.design = d;
     p.ab = computeAbilities(d);
     p.diet = designDiet(d);
-    const g = this.game;
     if (!announce) return;
     const ab = p.ab;
     this.hud.toast(describeAbilities(ab), '🧬', 'good', 3500);
@@ -526,6 +532,8 @@ export class CellStage implements Scene, WorldHost {
     // Bigger neighbours rise out of the blurry depths, right where you can see them.
     setTimeout(() => {
       if (this.phase === 'finale' || this.phase === 'done') return;
+      this.world.viewR = this.viewRadius();
+      this.world.refill();
       const k = this.tune.predators >= 2 ? 2 : 1;
       for (let i = 0; i < k; i++) this.world.spawnNpc('predator', { near: true, emerge: true });
       if (this.lockedParts().length) this.world.spawnShard(false);
@@ -747,6 +755,7 @@ export class CellStage implements Scene, WorldHost {
     this.growFrom = this.player.size;
     this.growTo = this.player.size * 1.7;
     this.growT = 1;
+    this.world.scatterT = 30;
     for (const c of this.world.npcs) { c.state = 'flee'; c.target = this.player; c.stateT = 12; }
     // The clock stops when you choose to evolve.
     if (!g.state?.usedCheats) {
@@ -863,8 +872,8 @@ export class CellStage implements Scene, WorldHost {
     this.hurtSfxT -= dt;
     this.hurtBlink -= dt;
 
-    // Steering
-    if (this.phase === 'play') {
+    // Steering (also while a mate swims in)
+    if (this.phase === 'play' || (this.phase === 'mate' && w.mate?.phase === 'approach')) {
       let vx: number, vy: number;
       if (this.steerPtr) {
         const s = this.cam.worldToScreen(p.x, p.y);

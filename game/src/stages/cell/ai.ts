@@ -54,6 +54,12 @@ function wantsPlayer(w: World, c: Cell): boolean {
 
 export function npcThink(w: World, c: Cell) {
   const p = w.player;
+  if (w.scatterT > 0) {
+    c.state = 'flee';
+    c.target = p;
+    c.stateT = 2;
+    return;
+  }
   const per = Math.max(c.ab.radius * c.size * 7, w.viewR * 0.55);
   const per2 = per * per;
   // --- threats

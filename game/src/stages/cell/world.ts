@@ -48,6 +48,8 @@ export class World {
   hidden = false;
   /** Opening grace period: nothing hunts the newborn player yet. */
   graceT = 25;
+  /** While > 0 every NPC scatters away from the player (finale). */
+  scatterT = 0;
   private noise: ReturnType<typeof makeNoise2D>;
   private pools: Record<Diet, Design[]>[] = [];
   private giants: Design[] = [];
@@ -181,7 +183,13 @@ export class World {
   // ------------------------------------------------------------------ spawning
 
   spawnNpc(kind: SpawnKind, opts: { x?: number; y?: number; emerge?: boolean; near?: boolean } = {}): Cell | null {
-    if (this.npcs.length >= MAX_NPCS + (kind === 'giant' ? 2 : 0)) return null;
+    if (this.npcs.length >= MAX_NPCS + (kind === 'giant' ? 2 : 0)) {
+      // Make room by retiring a leftover speck from an earlier level, if there is one.
+      const p = this.player;
+      const speck = this.npcs.find((n) => !n.dead && n.size < p.size * 0.3);
+      if (!speck) return null;
+      speck.dead = true;
+    }
     const r = this.rng;
     const S = this.S;
     const tier = this.tierFor(this.level);
@@ -211,7 +219,7 @@ export class World {
     const c = makeCell(design, ab, diet, pos.x, pos.y, size, true);
     c.giant = kind === 'giant';
     c.brood = kind === 'brood';
-    c.maxHp = c.hp = (c.giant ? 30 : 6) * this.host.tune.npcHp;
+    c.maxHp = c.hp = (c.giant ? 20 : 6) * this.host.tune.npcHp;
     c.emerge = opts.emerge ? 0 : 1;
     if (opts.near) c.calmT = 5;
     if (c.giant) c.calmT = 3;
@@ -298,6 +306,29 @@ export class World {
     };
   }
 
+  /** After a growth spurt: a fresh bloom of food and new neighbours at the new scale, around the (now wider) view. */
+  refill() {
+    const t = this.targets();
+    const p = this.player;
+    const R = this.viewR;
+    const tiny = 2.6 * this.S;
+    let plants = 0, meat = 0;
+    for (const f of this.foods) {
+      if (f.dead || f.cluster || f.r < tiny) continue;
+      if (f.kind === 'plant') plants++; else if (f.kind === 'meat') meat++;
+    }
+    const place = () => {
+      const a = this.rng.range(0, TAU), d = R * this.rng.range(0.35, 1.4);
+      return { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d };
+    };
+    for (; plants < t.plants; plants++) { const q = place(); this.spawnFood('plant', q.x, q.y, this.rng.chance(0.15)); }
+    for (; meat < t.meat; meat++) { const q = place(); this.spawnFood('meat', q.x, q.y); }
+    const q = place();
+    if (t.clusters) this.spawnCluster(q.x, q.y);
+    for (let i = 0; i < 3; i++) this.spawnNpc('prey', { near: true, emerge: true });
+    for (let i = 0; i < 2; i++) this.spawnNpc('peer', { near: true, emerge: true });
+  }
+
   /** Called on level up: the world's spawn scale follows the player. */
   setLevel(level: number) {
     const grew = level > this.level;
@@ -336,6 +367,8 @@ export class World {
     for (const c of this.npcs) {
       if (c.dead) continue;
       if (c.brood) { brood++; continue; }
+      // Leftover specks from earlier levels don't count as real prey.
+      if (c.size < p.size * 0.3) continue;
       const k = this.classOf(c);
       if (k === 'prey') prey++; else if (k === 'peer') peer++; else if (k === 'predator') pred++; else giant++;
     }
@@ -449,6 +482,7 @@ export class World {
   update(dt: number) {
     this.t += dt;
     this.giantCd -= dt;
+    this.scatterT -= dt;
     this.wrongT -= dt;
     const p = this.player;
     // Contact list for this frame

@@ -289,6 +289,20 @@ export function silhouetteSprite(d: Design, tint: string): CellSprite {
   return s;
 }
 
+const shadowCache = new WeakMap<Design, CellSprite>();
+/** Soft dark silhouette used as a drop shadow (low resolution, so it blurs when scaled). */
+export function shadowSprite(d: Design): CellSprite {
+  let s = shadowCache.get(d);
+  if (s) return s;
+  s = bake(d, 0.5);
+  const g = s.img.getContext('2d')!;
+  g.globalCompositeOperation = 'source-in';
+  g.fillStyle = '#000814';
+  g.fillRect(0, 0, s.img.width, s.img.height);
+  shadowCache.set(d, s);
+  return s;
+}
+
 /** Draw a cached cell sprite at world position with rotation and size (world units per design unit). */
 export function drawCellSprite(g: CanvasRenderingContext2D, s: CellSprite, x: number, y: number, angle: number, size: number, alpha = 1) {
   const k = size / s.ppu;

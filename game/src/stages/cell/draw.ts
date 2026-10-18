@@ -4,7 +4,7 @@ import { renderCell, type Pose } from '../../design/render';
 import { clamp, TAU } from '../../engine/math';
 import { bodyR, bodyX, bodyY, type Cell, type Food, type Shard } from './entities';
 import type { World } from './world';
-import { cellSprite, drawCellSprite, FOOD_HALF, FOOD_R, foodArt, glowSprite, silhouetteSprite } from './sprites';
+import { cellSprite, drawCellSprite, FOOD_HALF, FOOD_R, foodArt, glowSprite, shadowSprite, silhouetteSprite } from './sprites';
 
 /** LOD settings; the stage switches to cheaper values if the frame rate stays low. */
 export const drawCfg = { fullPx: 30, fullMax: 14 };
@@ -135,6 +135,12 @@ export function drawNpcs(g: CanvasRenderingContext2D, w: World, cam: Camera) {
     const c = visible[i];
     if (c.ab.length * c.size * cam.zoom >= drawCfg.fullPx) { fullSet.add(c); budget--; }
   }
+  // Soft drop shadows (light comes from the surface, top-left) for the cells drawn in detail.
+  for (const c of visible) {
+    if (!fullSet.has(c) || c.emerge < 0.4) continue;
+    const off = Math.max(3 / cam.zoom, bodyR(c) * 0.2);
+    drawCellSprite(g, shadowSprite(c.design), c.x + off * 0.6, c.y + off, c.angle, c.size * 1.04, 0.2 * c.emerge);
+  }
   for (const c of visible) {
     const em = c.emerge;
     const size = c.size * (0.86 + 0.14 * em);
@@ -220,6 +226,8 @@ function drawGrowl(g: CanvasRenderingContext2D, x: number, y: number, s: number,
 /** The player (and the mate) with a soft glow so they stand out. */
 export function drawPlayerCell(g: CanvasRenderingContext2D, c: Cell, alpha: number, glow: string, sizeMul = 1) {
   const r = bodyR(c) * sizeMul;
+  const off = r * 0.22;
+  drawCellSprite(g, shadowSprite(c.design), c.x + off * 0.6, c.y + off, c.angle, c.size * sizeMul * 1.04, 0.24 * alpha);
   g.globalCompositeOperation = 'lighter';
   g.globalAlpha = 0.28 * alpha;
   g.drawImage(glowSprite(glow), bodyX(c) - r * 2.4, bodyY(c) - r * 2.4, r * 4.8, r * 4.8);

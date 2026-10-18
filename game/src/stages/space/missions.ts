@@ -27,7 +27,7 @@ function pushTutorial(w: World, i: number) {
   const home = w.gal.homeStar;
   const p2 = w.planet(home, 2).name;
   w.s.missions = w.s.missions.filter((m) => m.kind !== 'tutorial');
-  w.s.missions.unshift({ id: w.nid(), kind: 'tutorial', giver: 'home', step: t.step, title: t.title, desc: t.desc.replace('{p}', p2), reward: t.reward, deadline: 0, main: true, star: home, planet: t.step === 'helm' || t.step === 'jump' ? undefined : 2, progress: 0 });
+  w.s.missions.unshift({ id: w.nid(), kind: 'tutorial', giver: 'home', step: t.step, title: t.title, desc: t.desc.replace('{p}', p2), reward: t.reward, deadline: 0, main: true, star: t.step === 'jump' ? undefined : home, planet: t.step === 'helm' || t.step === 'jump' ? undefined : 2, progress: 0 });
   if (t.step === 'colony') w.give('colonypack', 1);
 }
 

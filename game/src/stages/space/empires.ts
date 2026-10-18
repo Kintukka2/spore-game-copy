@@ -329,7 +329,7 @@ export function empireTick(w: World, e: Empire, dt: number) {
   // Expansion
   e.expandT -= dt;
   if (e.expandT <= 0) {
-    e.expandT = (90 + Math.random() * 90) / PERSONALITY[e.arch].expand;
+    e.expandT = (200 + Math.random() * 200) / PERSONALITY[e.arch].expand;
     expand(w, e);
   }
   // Moods: tribute, war, gifts, alliance upkeep
@@ -342,7 +342,7 @@ export function empireTick(w: World, e: Empire, dt: number) {
 
 function expand(w: World, e: Empire) {
   const mine = w.starsOf(e.id);
-  if (mine.length === 0 || mine.length >= 22) return;
+  if (mine.length === 0 || mine.length >= 16) return;
   const homeS = w.star(e.home);
   let best: Star | null = null, bd = Infinity;
   for (const sid of mine) {

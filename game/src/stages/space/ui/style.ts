@@ -1,6 +1,6 @@
 // Space-stage CSS, injected once. Builds on the design tokens in styles.css.
 const CSS = `
-body.sp-active .toasts { top:calc(166px + var(--safe-t)); z-index:35; }
+body.sp-active .toasts { top:calc(180px + var(--safe-t)); z-index:35; }
 body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b)); }
 .sp-top { position:absolute; left:0; right:0; top:0; padding:calc(8px + var(--safe-t)) calc(10px + var(--safe-r)) 0 calc(10px + var(--safe-l)); display:flex; flex-direction:column; gap:6px; pointer-events:none; }
 .sp-top > * { pointer-events:auto; }
@@ -12,11 +12,11 @@ body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b
 .sp-bars { display:flex; gap:6px; }
 .sp-bars .bar { flex:1; height:20px; min-width:0; }
 .bar.energy .bar-fill { background:linear-gradient(90deg,#2a7fd9,#5cc8ff); }
-.sp-track { display:flex; gap:8px; align-items:center; background:rgba(4,10,22,.62); border:1px solid var(--line); border-radius:12px; padding:6px 10px; font-size:13px; color:var(--ink-dim); min-height:34px; cursor:pointer; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+.sp-track { display:flex; gap:8px; align-items:center; background:rgba(4,10,22,.62); border:1px solid var(--line); border-radius:12px; padding:6px 10px; font-size:13px; color:var(--ink-dim); min-height:44px; cursor:pointer; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
 .sp-track b { color:var(--ink); font-weight:600; white-space:nowrap; }
 .sp-track .sp-tdesc { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
 .sp-alerts { display:flex; gap:6px; flex-wrap:wrap; }
-.sp-alert { display:inline-flex; gap:6px; align-items:center; background:rgba(120,10,16,.75); border:1px solid rgba(255,90,90,.8); color:#fff; border-radius:999px; padding:0 12px; font-size:13px; font-weight:600; min-height:34px; cursor:pointer; animation: spPulse 1.2s ease-in-out infinite; }
+.sp-alert { display:inline-flex; gap:6px; align-items:center; background:rgba(120,10,16,.75); border:1px solid rgba(255,90,90,.8); color:#fff; border-radius:999px; padding:0 14px; font-size:13px; font-weight:600; min-height:44px; cursor:pointer; animation: spPulse 1.2s ease-in-out infinite; }
 .sp-alert.eco { background:rgba(20,80,30,.8); border-color:rgba(120,240,140,.8); }
 @keyframes spPulse { 50% { box-shadow:0 0 0 4px rgba(255,80,80,.18); } }
 .sp-bl { position:absolute; left:calc(10px + var(--safe-l)); bottom:calc(14px + var(--safe-b)); display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
@@ -100,8 +100,9 @@ body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b
 .sp-offer { background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.4); border-radius:14px; padding:10px; font-size:13px; color:var(--ink-dim); display:flex; flex-direction:column; gap:8px; }
 .sp-offer b { color:var(--ink); font-size:15px; }
 .sp-debug { position:absolute; left:calc(10px + var(--safe-l)); top:calc(170px + var(--safe-t)); display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
-.sp-debug .btn { min-height:36px; font-size:12px; padding:6px 10px; background:rgba(120,40,140,.7); }
+.sp-debug .btn { min-height:44px; font-size:12px; padding:6px 10px; background:rgba(120,40,140,.7); }
 .sp-mini { font-size:12px; color:var(--ink-faint); }
+.sp-sheet .btn.small, .sp-panel .btn.small, .sp-card .btn.small, .sp-hud-btn { min-height:44px; min-width:44px; }
 .sp-cine { position:absolute; inset:0; pointer-events:auto; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding:0 16px calc(36px + var(--safe-b)); }
 .sp-say { width:min(460px,100%); background:rgba(255,250,235,.95); color:#2a2010; border-radius:22px; padding:16px 18px; font-size:17px; line-height:1.4; box-shadow:0 10px 50px rgba(255,220,150,.35); position:relative; min-height:86px; }
 .sp-say .sp-who { position:absolute; top:-12px; left:18px; background:#ffd166; color:#3a2400; font-weight:700; font-size:13px; border-radius:999px; padding:2px 12px; }
@@ -112,6 +113,32 @@ body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b
 .sp-credits-roll h3 { color:#ffd166; margin:28px 0 6px; font-size:14px; letter-spacing:.2em; text-transform:uppercase; }
 .sp-credits-roll p { margin:4px 0; color:var(--ink-dim); font-size:15px; }
 @keyframes spRoll { to { transform:translateY(calc(-100% - 100dvh)); } }
+
+@media (max-height: 560px) and (min-aspect-ratio: 5/4) {
+  .sp-top { right:auto; width:min(560px, 62vw); }
+  .sp-side { top:calc(8px + var(--safe-t)); flex-direction:row; }
+  .sp-card { left:auto; width:min(400px, 46vw); right:calc(86px + var(--safe-r)); bottom:calc(10px + var(--safe-b)); max-height:calc(100dvh - 70px); }
+  .sp-debug { top:calc(196px + var(--safe-t)); }
+  body.sp-active .toasts { left:auto; right:calc(12px + var(--safe-r)); transform:none; width:min(36vw, 360px); top:calc(64px + var(--safe-t)); }
+  .sp-panel { display:grid; grid-template-columns:minmax(220px, 40%) 1fr; grid-template-rows:auto auto 1fr; }
+  .sp-panel-head { grid-column:1 / 3; }
+  .sp-globe { grid-column:1; grid-row:2 / 4; height:auto; min-height:0; }
+  .sp-globe canvas { width:min(100%, 70dvh); height:auto; }
+  .sp-panel > .sp-tabs { grid-column:2; grid-row:2; }
+  .sp-panel-body { grid-column:2; grid-row:3; }
+  .sp-sheet { max-height:94dvh; }
+}
+
+@media (min-width: 900px) {
+  .sp-top { right:auto; width:min(640px, 60vw); }
+  .sp-card { left:auto; width:420px; right:calc(96px + var(--safe-r)); }
+  .sp-panel { display:grid; grid-template-columns:minmax(320px, 42%) minmax(0, 720px); grid-template-rows:auto auto 1fr; justify-content:center; }
+  .sp-panel-head { grid-column:1 / 3; }
+  .sp-globe { grid-column:1; grid-row:2 / 4; height:auto; min-height:0; align-items:flex-start; padding-top:30px; }
+  .sp-globe canvas { width:min(100%, 60dvh); height:auto; }
+  .sp-panel > .sp-tabs { grid-column:2; grid-row:2; }
+  .sp-panel-body { grid-column:2; grid-row:3; }
+}
 `;
 
 let injected = false;

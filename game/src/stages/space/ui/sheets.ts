@@ -247,6 +247,7 @@ export function openComm(st: SpaceStage, e: Empire) {
       if (err) { st.ui.toast(err, '🤝'); audio.sfx('error'); return; }
       formAlliance(w, e);
       audio.sfx('levelup');
+      if (st.mode === 'system') st.sv.combat.spawnAlly(e.ship, e.id, 260 * strength(w, e), st.sv.combat.crafts.filter((c) => c.kind === 'ally').length);
       st.ui.toast(`${e.name} are now your allies! Their ships will escort you.`, '🤝', 'gold');
       st.sv.refreshHostility();
       render();

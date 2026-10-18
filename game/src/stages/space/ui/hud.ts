@@ -117,7 +117,9 @@ export class SpaceHud {
     }
     if (this.power) items.push(this.power.el);
     for (const el of items) this.abil.append(el);
-    this.abil.style.gridTemplateColumns = items.length > 1 ? 'repeat(2, 64px)' : '64px';
+    // Short screens (landscape phones) lay the cluster out in one row.
+    const cols = st.game.h < 560 ? items.length : Math.min(2, items.length);
+    this.abil.style.gridTemplateColumns = `repeat(${Math.max(1, cols)}, 64px)`;
     this.side.style.display = st.mode === 'galaxy' ? '' : 'none';
     this.last.abil = '';
   }

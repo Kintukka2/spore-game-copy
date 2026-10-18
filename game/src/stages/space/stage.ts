@@ -166,7 +166,7 @@ export class SpaceStage implements Scene, WorldHooks {
     else this.sv.render(g, W, H);
   }
 
-  onResize() { this.hud?.refresh(true); }
+  onResize() { this.hud?.refresh(true); this.hud?.layoutAbilities(); }
 
   // ------------------------------------------------------------------ input
   onTap(x: number, y: number) {
@@ -448,6 +448,7 @@ export class SpaceStage implements Scene, WorldHooks {
   }
 
   usePower() {
+    if (this.mode === 'warp' || this.dead) return;
     const w = this.w;
     const arch = w.arch;
     const pw = arch?.power;

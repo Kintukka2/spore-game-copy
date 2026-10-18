@@ -291,6 +291,11 @@ export class PlanetPanel {
         w.addMoney(-price); w.s.hp = w.maxHp; w.s.energy = w.maxEnergy; audio.sfx('heal'); this.render();
       }));
     }
+    const pw = w.arch?.power;
+    if (pw && ['raidercall', 'gravcollapse', 'fervor', 'arkbeam', 'handshake', 'serenade'].includes(pw.id) && (e || pw.id === 'arkbeam' && pl.life)) {
+      const cd = w.s.powerCd;
+      acts.append(button(cd > 0 ? `${pw.icon} ${pw.name} (${Math.ceil(cd)}s)` : `${pw.icon} ${pw.name}`, () => { this.st.usePower(); this.render(); }, { cls: 'gold', disabled: cd > 0 }));
+    }
     if (w.count('recharge') > 0 && w.s.energy < w.maxEnergy) acts.append(button(`⚡ Energy Pack (${w.count('recharge')})`, () => { this.st.useEnergyPack(); this.render(); }));
     B.append(acts);
     this.genesisButton(acts);

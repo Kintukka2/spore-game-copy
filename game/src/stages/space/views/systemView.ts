@@ -13,10 +13,12 @@ import { Combat, type Craft } from '../combat';
 import { strength } from '../empires';
 import { tutorialEvent } from '../missions';
 import type { Planet } from '../types';
+import type { Design } from '../../../design/types';
 import type { SpaceStage } from '../stage';
 
 interface Beacon { a: number; taken: boolean }
 interface FloatText { x: number; y: number; text: string; color: string; life: number }
+interface Traffic { design: Design; x: number; y: number; vx: number; vy: number; angle: number; to: number; engine: string; size: number }
 
 export class SystemView {
   cam = new Camera();
@@ -33,6 +35,7 @@ export class SystemView {
   private trailT = 0;
   private danger = false;
   private floats: FloatText[] = [];
+  private traffic: Traffic[] = [];
   private looks = new Map<number, PlanetLook>();
   private lookT = 0;
   private radius = 1500;
@@ -87,6 +90,7 @@ export class SystemView {
       for (let i = 0; i < 3; i++) this.beacons.push({ a: (i * TAU) / 3 + 0.4, taken: false });
     }
     this.spawnForSystem(how);
+    this.spawnTraffic();
     this.danger = false;
     this.updateMusic();
   }
@@ -134,6 +138,46 @@ export class SystemView {
     }
   }
 
+  /** Peaceful ships shuttling between the worlds of an owned system. */
+  private spawnTraffic() {
+    this.traffic = [];
+    const w = this.st.w;
+    const owner = w.ownerOf(this.star);
+    if (!owner || owner === 'hollow' || this.planets.length < 2) return;
+    const e = owner !== 'player' ? w.emap.get(owner) : null;
+    if (e && e.war) return;
+    const design = e ? e.ship : this.st.shipDesign;
+    const n = Math.min(4, 1 + Math.floor(this.planets.length / 2));
+    for (let i = 0; i < n; i++) {
+      const from = this.planets[Math.floor(Math.random() * this.planets.length)];
+      const pp = this.planetPos(from.idx);
+      const a = Math.random() * TAU;
+      this.traffic.push({ design, x: pp.x + Math.cos(a) * (from.size + 40), y: pp.y + Math.sin(a) * (from.size + 40), vx: 0, vy: 0, angle: a, to: Math.floor(Math.random() * this.planets.length), engine: e ? e.color : '#7fd8ff', size: 0.34 });
+    }
+  }
+
+  private updateTraffic(dt: number) {
+    for (const tr of this.traffic) {
+      const pp = this.planetPos(tr.to);
+      const dx = pp.x - tr.x, dy = pp.y - tr.y, d = Math.hypot(dx, dy);
+      if (d < this.planetSize(tr.to) + 30) {
+        tr.to = Math.floor(Math.random() * this.planets.length);
+        continue;
+      }
+      const sp = 150;
+      const k = 1 - Math.exp(-1.5 * dt);
+      tr.vx += ((dx / d) * sp - tr.vx) * k;
+      tr.vy += ((dy / d) * sp - tr.vy) * k;
+      tr.x += tr.vx * dt;
+      tr.y += tr.vy * dt;
+      tr.angle += wrapAngle(Math.atan2(tr.vy, tr.vx) - tr.angle) * Math.min(1, dt * 3);
+      if (Math.random() < dt * 14) {
+        const back = tr.angle + Math.PI;
+        this.st.fx.spawn(tr.x + Math.cos(back) * 12, tr.y + Math.sin(back) * 12, Math.cos(back) * 30, Math.sin(back) * 30, 0.4, 3, tr.engine, 0, 2);
+      }
+    }
+  }
+
   spawnTurretsFor(empireId: string) {
     const w = this.st.w;
     for (const p of this.planets) {
@@ -166,6 +210,7 @@ export class SystemView {
     const owner = w.ownerOf(this.star);
     const e = owner && owner !== 'player' ? w.emap.get(owner) : null;
     if (e && (!e.war || e.serenade > 0)) this.combat.pacify(e.id);
+    if (e && e.war) this.traffic = [];
     if (e && e.war && e.serenade <= 0 && !this.combat.crafts.some((c) => c.empire === e.id && c.alive)) {
       const a = Math.random() * TAU;
       this.combat.spawnEmpire(e.id, 2, this.ship.x + Math.cos(a) * 650, this.ship.y + Math.sin(a) * 650);
@@ -284,6 +329,7 @@ export class SystemView {
     }
     // Combat
     if (!this.st.paused) this.combat.update(dt);
+    this.updateTraffic(dt);
     w.inCombat = this.combat.hasHostiles();
     this.updateMusic();
     // Beacons
@@ -397,6 +443,8 @@ export class SystemView {
     this.drawLabels(g, z);
     // Shots
     this.drawShots(g, z);
+    // Peaceful traffic
+    for (const tr of this.traffic) if (cam.isVisible(tr.x, tr.y, 40)) drawShip(g, tr.design, tr.x, tr.y, tr.angle, tr.size, this.t, { thrust: 0.6, engine: tr.engine });
     // Crafts
     const tgt = this.combat.playerTarget;
     for (const c of this.combat.crafts) {
@@ -678,7 +726,7 @@ export class SystemView {
   }
 
   private drawOffscreen(g: CanvasRenderingContext2D, W: number, H: number) {
-    const marks: { x: number; y: number; color: string }[] = [];
+    const marks: { x: number; y: number; color: string }[] = [{ x: 0, y: 0, color: 'rgba(255,236,170,0.75)' }];
     for (const c of this.combat.crafts) if (c.team === 1 && c.alive && c.kind !== 'turret') marks.push({ x: c.x, y: c.y, color: '#ff5a5a' });
     if (this.beacons.length) {
       const hp = this.planetPos(1);

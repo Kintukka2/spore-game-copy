@@ -91,7 +91,7 @@ export class AI {
       if (g && wdist(v.x, v.y, g.x, g.y) < 1200) { S.sim.setOrder(v, { k: 'geyser', g: g.id }); return; }
     }
     // Wars with other nations.
-    if (n.waveT >= 45 && n.type !== 'economic' && fighters.length >= 2) {
+    if (n.waveT >= 70 && n.type !== 'economic' && fighters.length >= 3) {
       const foes = S.nations.filter((o) => o.id !== PLAYER && o.id !== n.id && o.alive && n.relAI[o.id] <= -50);
       if (foes.length) {
         const foe = foes[Math.floor(Math.random() * foes.length)];

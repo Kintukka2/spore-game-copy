@@ -1,7 +1,7 @@
 // DOM HUD for the Civilization stage: top chips, bottom command bar, contextual panel,
 // sheets (build, powers, nations), ability targeting banner and the debug panel.
 import { audio } from '../../engine/audio';
-import { button, h } from '../../engine/ui';
+import { button, h, ui } from '../../engine/ui';
 import { ABILITIES } from '../../game/cards';
 import { createStageHud, type StageHud } from '../common';
 import { injectCivStyles } from './styles';
@@ -283,6 +283,13 @@ export class Hud {
     add('✈️', (v) => v.medium === 'air');
     if (new Set(mine.map((v) => v.role)).size > 1) for (const r of ['military', 'religious', 'economic'] as const) add(ROLE_ICON[r], (v) => v.role === r);
     add('💤 Idle', (v) => v.order.k === 'idle');
+    const refund = vs.reduce((a, v) => a + S.sim.cost(v.medium, v.role) * 0.5, 0);
+    filt.append(button(`♻️ Scrap +${fmtMoney(refund)}`, async () => {
+      S.hold('confirm', true);
+      const ok = await ui.confirm('Scrap vehicles?', `Scrap ${vs.length} vehicle${vs.length === 1 ? '' : 's'} for ${fmtMoney(refund)}? This frees room to build others.`, 'Scrap', 'Keep');
+      S.hold('confirm', false);
+      if (ok) S.sim.scrap(vs.map((v) => v.id));
+    }, { cls: 'cbtn' }));
     el.append(head, filt);
   }
 

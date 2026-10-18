@@ -105,7 +105,7 @@ export class CivStage implements Scene {
       playerType: this.playerType, playerName: `${st.speciesName} ${{ religious: 'Covenant', economic: 'Company', military: 'Legion' }[this.playerType]}`,
       homeName, nNations: game.diff(3, 4, 5),
       attitude: game.diff({ friendly: 0.5, neutral: 0.4, hostile: 0.1 }, { friendly: 0.3, neutral: 0.45, hostile: 0.25 }, { friendly: 0.15, neutral: 0.4, hostile: 0.45 }),
-      aiTurrets: game.diff(-1, 0, 1),
+      aiTurrets: game.diff(-1, 0, 1), ensureHostile: game.difficulty !== 'easy',
     });
     this.cities = wi.cities;
     this.nations = wi.nations;

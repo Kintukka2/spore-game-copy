@@ -50,7 +50,7 @@ export function nationArt(seed: number, n: Nation): NationArt {
 
 export function generateWorld(t: Terrain, seed: number, o: {
   playerType: NationType; playerName: string; homeName?: string; nNations: number;
-  attitude: { friendly: number; neutral: number; hostile: number }; aiTurrets: number;
+  attitude: { friendly: number; neutral: number; hostile: number }; aiTurrets: number; ensureHostile?: boolean;
 }): WorldInit {
   const r = new RNG(seed);
   // ---------------------------------------------------------------- city sites
@@ -123,10 +123,16 @@ export function generateWorld(t: Terrain, seed: number, o: {
   for (let i = 0; i < K; i++) {
     const type = nTypes[i];
     const roll = r.next();
-    let att = roll < friendly ? r.range(30, 45) : roll < friendly + neutral ? r.range(-12, 12) : r.range(-50, -36);
+    let att = roll < friendly ? r.range(30, 45) : roll < friendly + neutral ? r.range(-12, 12) : r.range(-60, -46);
     if (type === o.playerType) att += 12;
     if (type === 'military') att -= 8;
     nations.push(mkNation(i + 1, `${speciesName(r)} ${r.pick(suffix)}`, type, colors[i % colors.length], Math.round(att)));
+  }
+  // Guarantee one warlike rival (it declares war as you grow) on normal and hard.
+  if (o.ensureHostile && !nations.some((n) => n.id !== PLAYER && n.type !== 'economic' && n.attitude <= -46)) {
+    const pool = nations.filter((n) => n.id !== PLAYER && n.type !== 'economic');
+    const n = pool.find((q) => q.type === 'military') ?? pool[0];
+    if (n) n.attitude = n.rel = -56;
   }
   // Guarantee one approachable nation.
   if (!nations.some((n) => n.id !== PLAYER && n.attitude >= 15)) {

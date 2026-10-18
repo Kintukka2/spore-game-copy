@@ -14,6 +14,7 @@ export class Diplomacy {
   private tensionT = 30;
   private offerT = 0;
   private offered = new Set<string>();
+  private atWar = new Set<number>();
 
   constructor(private S: CivStage) {}
 
@@ -121,6 +122,16 @@ export class Diplomacy {
         n.rel += clamp(t - n.rel, -1, 1) * dt * 0.35;
       }
       if (n.allied && n.rel < 30) { n.allied = false; S.toast(`The ${n.name} broke off your alliance.`, '💔', 'bad'); S.hud.dirty = true; }
+      // Announce declarations of war (relations souring, not just a skirmish).
+      const war = n.rel <= -60 && !n.allied && n.goodwill <= 0 && n.truce <= 0;
+      if (war && !this.atWar.has(n.id)) {
+        this.atWar.add(n.id);
+        if (n.hostileT > 20 && S.time > 20) {
+          S.toast(`The ${n.name} declares war on you!`, '⚔️', 'bad', 4000);
+          audio.sfx('horn');
+          S.hud.dirty = true;
+        }
+      } else if (!war && n.rel > -50) this.atWar.delete(n.id);
     }
     // Trade routes close when relations sour.
     for (const c of S.cities) {

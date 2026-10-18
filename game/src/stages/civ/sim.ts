@@ -912,6 +912,29 @@ export class Sim {
     return null;
   }
 
+  /** Player scraps vehicles for half their price. */
+  scrap(ids: number[]) {
+    const S = this.S;
+    let total = 0;
+    for (const id of ids) {
+      const v = this.vehicle(id);
+      if (!v || v.nation !== PLAYER) continue;
+      total += this.cost(v.medium, v.role) * 0.5;
+      S.fx.burst(PK.Smoke, v.x, v.y, 6, 30, { life: 0.9, size: 8, grow: 10, color: '#d9d4c8' });
+      S.fx.burst(PK.Coin, v.x, v.y - 10, 4, 40, { vz: 120, life: 1, size: 3 });
+      S.selected.delete(v.id);
+      S.vehicleMap.delete(v.id);
+      const i = S.vehicles.indexOf(v);
+      if (i >= 0) S.vehicles.splice(i, 1);
+    }
+    if (total > 0) {
+      S.money += total;
+      S.game.audio.sfx('coin');
+      S.toast(`Scrapped for ${'§' + Math.round(total).toLocaleString('en-US')}.`, '♻️', 'good');
+      S.hud.dirty = true;
+    }
+  }
+
   cost(medium: Medium, role: NationType): number {
     return Math.round(vehicleStats(this.S.vehicleDesign(PLAYER, medium, role), medium, role).cost / 50) * 50;
   }

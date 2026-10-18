@@ -4,7 +4,7 @@ import { Camera } from '../../../engine/camera';
 import { TAU, clamp } from '../../../engine/math';
 import type { PointerInfo } from '../../../engine/input';
 import { hexToRgb } from '../../../design/color';
-import { GALAXY_R, RING_IN, RING_OUT, STAR_INFO } from '../data';
+import { GALAXY_R, RING_IN, RING_OUT } from '../data';
 import { blit, canvas, glow, starSprite } from '../art/sprites';
 import type { SpaceStage } from '../stage';
 import type { Star } from '../types';

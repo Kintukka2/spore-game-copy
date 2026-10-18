@@ -3,9 +3,9 @@
 import type { Game, Scene } from '../../game/game';
 import type { PointerInfo } from '../../engine/input';
 import { audio, type Mood } from '../../engine/audio';
-import { h, ui } from '../../engine/ui';
+import { ui } from '../../engine/ui';
 import { RNG } from '../../engine/rng';
-import { TAU, fmt } from '../../engine/math';
+import { TAU } from '../../engine/math';
 import { openEditor } from '../../editor/editor';
 import { cloneDesign, generateShip } from '../../design/generate';
 import { shade } from '../../design/color';
@@ -53,6 +53,9 @@ export class SpaceStage implements Scene, WorldHooks {
   halted = false;
   cinematic = false;
   private dialogChain: Promise<unknown> = Promise.resolve();
+  /** False once the stage has exited (guards delayed callbacks). */
+  private alive = true;
+  private later(ms: number, f: () => void) { setTimeout(() => { if (this.alive) f(); }, ms); }
   private dead = false;
   ui = {
     toast: (msg: string, icon?: string, kind?: 'info' | 'good' | 'bad' | 'gold') => ui.toast(msg, { icon, kind: kind ?? 'info', ms: kind === 'bad' || kind === 'gold' ? 3800 : 2800 }),
@@ -79,6 +82,7 @@ export class SpaceStage implements Scene, WorldHooks {
   }
 
   exit() {
+    this.alive = false;
     document.body.classList.remove('sp-active', 'sp-panel-open');
     closeAllSheets();
     this.panel?.close();
@@ -135,7 +139,7 @@ export class SpaceStage implements Scene, WorldHooks {
     if (!restored) {
       this.game.banner('Stage 5', 'Space');
       this.game.history('Launched into space', '🚀');
-      setTimeout(() => this.game.hint('space-start', 'Drag anywhere to fly. Tap a planet to visit it, or tap empty space to move there.', '🚀'), 3500);
+      this.later(3500, () => this.game.hint('space-start', 'Drag anywhere to fly. Tap a planet to visit it, or tap empty space to move there.', '🚀'));
     } else {
       this.ui.toast(`Welcome back, Captain of the ${s.speciesName}.`, '🚀');
     }
@@ -413,7 +417,7 @@ export class SpaceStage implements Scene, WorldHooks {
   eventEnded() { this.hud.refresh(true); }
   rankUp(rank: number) {
     const r = RANKS[rank];
-    if (rank >= 2) this.game.banner('Promoted', r.name);
+    if (rank >= 1) this.game.banner('Promoted', r.name);
     audio.sfx('levelup');
     const unlocked = TOOLS.filter((t) => t.rank === rank && !t.special).length;
     if (unlocked) this.ui.toast(`${unlocked} new tools unlocked in your shop.`, '🧰', 'gold');
@@ -575,7 +579,7 @@ export class SpaceStage implements Scene, WorldHooks {
     this.fx.screenFlash('#ffffff', 0.7);
     audio.sfx('explode');
     audio.sfx('die');
-    setTimeout(() => {
+    this.later(1400, () => {
       this.game.fade(() => {
         for (const c of Object.keys(w.s.spice) as (keyof typeof w.s.spice)[]) w.s.spice[c] = 0;
         w.s.hp = w.maxHp;
@@ -589,7 +593,7 @@ export class SpaceStage implements Scene, WorldHooks {
         this.dead = false;
         this.ui.toast('Your ship was destroyed. A new one launches from home. The spice in your hold is lost.', '💥', 'bad');
       }, 600);
-    }, 1400);
+    });
   }
 
   // ------------------------------------------------------------------ the core
@@ -614,7 +618,7 @@ export class SpaceStage implements Scene, WorldHooks {
       this.arrive(w.gal.homeStar, 'gate', true);
       this.game.banner('The journey continues', 'Genesis');
       audio.music('space');
-      setTimeout(() => this.ui.toast('The Genesis Seed is in your terraform tools. Open any planet to use it.', '🌱', 'gold'), 2000);
+      this.later(2000, () => this.ui.toast('The Genesis Seed is in your terraform tools. Open any planet to use it.', '🌱', 'gold'));
       this.game.save();
     });
   }
@@ -677,7 +681,7 @@ export class SpaceStage implements Scene, WorldHooks {
         this.panel?.close();
         closeAllSheets();
         this.arrive(inner.id, 'gate');
-        setTimeout(() => { this.showGalaxy(w.gal.coreId); this.selectStar(w.gal.coreId); }, 600);
+        this.later(600, () => { this.showGalaxy(w.gal.coreId); this.selectStar(w.gal.coreId); });
         break;
       }
     }

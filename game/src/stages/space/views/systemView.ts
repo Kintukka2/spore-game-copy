@@ -4,7 +4,6 @@ import { Camera } from '../../../engine/camera';
 import { TAU, clamp, wrapAngle } from '../../../engine/math';
 import type { PointerInfo } from '../../../engine/input';
 import { audio } from '../../../engine/audio';
-import { hexToRgb } from '../../../design/color';
 import { STAR_INFO, tScoreOf } from '../data';
 import { blit, glow, starSprite } from '../art/sprites';
 import { drawPlanet, sphereFor, styleFor, type PlanetLook } from '../art/planetArt';
@@ -37,7 +36,6 @@ export class SystemView {
   private floats: FloatText[] = [];
   private traffic: Traffic[] = [];
   private looks = new Map<number, PlanetLook>();
-  private lookT = 0;
   private radius = 1500;
   private hue = 220;
   nearPlanet: number | null = null;

@@ -9,7 +9,7 @@ import { generateCreature } from '../../design/generate';
 import { speciesName } from '../../game/names';
 import type { Design, Stats } from '../../design/types';
 import { Galaxy } from './galaxy';
-import { BADGES, DRIVE_RANGE, ECO_ROW, PERK_DISCOUNT, RANKS, SPICE_COLORS, TOOL_MAP, TOOLS, tScoreOf, type SpiceColor, type ToolDef } from './data';
+import { BADGES, DRIVE_RANGE, ECO_ROW, PERK_DISCOUNT, RANKS, SPICE_COLORS, TOOL_MAP, TOOLS, tScoreOf, type ToolDef } from './data';
 import type { Empire, GEvent, Mission, Planet, PlanetState, SpaceSave, Specimen, Star } from './types';
 import { createEmpires, empireTick, relation } from './empires';
 import { colonyTick, ecoDriftTick, routeTick } from './economy';

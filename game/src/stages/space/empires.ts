@@ -7,7 +7,7 @@ import { hsl, shade } from '../../design/color';
 import { empireName } from '../../game/names';
 import type { Palette } from '../../design/types';
 import { AI_ARCHES, PERSONALITY, SPICE_COLORS, STANCES, type AiArch, type SpiceColor, type StanceId } from './data';
-import type { Empire, RelMod, Star } from './types';
+import type { Empire, Star } from './types';
 import type { World } from './world';
 
 const PATTERNS: Palette['pattern'][] = ['bands', 'stripes', 'none', 'gradient', 'dots'];

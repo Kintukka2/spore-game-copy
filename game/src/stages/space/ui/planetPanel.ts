@@ -272,7 +272,8 @@ export class PlanetPanel {
     if (pl.feature === 'ruin') info.append(h('span', null, 'Signal'), h('b', { style: 'color:#ffd166' }, ps.scanned ? 'Ancient ruins (scanned)' : 'Ancient ruins. Scan them.'));
     B.append(info);
     const acts = h('div', { class: 'sp-tools' });
-    acts.append(button(ps.scanned ? '🔍 Scanned' : '🔍 Scan', () => this.scan(), { cls: ps.scanned ? '' : 'primary', disabled: !!ps.scanned && !w.s.missions.some((m) => m.kind === 'scan' && m.star === this.star && m.planet === this.idx) }));
+    const wanted = w.s.missions.some((m) => (m.kind === 'scan' || (m.kind === 'tutorial' && m.step === 'scan')) && m.star === this.star && m.planet === this.idx);
+    acts.append(button(ps.scanned && !wanted ? '🔍 Scanned' : '🔍 Scan', () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary', disabled: !!ps.scanned && !wanted }));
     if (pl.kind !== 'gas') {
       const cc = canColonize(w, this.star, this.idx);
       if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
@@ -347,11 +348,11 @@ export class PlanetPanel {
     this.scanT = 1.2;
     audio.sfx('zap', { pitch: 1.5 });
     onScan(w, this.star, this.idx);
+    if (this.pl.feature === 'wreck' && this.star === w.gal.homeStar) tutorialEvent(w, 'scan');
     if (first && this.pl.feature === 'wreck') {
       const reward = 15000;
       w.addMoney(reward);
       this.st.ui.toast(`Scanned the wreck: salvaged data worth ${money(reward)}.`, '🛰️', 'good');
-      if (this.star === w.gal.homeStar) tutorialEvent(w, 'scan');
     } else if (first && this.pl.feature === 'ruin') {
       const gifts = ['stormpod', 'meteor', 'icecomet', 'droughtpod', 'repair', 'recharge'];
       const g = gifts[Math.floor(Math.random() * gifts.length)];
@@ -365,7 +366,6 @@ export class PlanetPanel {
   }
 
   private shopHere(): boolean {
-    const w = this.w;
     const o = this.ps.owner;
     if (o === 'player') return true;
     const e = this.owner();

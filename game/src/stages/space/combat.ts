@@ -4,7 +4,7 @@ import { TAU, clamp, wrapAngle } from '../../engine/math';
 import { audio } from '../../engine/audio';
 import { generateShip } from '../../design/generate';
 import type { Design } from '../../design/types';
-import { aggression, annexSystem, removeMod, addMod, strength } from './empires';
+import { aggression, annexSystem, addMod, strength } from './empires';
 import { onPiratesCleared } from './missions';
 import { resolve as resolveEvent } from './events';
 import type { SpaceStage } from './stage';

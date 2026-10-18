@@ -1,6 +1,6 @@
 // Space-stage CSS, injected once. Builds on the design tokens in styles.css.
 const CSS = `
-body.sp-active .toasts { top:calc(180px + var(--safe-t)); z-index:35; }
+body.sp-active .toasts { top:calc(180px + var(--safe-t)); z-index:28; }
 body.sp-active.sp-panel-open .toasts { top:auto; bottom:calc(14px + var(--safe-b)); }
 .sp-top { position:absolute; left:0; right:0; top:0; padding:calc(8px + var(--safe-t)) calc(10px + var(--safe-r)) 0 calc(10px + var(--safe-l)); display:flex; flex-direction:column; gap:6px; pointer-events:none; }
 .sp-top > * { pointer-events:auto; }

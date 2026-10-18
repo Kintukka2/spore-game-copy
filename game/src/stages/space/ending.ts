@@ -38,7 +38,6 @@ class CoreCinematic implements Scene {
   private oriT = 0;
   private gift = -1;
   private finished = false;
-  private seedPos = { x: 0, y: 0 };
 
   constructor(private st: SpaceStage, private done: () => void) {}
 
@@ -85,10 +84,11 @@ class CoreCinematic implements Scene {
     const wrap = h('div', { class: 'sp-cine' }, this.sayEl);
     wrap.addEventListener('click', () => this.advance());
     this.layer.prepend(wrap);
-    setTimeout(() => this.nextLine(), 900);
+    setTimeout(() => { if (!this.finished) this.nextLine(); }, 900);
   }
 
   private nextLine() {
+    if (this.phase !== 'ori' || this.finished) return;
     this.line++;
     this.typed = 0;
     if (this.line === 3) {
@@ -145,6 +145,7 @@ class CoreCinematic implements Scene {
   }
 
   private skipAll() {
+    if (this.phase === 'dive') this.startOri();
     if (this.phase !== 'credits') { this.startCredits(); return; }
     this.finish();
   }
@@ -229,7 +230,6 @@ class CoreCinematic implements Scene {
       const sx = ox + 70 * sc, sy = oy + 40 * sc;
       const tx = W / 2, ty = H * 0.62;
       const x = sx + (tx - sx) * gk, y = sy + (ty - sy) * gk - Math.sin(gk * Math.PI) * 60;
-      this.seedPos = { x, y };
       g.globalCompositeOperation = 'lighter';
       blit(g, glow('#7bd389', 48), x, y, 40 + Math.sin(this.t * 6) * 6);
       for (let i = 0; i < 6; i++) { const a = this.t * 3 + (i * TAU) / 6; blit(g, glow('#ffffff', 16), x + Math.cos(a) * 26, y + Math.sin(a) * 26, 6); }

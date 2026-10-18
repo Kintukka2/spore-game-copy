@@ -1,7 +1,6 @@
 // Unit simulation: creation, steering and integration, the player-member brain, combat,
 // gathering, healing and projectiles.
 import { audio } from '../../engine/audio';
-import { ui } from '../../engine/ui';
 import { clamp, dist } from '../../engine/math';
 import { computeStats } from '../../design/registry';
 import { layoutDesign, type Layout } from '../../design/render';
@@ -265,7 +264,6 @@ function endFight(st: TribalStage, u: Unit) {
   if (u.resume) { u.order = u.resume; u.resume = null; }
   else u.order = { type: 'idle' };
   u.think = 0;
-  void st;
 }
 
 // ------------------------------------------------------------------ combat
@@ -327,7 +325,6 @@ export function attackStep(st: TribalStage, u: Unit, t: Unit, dt: number) {
       if (u.wild === 'titan') st.fx.shake = Math.max(st.fx.shake, 5);
     }
   }
-  void dt;
 }
 
 export function throwSpear(st: TribalStage, u: Unit, tx: number, ty: number, target: number, dmg: number) {
@@ -552,6 +549,13 @@ function idleStep(st: TribalStage, u: Unit) {
     }
   }
   if (st.isNight > 0.5 && dist(u, H.fire) < 140 && !u.action && Math.random() < 0.006) act(u, 'dance', 1.6);
+  // A little village life: idle members chat now and then.
+  if (!u.bubble && Math.random() < 0.0015) {
+    const night = st.isNight > 0.5;
+    const pool = night ? ['💤', '🔥', '🌙', '🎵'] : st.food < 15 ? ['🍎', '😟', '🍖'] : ['💬', '🎵', '😄', '🍖', '❓', '👋'];
+    u.bubble = pool[Math.floor(Math.random() * pool.length)];
+    u.bubbleT = 1.8;
+  }
 }
 
 function babyBrain(st: TribalStage, u: Unit, dt: number) {

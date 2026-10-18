@@ -153,7 +153,7 @@ export class Concert {
     this.hits++;
     this.combo++;
     // Later tribes are harder to impress: a typical band needs two or three concerts.
-    const base = (100 / this.notes.length) * 0.7 * (1 - 0.08 * this.tribe.rank);
+    const base = (100 / this.notes.length) * 0.76 * (1 - 0.08 * this.tribe.rank);
     const gain = base * this.mult(inst) * (perfect ? 1 : 0.6) * (1 + Math.min(0.3, this.combo * 0.03));
     this.adjust(gain);
     this.tribe.relation = Math.min(100, this.tribe.relation + 1.5);
@@ -343,6 +343,5 @@ export class Concert {
       g.fillText(this.judge.text, x0 + 70, L.y + 20);
     }
     g.restore();
-    void w; void hh;
   }
 }

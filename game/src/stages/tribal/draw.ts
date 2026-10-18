@@ -3,7 +3,7 @@
 import { renderDesign, type Pose } from '../../design/render';
 import { clamp, easeOutBack, lerp } from '../../engine/math';
 import { hexToRgb, mix, shade } from '../../design/color';
-import { PLAYER, WILD, WORLD, relationFace, type ResourceNode, type Tribe, type Unit } from './types';
+import { PLAYER, WORLD, relationFace, type ResourceNode, type Tribe, type Unit } from './types';
 import type { Design } from '../../design/types';
 import type { TribalStage } from './stage';
 import { TERRAIN_SCALE, coastY } from './world';
@@ -380,7 +380,6 @@ function drawFruitTree(st: TribalStage, g: CanvasRenderingContext2D, n: Resource
     g.beginPath(); g.arc(x - 1.2, y - 1.2, 1.1, 0, Math.PI * 2); g.fill();
   }
   if (n.boost > 0 && Math.sin(t * 4 + n.id) > 0.6) drawIcon(g, '✨', n.x + 18, n.y - 70, 14);
-  void st;
 }
 
 function drawFoodNode(g: CanvasRenderingContext2D, n: ResourceNode, t: number) {
@@ -783,5 +782,4 @@ function drawIndicators(st: TribalStage, g: CanvasRenderingContext2D, w: number,
     g.lineWidth = 6;
     g.strokeRect(3, 3, w - 6, hh - 6);
   }
-  void WILD;
 }

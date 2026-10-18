@@ -6,7 +6,6 @@ import type { PointerInfo } from '../../engine/input';
 import { Camera } from '../../engine/camera';
 import { audio, type Mood } from '../../engine/audio';
 import { ui, h } from '../../engine/ui';
-import { RNG } from '../../engine/rng';
 import { clamp, dist } from '../../engine/math';
 import { abilitiesFor, type CardColor } from '../../game/cards';
 import { computeStats, designDiet } from '../../design/registry';
@@ -56,7 +55,12 @@ export type Pick =
 
 export class TribalStage implements Scene {
   name = 'tribal';
-  music: Mood = 'tribal';
+  /** Current mood; read by the core when this scene becomes active again (e.g. after the Outfitter). */
+  get music(): Mood {
+    if (this.concert) return 'none';
+    if (this.dangerOn) return 'danger';
+    return this.tribes.length && this.resolved >= NUM_TRIBES ? 'victory' : 'tribal';
+  }
   game!: Game;
   cam = new Camera();
   w!: WorldGen;
@@ -168,7 +172,6 @@ export class TribalStage implements Scene {
   pause() { this.paused = true; }
   resume() {
     this.paused = false;
-    if (this.dangerOn) audio.music('danger');
   }
   onResize(w: number, hh: number) {
     this.cam.setViewport(w, hh);
@@ -1051,7 +1054,6 @@ export class TribalStage implements Scene {
     const dest = o.toPlayer ? { x: this.home.pile.x, y: this.home.pile.y + 16 } : this.tribeDoor(t);
     u.gx = dest.x; u.gy = dest.y; u.gs = 1;
     if (dist(u, dest) < 14) this.deliverGift(u, o.toPlayer, o.tribe, o.amount);
-    void dt;
   }
 
   private updateNodes(dt: number) {
@@ -1259,7 +1261,6 @@ export class TribalStage implements Scene {
   }
 
   private timedHints() {
-    const g = this.game;
     if (this.time > 25) this.hint('food-econ', 'Food is your currency: buy members 🥚, build tool huts 🛖, send gifts 🎁 and dress your tribe 👕.', '🍎');
     if (this.time > 55) this.hint('rivals', 'Four rival tribes live nearby. Tap their badges on the right to visit them.', '🗺️');
     if (this.time > 90 && this.toolHuts.every((t) => !t)) this.hint('build', 'Build a tool hut 🛖: instruments win tribes over, weapons and torches defeat them.', '🛖');

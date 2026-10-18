@@ -1,7 +1,7 @@
 // Static world generation: coast, river, villages, forests, fruit trees, fishing spots, herds,
 // and a pre-baked terrain canvas (drawn once, blitted every frame).
 import { RNG, makeNoise2D } from '../../engine/rng';
-import { clamp, dist, distToSegment, lerp, smoothstep } from '../../engine/math';
+import { clamp, distToSegment, lerp, smoothstep } from '../../engine/math';
 import { WORLD, type HomeLayout } from './types';
 
 export interface TreeDeco { x: number; y: number; v: number; s: number }
@@ -462,6 +462,5 @@ export function bakeTerrain(w: WorldGen): HTMLCanvasElement {
     g.arc(w.home.x + Math.cos(a) * d * 1.1, w.home.y + Math.sin(a) * d * 0.9, r.range(1, 2.6), 0, Math.PI * 2);
     g.fill();
   }
-  void dist;
   return cv;
 }

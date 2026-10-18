@@ -267,17 +267,17 @@ export class World {
     const clear = (x: number, y: number) => keep.every((k) => (k.p.x - x) ** 2 + (k.p.y - y) ** 2 > k.d * k.d);
     const lo = this.cx - this.R * 1.15, hi = this.cx + this.R * 1.15;
     // Trees.
-    for (let y = lo; y < hi; y += 62) {
-      for (let x = lo; x < hi; x += 62) {
-        const px = x + r.range(-26, 26), py = y + r.range(-26, 26);
+    for (let y = lo; y < hi; y += 56) {
+      for (let x = lo; x < hi; x += 56) {
+        const px = x + r.range(-24, 24), py = y + r.range(-24, 24);
         const t = this.typeAt(px, py);
         const hh = this.hAt(px, py);
         const m = this.mAt(px, py);
         let p = 0;
         let kind = 0;
         if (t === T_GRASS) {
-          const forest = smoothstep(0.55, 0.75, m);
-          p = 0.035 + forest * 0.62;
+          const forest = smoothstep(0.47, 0.64, m);
+          p = 0.06 + forest * 0.66;
           kind = hh > 0.42 && r.chance(0.6) ? 4 + r.int(0, 1) : r.int(0, 3);
           if (hh < 0.09) p *= 0.3;
         } else if (t === T_SAND && hh > 0.012) {
@@ -296,13 +296,13 @@ export class World {
     }
     // Bushes with fruit.
     let bid = 0;
-    for (let y = lo; y < hi; y += 88) {
-      for (let x = lo; x < hi; x += 88) {
-        const px = x + r.range(-36, 36), py = y + r.range(-36, 36);
+    for (let y = lo; y < hi; y += 80) {
+      for (let x = lo; x < hi; x += 80) {
+        const px = x + r.range(-32, 32), py = y + r.range(-32, 32);
         const t = this.typeAt(px, py);
         if (t !== T_GRASS) continue;
         const m = this.mAt(px, py);
-        const p = 0.13 + smoothstep(0.45, 0.7, m) * 0.14;
+        const p = 0.17 + smoothstep(0.4, 0.62, m) * 0.18;
         if (!r.chance(p) || !clear(px, py)) continue;
         this.addBush(r, px, py, bid++);
       }
@@ -318,7 +318,7 @@ export class World {
       for (let x = lo; x < hi; x += 104) {
         const px = x + r.range(-44, 44), py = y + r.range(-44, 44);
         const t = this.typeAt(px, py);
-        const p = t === T_ROCK ? 0.34 : t === T_GRASS ? 0.045 : t === T_SAND ? 0.05 : 0;
+        const p = t === T_ROCK ? 0.42 : t === T_GRASS ? (this.hAt(px, py) > 0.4 ? 0.16 : 0.07) : t === T_SAND ? 0.07 : 0;
         if (!p || !r.chance(p) || !clear(px, py)) continue;
         const s = t === T_SAND ? r.range(0.45, 0.8) : r.range(0.6, 1.45);
         const rock: Rock = { x: px, y: py, kind: r.int(0, 5), s, r: 15 * s };

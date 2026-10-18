@@ -151,7 +151,7 @@ export class Events {
       const k = easeInOutCubic(clamp(u.t / 2.6, 0, 1));
       u.x = lerp(u.fromX, c.x, k);
       u.y = lerp(u.fromY, c.y, k);
-      u.z = lerp(260, 170, k);
+      u.z = lerp(260, 135, k);
       if (u.t >= 2.6) { u.state = 'hover'; u.t = 0; }
     } else if (u.state === 'hover') {
       if (!c || c.gone) { u.state = 'out'; u.t = 0; return; }

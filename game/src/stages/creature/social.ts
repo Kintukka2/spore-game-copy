@@ -9,7 +9,7 @@ import type { Critter } from './types';
 import { AB_ACTION, SOCIAL_ABS, type SocialAb } from './config';
 import { critterHeight } from './species';
 import { setAction } from './combat';
-import { drawBubble, roundRect } from './sprites';
+import { drawBubble, drawEmoji, roundRect } from './sprites';
 
 export class Social {
   target: Critter | null = null;
@@ -183,39 +183,50 @@ export class Social {
     }
     const c = this.target;
     if (!c) return;
-    // The wanted action floats over the target; the meter sits above the player, clear of the HUD.
+    // The wanted action floats over the target; the meter sits just below both creatures' feet.
     const top = cam.worldToScreen(c.x, c.y - critterHeight(c) - c.z);
     drawBubble(g, ABILITY_INFO[this.want].icon, top.x, top.y - 6, 1.15 + this.pulse * 0.2, '#fffbe8');
-    const pt = cam.worldToScreen(S.player.x, S.player.y - critterHeight(S.player) - S.player.z);
-    const x = clamp((pt.x + top.x) / 2, 100, cam.w - 100);
-    const y = clamp(Math.min(pt.y, top.y) - 66, 215, cam.h - 330);
+    const pf = cam.worldToScreen(S.player.x, S.player.y), tf = cam.worldToScreen(c.x, c.y);
+    const portrait = cam.h >= cam.w;
+    const x = clamp((pf.x + tf.x) / 2, 100, cam.w - (portrait ? 100 : 260));
+    const y = clamp(Math.max(pf.y, tf.y) + 22, 200, cam.h - (portrait ? 330 : 80));
     const W = 170, H = 16;
-    drawBubble(g, ABILITY_INFO[this.want].icon, x, y - 4, 1 + this.pulse * 0.15, '#fffbe8');
     g.font = '700 11px Fredoka, system-ui, sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     // Meter.
     const my = y + 8;
     g.fillStyle = 'rgba(8,18,32,0.85)';
-    roundRect(g, x - W / 2 - 4, my - 4, W + 8, H + 22, 10);
+    roundRect(g, x - W / 2 - 6, my - 10, W + 12, H + 30, 12);
     g.fill();
-    const half = W / 2 - 2;
+    // Two tracks racing outward from the badge in the middle.
+    const br = 15 + this.pulse * 3;
+    const gap = 18;
+    const half = W / 2 - gap;
     const mine = clamp(this.mine / this.need, 0, 1), theirs = clamp(this.their, 0, 1);
     g.fillStyle = 'rgba(255,255,255,0.12)';
-    roundRect(g, x - W / 2, my, W, H, 7);
-    g.fill();
-    const gm = g.createLinearGradient(x - half, 0, x, 0);
-    gm.addColorStop(0, '#7dffd8'); gm.addColorStop(1, '#1fb894');
-    g.fillStyle = gm;
-    roundRect(g, x - 2 - half * mine, my + 1, half * mine, H - 2, 6);
-    g.fill();
-    const gt = g.createLinearGradient(x, 0, x + half, 0);
-    gt.addColorStop(0, '#ff9f43'); gt.addColorStop(1, '#ff5d5d');
-    g.fillStyle = gt;
-    roundRect(g, x + 2, my + 1, half * theirs, H - 2, 6);
-    g.fill();
-    g.fillStyle = '#ffffff';
-    g.fillRect(x - 1, my - 2, 2, H + 4);
+    roundRect(g, x - W / 2, my, half, H, 7); g.fill();
+    roundRect(g, x + gap, my, half, H, 7); g.fill();
+    if (mine > 0) {
+      const gm = g.createLinearGradient(x - gap - half, 0, x - gap, 0);
+      gm.addColorStop(0, '#7dffd8'); gm.addColorStop(1, '#1fb894');
+      g.fillStyle = gm;
+      roundRect(g, x - gap - half * mine, my + 1, half * mine, H - 2, 6);
+      g.fill();
+    }
+    if (theirs > 0) {
+      const gt = g.createLinearGradient(x + gap, 0, x + gap + half, 0);
+      gt.addColorStop(0, '#ff9f43'); gt.addColorStop(1, '#ff5d5d');
+      g.fillStyle = gt;
+      roundRect(g, x + gap, my + 1, half * theirs, H - 2, 6);
+      g.fill();
+    }
+    // Wanted action badge in the middle of the tug-of-war.
+    g.fillStyle = '#fffbe8';
+    g.strokeStyle = 'rgba(30,40,60,0.9)';
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(x, my + H / 2, br, 0, Math.PI * 2); g.fill(); g.stroke();
+    drawEmoji(g, ABILITY_INFO[this.want].icon, x, my + H / 2 + 1, 18);
     g.fillStyle = '#d9fff3';
     g.fillText('You', x - W / 4, my + H + 9);
     g.fillStyle = '#ffd9c2';

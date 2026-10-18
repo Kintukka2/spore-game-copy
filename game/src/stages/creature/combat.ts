@@ -26,8 +26,9 @@ export interface HitOpts { stun?: number; knock?: number; quiet?: boolean; color
 export function damage(S: CreatureStage, t: Critter, amt: number, src: Critter | null, o: HitOpts = {}) {
   if (t.gone || t.dead || t.hp <= 0 || t.state === 'ascend' || t.state === 'abducted') return;
   if (t === S.player) {
-    if (S.invuln > 0 || !S.playerAlive) return;
-    amt *= S.game.diff(0.7, 1, 1.3);
+    if (S.invuln > 0 || !S.playerAlive || S.phase !== 'play') return;
+    // Difficulty, plus a little mercy after repeated deaths.
+    amt *= S.game.diff(0.7, 1, 1.3) * (1 - Math.min(0.3, (S.counts.deaths ?? 0) * 0.08));
   }
   amt = Math.max(0.5, amt);
   t.hp -= amt;
@@ -104,12 +105,12 @@ export function npcAttack(S: CreatureStage, c: Critter, t: Critter) {
 
 export function titanStomp(S: CreatureStage, c: Critter) {
   setAction(c, 'strike', 0.7);
-  const dmg = S.game.diff(32, 45, 60);
+  // A Titan kills in a couple of hits whatever your size (damage() applies the difficulty scale).
   const reach = c.r * 0.9 + 70;
   const hits: Critter[] = [S.player, ...S.pack];
   for (const o of hits) {
     if (o.gone || o.z > 30) continue;
-    if (d2(o, c) < reach + o.r) damage(S, o, dmg, c, { stun: 0.6, knock: 260 });
+    if (d2(o, c) < reach + o.r) damage(S, o, Math.max(20, o.maxHp * 0.42), c, { stun: 0.6, knock: 260 });
   }
   audio.sfx('hit', { pitch: 0.5, vol: 1 });
   audio.sfx('explode', { pitch: 1.8, vol: 0.4 });

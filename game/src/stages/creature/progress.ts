@@ -100,12 +100,14 @@ function makeAllied(S: CreatureStage, sp: Species, last: Critter) {
   audio.sfx('levelup');
   S.game.banner('New allies', sp.name);
   S.game.history(`Allied with the ${sp.name}`, '💚');
+  let spoke = false;
   for (const o of S.critters) {
     if (o.gone || o.sp !== sp) continue;
     o.befriended = true;
     o.aggro = 0; o.target = null;
     o.state = 'cheer'; o.st = 0;
     S.say(o, '💚', 2.5);
+    if (!spoke && o !== last && o.near) { S.speak(o, 'Friends!', 2.2); spoke = true; }
   }
   if (S.pack.length < S.packSlots()) S.recruit(last, true);
   else if (S.packSlots() > 0) S.hud.flashTip('Your pack is full — dismiss a member to recruit.', 2.4);
@@ -208,7 +210,7 @@ export function eatEgg(S: CreatureStage, sp: Species) {
 
 // ------------------------------------------------------------------ migrations
 export function startMigration(S: CreatureStage) {
-  if (S.migrating || S.phase === 'done' || S.phase === 'final' || S.migration >= 2) return;
+  if (!S.active || S.migrating || S.phase === 'done' || S.phase === 'final' || S.migration >= 2) return;
   if (S.phase !== 'play') { setTimeout(() => startMigration(S), 3000); return; }
   S.migrating = true;
   const k = S.migration;
@@ -218,6 +220,7 @@ export function startMigration(S: CreatureStage) {
   S.activateGroup(k + 1);
   if (k === 0) S.spawnHunters();
   audio.sfx('horn');
+  for (const c of S.critters) if (c.role === 'kin' && c.near) { S.speak(c, 'This way!', 2.5); break; }
   S.game.banner(k === 0 ? 'Your kin are restless' : 'Time to move on', 'Migration!');
   S.game.history(k === 0 ? 'Began the first migration' : 'Began the second migration', '🧭');
   S.hint('cr-migrate', 'Your nest-mates are moving to a new home. Follow the arrow to the new nest. New species live nearby!', '🧭');

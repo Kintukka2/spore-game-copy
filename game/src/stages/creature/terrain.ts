@@ -26,7 +26,7 @@ const C: Record<string, RGB> = {
   shal0: [44, 150, 186], shal1: [112, 212, 206],
   wet: [208, 184, 122], sand0: [236, 212, 148], sand1: [247, 231, 174],
   grassLo: [160, 210, 96], meadow: [122, 196, 72], lush: [88, 170, 60], forest: [62, 140, 54],
-  high: [138, 166, 96], rock: [160, 158, 146],
+  high: [128, 172, 92], rock: [164, 160, 146],
 };
 const mixc = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 

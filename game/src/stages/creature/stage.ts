@@ -85,6 +85,8 @@ export class CreatureStage implements Scene {
   invuln = 0;
   phase: 'intro' | 'landfall' | 'play' | 'cine' | 'final' | 'done' = 'intro';
   paused = false;
+  /** False once the scene has exited (guards delayed callbacks). */
+  active = true;
   migration = 0;
   migrating = false;
   sapientReady = false;
@@ -172,6 +174,7 @@ export class CreatureStage implements Scene {
   }
 
   exit() {
+    this.active = false;
     this.hud?.destroy();
     this.ctrl?.reset();
   }
@@ -1297,6 +1300,7 @@ export class CreatureStage implements Scene {
     audio.sfx('charm');
     if (m) this.fx.burst('emoji', (p.x + m.x) / 2, (p.y + m.y) / 2, 8, { emoji: '💗', size: 18, speed: 60, up: 100, life: 1.2, z: 30 });
     await new Promise((r) => setTimeout(r, 900));
+    if (!this.active) return;
     const res = await openEditor(this.game, this.editorConfig('Creature Creator', 'Hatch 🥚', 'Changes apply to your whole species. Parts dug from bone piles appear unlocked.'));
     if (res) {
       this.dna = Math.max(0, this.dna - res.spent);

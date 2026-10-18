@@ -244,8 +244,11 @@ function drawSorted(S: CreatureStage, g: CanvasRenderingContext2D, wind: number)
   for (const p of S.projectiles) push(p.y, K_PROJ, p);
   list.sort(byY);
   const p = S.player;
-  const ph = critterHeight(p);
+  const tg = S.social.target ?? (S.target && !S.target.gone ? S.target : null);
   const trees = treeSprites(), bushes = bushSprites(), rocks = rockSprites();
+  /** Is critter c standing behind tree t's canopy? */
+  const hidden = (c: Critter | null, t: Tree, spr: { crownTop: number; crownBottom: number; crownR: number }) =>
+    !!c && c.y < t.y && c.y > t.y + spr.crownTop * t.s - 10 && Math.abs(c.x - t.x) < spr.crownR * t.s + c.r && c.y - critterHeight(c) - c.z < t.y + spr.crownBottom * t.s;
   for (const it of list) {
     switch (it.k) {
       case K_TREE: {
@@ -253,9 +256,8 @@ function drawSorted(S: CreatureStage, g: CanvasRenderingContext2D, wind: number)
         const spr = trees[t.kind];
         drawShadow(g, t.x + 12 * t.s, t.y + 2, (spr.crownR * 2.1) * t.s, 26 * t.s);
         blit(g, spr.trunk, t.x, t.y, t.s);
-        // Fade canopies that hide the player.
-        const behind = p.y < t.y && p.y > t.y + spr.crownTop * t.s - 10 && Math.abs(p.x - t.x) < spr.crownR * t.s + p.r && p.y - ph < t.y + spr.crownBottom * t.s;
-        if (behind) g.globalAlpha = 0.42;
+        // Fade canopies that hide the player or their target.
+        if (hidden(p, t, spr) || hidden(tg, t, spr)) g.globalAlpha = 0.42;
         const sway = Math.sin(S.t * 1.3 + t.ph) * 2.4 * t.s * wind;
         blit(g, spr.crown, t.x, t.y, t.s, sway);
         g.globalAlpha = 1;
@@ -440,8 +442,9 @@ function drawOverlays(S: CreatureStage, g: CanvasRenderingContext2D, w: number, 
     if (!cam.isVisible(c.x, c.y - hh / 2, hh)) continue;
     const top = cam.worldToScreen(c.x, c.y - hh);
     let y = top.y - 6;
-    const isT = c === S.target;
-    if ((isT || c.hpShow > 0) && c !== S.player && c.state !== 'ascend') {
+    const inSocial = S.social.target === c;
+    const isT = c === S.target && !inSocial;
+    if ((isT || c.hpShow > 0) && !inSocial && c !== S.player && c.state !== 'ascend') {
       const bw = Math.max(40, Math.min(90, c.r * cam.zoom * 1.5)), bh = 6;
       const f = clamp(c.hp / c.maxHp, 0, 1);
       g.fillStyle = 'rgba(8,16,26,0.8)';
@@ -495,7 +498,10 @@ function drawIndicators(S: CreatureStage, g: CanvasRenderingContext2D, w: number
   if (mt) marks.push({ x: mt.x, y: mt.y, icon: '🏡', col: '#ffe48a' });
   if (S.callT > 0 || S.mate) marks.push({ x: S.homeNest.x, y: S.homeNest.y, icon: '💕', col: '#ff9ec7' });
   if (S.target && !S.target.gone) marks.push({ x: S.target.x, y: S.target.y - 20, icon: '🎯', col: '#ffffff' });
-  const x0 = 30, x1 = w - 30, y0 = 175, y1 = h - 290;
+  // Keep arrows inside the playfield, clear of the HUD columns (portrait) or the right cluster (landscape).
+  const portrait = h >= w;
+  const x0 = 30, x1 = portrait ? w - 30 : w - 230;
+  const y0 = portrait ? 175 : 120, y1 = portrait ? h - 290 : h - 40;
   for (const m of marks) {
     const s = cam.worldToScreen(m.x, m.y);
     if (s.x > 0 && s.x < w && s.y > 60 && s.y < h - 10) continue;

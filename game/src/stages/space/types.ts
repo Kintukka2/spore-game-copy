@@ -90,6 +90,8 @@ export interface PlanetState {
   def?: number;
   cityHp?: number;
   scanned?: boolean;
+  /** The player has landed and flown over the surface. */
+  landed?: boolean;
   /** Native species already abducted (by index) / scanned. */
   taken?: number;
   destroyed?: boolean;

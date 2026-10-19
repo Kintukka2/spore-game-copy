@@ -28,6 +28,8 @@ import { annexSystem, breakLaw, meet } from './empires';
 import { checkMainMissions, onArrive, tutorialEvent } from './missions';
 import { collectSystem } from './economy';
 import { catalogue, splice } from './xenolab';
+import { SurfaceScene } from './surface/scene';
+import { landingBlock } from './surface/look';
 import { start as startEvent } from './events';
 import { playEnding } from './ending';
 
@@ -122,6 +124,16 @@ export class SpaceStage implements Scene, WorldHooks {
       this.game.state!.designs.ship = this.shipDesign;
     }
     if (first) this.begin(false);
+  }
+
+  /** Fly down to a planet's surface (a pushed scene; the galaxy waits in orbit). */
+  land(star: number, idx: number) {
+    const w = this.w;
+    const err = landingBlock(w.planet(star, idx), w.peekPS(star, idx), !!w.star(star).hollow);
+    if (err) { this.ui.toast(err, '🛬'); audio.sfx('error'); return; }
+    closeAllSheets();
+    audio.sfx('warp', { pitch: 0.8, vol: 0.6 });
+    void this.game.fade(() => this.game.push(new SurfaceScene(this, star, idx)), 450);
   }
 
   /** Gene Splicer: fuse two cargo specimens, let the player name and tweak the hybrid, then store it. */

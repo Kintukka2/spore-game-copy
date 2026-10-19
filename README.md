@@ -14,7 +14,7 @@ cd game && npm install && npm run dev   # then open the printed URL on your phon
 | 🦎 Creature | Island with 10 species nests, a socialize rhythm and combat, Titans, bone piles, migrations, and a pack of up to 3 |
 | 🔥 Tribal | Mini-RTS: food economy, 9 tool types, a tribal outfitter, rhythm concerts or raids against 4 rival tribes |
 | 🏙️ Civilization | Planet RTS: spice geysers, a city planner with adjacency, military/religious/economic capture, and superweapons |
-| 🚀 Space | About 840 stars, 14–18 AI empires, the Hollow, terraforming, colonies, a spice market, missions, ranks, and the trip to the core |
+| 🚀 Space | About 840 stars, 14–18 AI empires, the Hollow, landing on planets to hunt for life, terraforming, colonies, a spice market, the Xeno-Lab, missions, ranks, and the trip to the core |
 
 See [`game/docs/DESIGN.md`](game/docs/DESIGN.md) and [`game/docs/ARCHITECTURE.md`](game/docs/ARCHITECTURE.md).
 

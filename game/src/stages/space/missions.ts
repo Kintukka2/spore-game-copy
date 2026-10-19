@@ -11,7 +11,7 @@ import type { World } from './world';
 export const TUTORIAL: { step: string; title: string; desc: string; reward: number }[] = [
   { step: 'helm', title: 'Take the helm', desc: 'Drag anywhere to fly. Pass through the 3 glowing beacons around your homeworld.', reward: 5000 },
   { step: 'scan', title: 'Survey the wreck', desc: 'A strange wreck lies on {p}. Tap the planet, then Scan it.', reward: 10000 },
-  { step: 'abduct', title: 'Collect a specimen', desc: 'Open {p}\'s Life tab and beam up one of its creatures.', reward: 8000 },
+  { step: 'abduct', title: 'Collect a specimen', desc: 'Land on {p} (🛬 Land), find one of its creatures and beam it up.', reward: 8000 },
   { step: 'jump', title: 'The first jump', desc: 'Open the galaxy map (🌌), tap a nearby star and travel there.', reward: 12000 },
   { step: 'colony', title: 'Plant a flag', desc: 'Use your free Colony Pack to settle a planet that has spice. {p} is a fine choice.', reward: 25000 },
 ];

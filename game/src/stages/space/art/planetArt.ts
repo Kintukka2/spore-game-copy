@@ -46,7 +46,7 @@ export function atmColor(l: PlanetLook): string {
 
 type RGB = [number, number, number];
 const lerp3 = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-function hslRgb(h: number, s: number, l: number): RGB {
+export function hslRgb(h: number, s: number, l: number): RGB {
   h = ((h % 360) + 360) % 360;
   const k = (n: number) => (n + h / 30) % 12;
   const a = s * Math.min(l, 1 - l);

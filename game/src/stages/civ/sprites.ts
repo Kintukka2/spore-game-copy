@@ -448,18 +448,20 @@ export function hutSprite(color: string): Sprite {
 }
 
 const TREE_COLS = ['#4f9a4a', '#5aa652', '#3f8a46', '#6aae4e'];
-export function treeSprite(v: number): Sprite {
-  return proc(`tree:${v}`, 40, 40, 20, 34, (g) => {
+/** A clump of trees; `leaf` re-tints the foliage for alien worlds. */
+export function treeSprite(v: number, leaf?: string): Sprite {
+  const cols = leaf ? [leaf, shade(leaf, 0.1), shade(leaf, -0.12), shade(leaf, 0.2)] : TREE_COLS;
+  return proc(`tree:${v}:${leaf ?? ''}`, 40, 40, 20, 34, (g) => {
     const conifer = v === 3;
     const pts = v === 0 ? [[-8, 0], [6, -2], [-1, 4]] : v === 1 ? [[-6, 2], [7, 0]] : v === 2 ? [[0, 0], [-10, 3], [9, 4]] : [[-6, 2], [6, 0], [0, 5]];
     for (const [x, y] of pts.sort((a, b) => a[1] - b[1])) {
-      const col = TREE_COLS[(v + x + 40) % 4];
+      const col = cols[(v + x + 40) % 4];
       g.fillStyle = 'rgba(0,0,0,0.18)';
       g.beginPath(); g.ellipse(x + 2, y + 1, 7, 2.5, 0, 0, TAU); g.fill();
       g.fillStyle = '#6b4a2e'; g.fillRect(x - 1.2, y - 6, 2.4, 6);
       if (conifer) {
         const p = new Path2D(); p.moveTo(x - 7, y - 4); p.lineTo(x, y - 24); p.lineTo(x + 7, y - 4); p.closePath();
-        shaded(g, p, '#3d8250', y - 24, y - 4, 1.3);
+        shaded(g, p, leaf ? shade(leaf, -0.15) : '#3d8250', y - 24, y - 4, 1.3);
       } else {
         const p = new Path2D(); p.arc(x, y - 12, 7.5, 0, TAU);
         shaded(g, p, col, y - 20, y - 4, 1.3);
@@ -469,20 +471,20 @@ export function treeSprite(v: number): Sprite {
   });
 }
 
-export function mountainSprite(v: number, snow: boolean): Sprite {
-  return proc(`mtn:${v}:${snow}`, 90, 64, 45, 56, (g) => {
+export function mountainSprite(v: number, snow: boolean, rock?: string): Sprite {
+  return proc(`mtn:${v}:${snow}:${rock ?? ''}`, 90, 64, 45, 56, (g) => {
     const peaks = v === 0 ? [[-14, 30, 34], [10, 40, 30]] : v === 1 ? [[0, 44, 38]] : [[-18, 28, 26], [4, 46, 32], [22, 30, 22]];
     for (const [x, hgt, wd] of peaks) {
       const p = new Path2D(); p.moveTo(x - wd, 0); p.lineTo(x - wd * 0.15, -hgt); p.lineTo(x + wd * 0.1, -hgt * 0.96); p.lineTo(x + wd, 0); p.closePath();
-      g.fillStyle = '#9b8f7f'; g.fill(p);
+      g.fillStyle = rock ?? '#9b8f7f'; g.fill(p);
       // Shadow side
       const s = new Path2D(); s.moveTo(x - wd * 0.15, -hgt); s.lineTo(x + wd * 0.1, -hgt * 0.96); s.lineTo(x + wd, 0); s.lineTo(x + wd * 0.1, 0); s.closePath();
-      g.fillStyle = '#7d7264'; g.fill(s);
+      g.fillStyle = rock ? shade(rock, -0.18) : '#7d7264'; g.fill(s);
       if (snow) {
         const c = new Path2D(); c.moveTo(x - wd * 0.15 - wd * 0.3, -hgt * 0.66); c.lineTo(x - wd * 0.15, -hgt); c.lineTo(x + wd * 0.1, -hgt * 0.96); c.lineTo(x + wd * 0.38, -hgt * 0.62); c.lineTo(x + wd * 0.05, -hgt * 0.7); c.lineTo(x - wd * 0.12, -hgt * 0.6); c.closePath();
         g.fillStyle = '#f6f7f4'; g.fill(c);
       }
-      g.strokeStyle = '#4e463d'; g.lineWidth = 1.4; g.stroke(p);
+      g.strokeStyle = rock ? shade(rock, -0.5) : '#4e463d'; g.lineWidth = 1.4; g.stroke(p);
     }
   });
 }

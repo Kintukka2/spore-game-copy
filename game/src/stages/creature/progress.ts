@@ -36,7 +36,7 @@ export function checkBrain(S: CreatureStage) {
     S.sapientReady = true;
     audio.sfx('levelup');
     S.game.banner('Your brain is fully grown', 'Ready to evolve!');
-    S.hint('cr-sapient', 'Tap “Become sapient” when you are ready. You can keep exploring first.', '🧠');
+    S.hint('cr-sapient', 'Your brain bar is now a “Become sapient” button. Tap it when you are ready; keep exploring as long as you like.', '🧠');
   }
 }
 

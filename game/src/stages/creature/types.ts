@@ -123,6 +123,8 @@ export interface Critter {
   wait: number;
   /** Family only: seconds left defending you, your pack or the nest against an attacker. */
   guard: number;
+  /** What a frightened creature is running from (a Titan); the player when unset. */
+  scare?: Critter | null;
 }
 
 export interface Tree {

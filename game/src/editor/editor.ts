@@ -11,7 +11,7 @@ import { drawOrder, drawPartThumb, layoutDesign, partAnchor, partLayer, renderCe
 import { cloneDesign } from '../design/generate';
 import { SWATCHES } from '../design/color';
 import { DRAW_LAYERS, type AbilityId, type Design, type DesignKind, type DrawLayer, type PartCategory, type PartDef, type PartInstance, type PatternId, type Stats } from '../design/types';
-import { ABILITY_INFO, BUILDING_STATS, CELL_STATS, CREATURE_STATS, OUTFIT_STATS, SHIP_STATS, VEHICLE_STATS } from './abilityInfo';
+import { ABILITY_HELP, ABILITY_INFO, BUILDING_STATS, CELL_STATS, CREATURE_STATS, OUTFIT_STATS, SHIP_STATS, VEHICLE_STATS } from './abilityInfo';
 import { codexSave } from '../game/codex';
 
 export interface EditorTab {
@@ -62,7 +62,8 @@ const DEFAULT_TABS: Record<DesignKind | 'outfit', EditorTab[]> = {
     { id: 'body', label: 'Body', icon: '🦴', special: 'body' },
     { id: 'mouth', label: 'Mouths', icon: '👄', cats: ['mouth'] },
     { id: 'eye', label: 'Eyes', icon: '👁️', cats: ['eye'] },
-    { id: 'limb', label: 'Limbs', icon: '🦵', cats: ['leg', 'arm'] },
+    { id: 'leg', label: 'Legs', icon: '🦵', cats: ['leg'] },
+    { id: 'arm', label: 'Arms', icon: '💪', cats: ['arm'] },
     { id: 'weapon', label: 'Weapons', icon: '🦂', cats: ['weapon'] },
     { id: 'detail', label: 'Details', icon: '✨', cats: ['detail', 'tail', 'wing'] },
     { id: 'paint', label: 'Paint', icon: '🎨', special: 'paint' },
@@ -302,7 +303,9 @@ export class EditorScene implements Scene {
     for (const p of parts) {
       const unlocked = this.isUnlocked(p) && this.dietAllowed(p);
       const c = h('canvas', { width: '72', height: '60' }) as HTMLCanvasElement;
-      const line = (Object.entries(p.stats) as [AbilityId, number][]).filter(([k, v]) => v > 0 && shown.includes(k)).slice(0, 3);
+      // Everything the part gives, the stats this editor lists first.
+      const line = (Object.entries(p.stats) as [AbilityId, number][]).filter(([k, v]) => v > 0 && ABILITY_INFO[k])
+        .sort((a, b) => Number(shown.includes(b[0])) - Number(shown.includes(a[0]))).slice(0, 4);
       const tile = h('div', { class: 'ed-part' + (unlocked ? '' : ' locked') + (!this.free && unlocked && p.cost > this.available ? ' cant' : '') },
         c, h('div', { class: 'pn' }, p.name),
         line.length ? h('div', { class: 'ps' }, ...line.map(([k, v]) => h('span', null, ABILITY_INFO[k].icon, String(v)))) : null,
@@ -459,6 +462,7 @@ export class EditorScene implements Scene {
       if (gain > 0) chips.append(h('span', { class: 'ii-chip up' }, ABILITY_INFO[k].icon, ' ', ABILITY_INFO[k].name, ' ', `+${gain}`));
     }
     if (!chips.childElementCount) chips.append(h('span', { class: 'ii-chip flat' }, '🎨 Looks only'));
+    const help = [...seen].map((k) => ABILITY_HELP[k]).filter(Boolean);
     const cur = this.cfg.currency ?? 'DNA';
     const status = !this.isUnlocked(p) ? '🔒 Locked for now' : !this.dietAllowed(p) ? '🚫 Not allowed by your diet'
       : !this.free && p.cost > this.available ? `Need ${p.cost} ${cur}` : null;
@@ -467,6 +471,7 @@ export class EditorScene implements Scene {
         this.free ? null : h('span', { class: 'ii-cost' }, `${p.cost} ${cur}`)),
       p.desc ? h('div', { class: 'ii-desc' }, p.desc) : null,
       chips,
+      help.length ? h('div', { class: 'ii-help' }, help.join(' ')) : null,
       flat ? h('div', { class: 'ii-note' }, this.kind === 'vehicle' || this.kind === 'ship' ? 'Grey: already at the cap.' : 'Grey: you already have this level or better.') : null,
       status ? h('div', { class: 'ii-status' }, status) : null,
     ].filter((x): x is HTMLDivElement => !!x));

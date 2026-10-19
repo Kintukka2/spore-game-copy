@@ -121,6 +121,8 @@ export interface Critter {
   anim: number;
   /** Idle wait before wandering again. */
   wait: number;
+  /** Family only: seconds left defending you, your pack or the nest against an attacker. */
+  guard: number;
 }
 
 export interface Tree {

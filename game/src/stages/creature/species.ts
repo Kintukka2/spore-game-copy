@@ -118,7 +118,7 @@ export function makeCritter(sp: Species, role: Role, x: number, y: number): Crit
     emote: null, emoteT: 0, befriended: false, dead: false, gone: false, lulled: 0, fear: 0, aggro: 0,
     hpShow: 0, grow: role === 'baby' ? 100 + Math.random() * 60 : 0, homeX: x, homeY: y, homeR: 120,
     parent: null, dash: 0, dashX: 0, dashY: 0, dashHit: false, dashDmg: 0, tick: Math.random() * 0.25, near: true,
-    rounds: role === 'alpha' ? 2 : 1, socialCd: 0, hitByPlayer: -99, anim: 0, wait: Math.random() * 2,
+    rounds: role === 'alpha' ? 2 : 1, socialCd: 0, hitByPlayer: -99, anim: 0, wait: Math.random() * 2, guard: 0,
   };
 }
 

@@ -478,8 +478,8 @@ const EYES: PartDef[] = [
     },
   }),
   P({
-    id: 'e-sleepy', name: 'Dozy Peeper', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 6, box: [-8, -8, 7, 7],
-    stats: { sight: 1 }, desc: 'Heavy-lidded and unbothered. Sees everything anyway.',
+    id: 'e-sleepy', name: 'Dozy Peeper', category: 'eye', tier: 1, cost: 5, snap: 'head', layer: 'top', radius: 6, box: [-8, -8, 7, 7],
+    stats: { sight: 1 }, desc: 'Heavy-lidded and unbothered. Cheap, but it misses a lot.',
     draw(g, c) {
       const r = 5.5;
       drawEye(g, r, c, { look: 0.25 });
@@ -496,8 +496,8 @@ const EYES: PartDef[] = [
     },
   }),
   P({
-    id: 'e-saucer', name: 'Saucer Eye', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 13, box: [-14, -14, 11, 11],
-    stats: { sight: 1 }, desc: 'One huge, adoring eye. Great for cyclopes.',
+    id: 'e-saucer', name: 'Saucer Eye', category: 'eye', tier: 2, cost: 45, snap: 'head', layer: 'top', radius: 13, box: [-14, -14, 11, 11],
+    stats: { sight: 3 }, desc: 'One huge, adoring eye. Great for cyclopes.',
     draw(g, c) {
       const r = 9;
       const lash: Pt[][] = [];
@@ -507,8 +507,8 @@ const EYES: PartDef[] = [
     },
   }),
   P({
-    id: 'e-lash', name: 'Flutterlash', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 9, box: [-8, -11, 9, 8],
-    stats: { sight: 1 }, desc: 'Long lashes made for fluttering at friends.',
+    id: 'e-lash', name: 'Flutterlash', category: 'eye', tier: 1, cost: 20, snap: 'head', layer: 'top', radius: 9, box: [-8, -11, 9, 8],
+    stats: { sight: 1, charm: 1 }, desc: 'Long lashes made for fluttering at friends.',
     draw(g, c) {
       const r = 5.6;
       const lash: Pt[][] = [];
@@ -518,8 +518,8 @@ const EYES: PartDef[] = [
     },
   }),
   P({
-    id: 'e-bug', name: 'Bulgy Bug', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 7, box: [-8, -9, 8, 8],
-    stats: { sight: 1 }, desc: 'A big glossy bug eye. Very shiny, very judgy.',
+    id: 'e-bug', name: 'Bulgy Bug', category: 'eye', tier: 1, cost: 30, snap: 'head', layer: 'top', radius: 7, box: [-8, -9, 8, 8],
+    stats: { sight: 2 }, desc: 'A big glossy bug eye. Very shiny, very judgy.',
     draw(g, c) {
       const col = mix('#8a1830', c.colors.coat, 0.2);
       fillShaded(g, ellipsePath(0, 0, 6, 6.6, -0.25), col, { ol: INK, y0: -6, y1: 6 });
@@ -530,8 +530,8 @@ const EYES: PartDef[] = [
     },
   }),
   P({
-    id: 'e-compound', name: 'Faceteer', category: 'eye', tier: 2, cost: 10, snap: 'head', layer: 'top', radius: 7, box: [-9, -8, 9, 8],
-    stats: { sight: 1 }, desc: 'A compound eye of a hundred tiny windows.',
+    id: 'e-compound', name: 'Faceteer', category: 'eye', tier: 3, cost: 90, snap: 'head', layer: 'top', radius: 7, box: [-9, -8, 9, 8],
+    stats: { sight: 4 }, desc: 'A compound eye of a hundred tiny windows. Little gets past it.',
     draw(g, c) {
       const p = ellipsePath(0, 0, 7, 6.4);
       const gr = g.createLinearGradient(-6, -6, 6, 6);
@@ -553,8 +553,8 @@ const EYES: PartDef[] = [
     },
   }),
   P({
-    id: 'e-glow', name: 'Glowpeep', category: 'eye', tier: 2, cost: 10, snap: 'head', layer: 'top', radius: 7, box: [-8, -8, 8, 8],
-    stats: { sight: 1 }, desc: 'A lamp-like eye from the deep. Glows softly in the dark.',
+    id: 'e-glow', name: 'Glowpeep', category: 'eye', tier: 3, cost: 130, snap: 'head', layer: 'top', radius: 7, box: [-8, -8, 8, 8],
+    stats: { sight: 5 }, desc: 'A lamp-like eye from the deep. Sees the farthest of all.',
     draw(g, c) {
       const pulse = 0.75 + Math.sin(c.t * 3) * 0.25;
       const col = mix(c.colors.detail, '#8dffd8', 0.55);

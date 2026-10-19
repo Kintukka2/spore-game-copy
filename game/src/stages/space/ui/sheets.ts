@@ -11,6 +11,7 @@ import {
 } from '../empires';
 import { acceptOffer, abandon, declineOffer, offerFor } from '../missions';
 import { EVENT_INFO } from '../events';
+import { openCrate } from './crateOpen';
 import type { SpaceStage } from '../stage';
 import { dietIcon, fmtTime, modsList, money, portrait, relMeter, sheet, specimenThumb, stanceChip, tabStrip } from './common';
 import { renderLab } from './xenoLab';
@@ -107,7 +108,8 @@ export function openShip(st: SpaceStage, tab = 'shop') {
       B.append(h('div', { class: 'sp-section' }, 'Consumables'));
       const cons = TOOLS.filter((t) => t.kind === 'consumable' && w.count(t.id) > 0);
       for (const t of cons) {
-        const use = t.id === 'repair' ? button('Use', () => { st.useRepair(); render(); }, { cls: 'small primary' }) : t.id === 'recharge' ? button('Use', () => { st.useEnergyPack(); render(); }, { cls: 'small primary' }) : null;
+        const use = t.id === 'repair' ? button('Use', () => { st.useRepair(); render(); }, { cls: 'small primary' }) : t.id === 'recharge' ? button('Use', () => { st.useEnergyPack(); render(); }, { cls: 'small primary' })
+          : t.id === 'crate' ? button('Open', () => openCrate(st, render), { cls: 'small gold' }) : null;
         B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, `${t.name} ×${w.count(t.id)}`)), use));
       }
       if (!cons.length) B.append(h('div', { class: 'sp-mini' }, 'None.'));

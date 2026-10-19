@@ -73,3 +73,9 @@ export const fmt = (n: number): string => {
   if (a >= 1e4) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
   return Math.round(n).toLocaleString('en-US');
 };
+
+/** "a" or "an" for a word, capitalised when `cap` is set: "an Ember Ox", "A Golden Ox". */
+export function article(word: string, cap = false): string {
+  const a = /^[aeiou]/i.test(word) ? 'an' : 'a';
+  return cap ? a.charAt(0).toUpperCase() + a.slice(1) : a;
+}

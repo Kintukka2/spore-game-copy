@@ -125,6 +125,8 @@
 3. Press the matching button. Your matching ability level vs theirs fills your side of a meter. A wrong action costs progress. If their meter fills before yours, you fail and can retry.
 4. Success puts a heart over them. Befriending **3** members of a species makes it an **Ally** (its nest heals you, and its members can join your pack).
 5. Pack members add their social stats.
+6. **Family:** your own kin at the home nest can join the pack too (tap one, then Recruit; Send home returns them to the nest). The nest raises new family while fewer than two are home. Family near you rush any creature attacking you, your pack or them, and while they defend you their hits count as yours.
+7. **Sight and Grasp:** eyes range from Sight 1 (Dozy Peeper, 5 DNA) to Sight 5 (Glowpeep, 130 DNA). Sight widens the camera and minimap and finds nests and bone piles from farther away. Grasp (arms) digs bone piles faster and picks more food from each bush.
 
 **Combat**
 - Abilities have damage and cooldowns scaled by level:

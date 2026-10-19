@@ -323,6 +323,28 @@ function thinkKin(S: CreatureStage, c: Critter, dt: number) {
     if (Math.random() < dt * 2.5) S.fx.spawn('emoji', c.x + (Math.random() - 0.5) * 30, c.y - c.sp.layout.height * c.size, { emoji: '💗', size: 14, vz: 30, life: 1.4 });
     return;
   }
+  // Family defends its own: anything attacking you, your pack or the family nearby gets mobbed.
+  if (c.guard > 0) c.guard -= dt;
+  if (S.playerAlive && c.role === 'kin') {
+    let foe = c.guard > 0 && c.target && !c.target.gone && !c.target.dead && c.target.aggro > 0 ? c.target : null;
+    if (!foe) {
+      let bd = 340;
+      for (const o of S.critters) {
+        if (o.gone || o.dead || o.aggro <= 0 || !o.target || o.role === 'titan' || o.sp === c.sp) continue;
+        if (!S.isPlayerSide(o.target) && o.target.role !== 'kin') continue;
+        const d = dist(o, c);
+        if (d < bd && dist(o.target, c) < 420) { bd = d; foe = o; }
+      }
+    }
+    if (foe && Math.hypot(c.x - c.homeX, c.y - c.homeY) < 900) {
+      if (c.guard <= 0) { S.say(c, '💢', 1.2); if (c.near) audio.sfx('roar', { pitch: 1.4, vol: 0.35 }); }
+      c.guard = 3;
+      c.target = foe;
+      fight(S, c, foe, dt, false);
+      return;
+    }
+    if (c.target) { c.target = null; c.guard = 0; setState(c, 'return'); }
+  }
   const mt = S.migrating ? S.migTarget() : null;
   if (mt) {
     c.homeX = mt.x; c.homeY = mt.y; c.homeR = 90;

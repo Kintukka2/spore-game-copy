@@ -302,8 +302,8 @@ export class CreatureHud {
     const g = c.getContext('2d')!;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const S = this.S;
-    // A local view around the player (about 1400 units across).
-    const span = 1500;
+    // A local view around the player; better eyes see a wider patch of the island.
+    const span = 1300 + 100 * S.sightLvl();
     const k = css / span;
     const cx = S.player.x, cy = S.player.y;
     if (!this.mapBase) this.mapBase = this.terrain.minimapImage(160);

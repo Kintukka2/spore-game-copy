@@ -34,7 +34,13 @@ export const ABILITY_INFO: Record<AbilityId, { icon: string; name: string }> = {
   house: { icon: '🏠', name: 'Housing' },
 };
 
-export const CREATURE_STATS: AbilityId[] = ['bite', 'charge', 'strike', 'spit', 'sing', 'dance', 'charm', 'pose', 'speed', 'sprint', 'sneak', 'jump', 'glide', 'health'];
+export const CREATURE_STATS: AbilityId[] = ['bite', 'charge', 'strike', 'spit', 'sing', 'dance', 'charm', 'pose', 'speed', 'sprint', 'sneak', 'jump', 'glide', 'health', 'sight', 'grasp'];
+
+/** What the less obvious abilities do, shown on the editor's part card. */
+export const ABILITY_HELP: Partial<Record<AbilityId, string>> = {
+  sight: 'Sight widens your view and minimap and spots nests and bone piles from farther away.',
+  grasp: 'Grasp digs up bone piles faster and picks more food from each bush.',
+};
 export const CELL_STATS: AbilityId[] = ['speed', 'bite', 'charge', 'spit', 'strike'];
 export const OUTFIT_STATS: AbilityId[] = ['gather', 'combat', 'social', 'health'];
 export const VEHICLE_STATS: AbilityId[] = ['power', 'armor', 'move'];

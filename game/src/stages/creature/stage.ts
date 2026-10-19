@@ -116,6 +116,7 @@ export class CreatureStage implements Scene {
   private calmT = 0;
   private dustT = 0;
   private hatchTimer = 0;
+  private kinT = 0;
   private safeB = -1;
   private titanSpots: { x: number; y: number }[] = [];
   private lonerSpots: { x: number; y: number }[] = [];
@@ -381,9 +382,10 @@ export class CreatureStage implements Scene {
       for (const pm of saved.pack) {
         const sp = this.species.find((s) => s.id === pm.sp);
         if (!sp) continue;
-        let c = this.critters.find((x) => x.sp === sp && x.role !== 'pack' && x.role !== 'titan' && !x.gone);
+        let c = this.critters.find((x) => x.sp === sp && x.role !== 'pack' && x.role !== 'titan' && x.role !== 'player' && x.role !== 'mate' && !x.gone);
         if (!c) {
-          c = makeCritter(sp, sp.kind === 'loner' ? 'loner' : 'adult', this.player.x, this.player.y);
+          c = makeCritter(sp, sp === this.own ? 'kin' : sp.kind === 'loner' ? 'loner' : 'adult', this.player.x, this.player.y);
+          if (sp === this.own) { c.size = sp.size * 0.9; c.r = critterRadius(sp, c.size); }
           this.critters.push(c);
         }
         c.x = this.player.x - 40; c.y = this.player.y + 20;
@@ -437,13 +439,20 @@ export class CreatureStage implements Scene {
 
   private spawnKin() {
     for (const c of this.critters) if (c.role === 'kin') c.gone = true;
-    for (let i = 0; i < 2; i++) {
-      const p = this.world.randomLand(this.game.rng('creature-kin' + i), this.homeNest, 20, 80);
-      const c = makeCritter(this.own, 'kin', p.x, p.y);
-      c.size = this.own.size * 0.9;
-      c.r = critterRadius(this.own, c.size);
-      c.homeX = this.homeNest.x; c.homeY = this.homeNest.y; c.homeR = 90;
-      this.critters.push(c);
+    for (let i = 0; i < 2; i++) this.addKin(false, i);
+  }
+
+  /** One family member at the home nest (`hatched` plays a little hatching burst). */
+  private addKin(hatched: boolean, i = 0) {
+    const p = this.world.randomLand(this.game.rng('creature-kin' + i + ':' + Math.floor(this.t)), this.homeNest, 20, 80);
+    const c = makeCritter(this.own, 'kin', p.x, p.y);
+    c.size = this.own.size * 0.9;
+    c.r = critterRadius(this.own, c.size);
+    c.homeX = this.homeNest.x; c.homeY = this.homeNest.y; c.homeR = 90;
+    this.critters.push(c);
+    if (hatched && c.near) {
+      this.fx.burst('drop', p.x, p.y, 8, { up: 90, grav: 400, size: 2.4, color: '#fff3c4', life: 0.7 });
+      this.say(c, '😊', 1.6);
     }
   }
 
@@ -869,7 +878,7 @@ export class CreatureStage implements Scene {
     return best;
   }
 
-  isPlayerSide(c: Critter): boolean { return c === this.player || c.role === 'pack'; }
+  isPlayerSide(c: Critter): boolean { return c === this.player || c.role === 'pack' || (c.role === 'kin' && c.guard > 0); }
   isEnemy(c: Critter): boolean {
     return !c.gone && c !== this.player && c.role !== 'pack' && c.role !== 'kin' && c.role !== 'mate' && c.sp !== this.own;
   }
@@ -981,8 +990,10 @@ export class CreatureStage implements Scene {
   packSlots(): number { return PACK_SLOTS[this.brain]; }
 
   private canRecruit(c: Critter): boolean {
-    return !c.gone && c.role !== 'pack' && c.role !== 'titan' && c.role !== 'kin' && c.role !== 'mate' && c.role !== 'player'
-      && c.sp.relation === 'allied' && (c.sp.kind === 'nest' || c.sp.kind === 'loner') && this.pack.length < this.packSlots();
+    if (c.gone || this.pack.length >= this.packSlots()) return false;
+    if (c.role === 'kin') return true; // your own family always follows you
+    return c.role !== 'pack' && c.role !== 'titan' && c.role !== 'mate' && c.role !== 'player'
+      && c.sp.relation === 'allied' && (c.sp.kind === 'nest' || c.sp.kind === 'loner');
   }
 
   recruit(c: Critter, auto = false, silent = false): boolean {
@@ -993,7 +1004,7 @@ export class CreatureStage implements Scene {
     }
     c.role = 'pack';
     c.befriended = true;
-    c.aggro = 0; c.target = null; c.lulled = 0; c.fear = 0;
+    c.aggro = 0; c.target = null; c.lulled = 0; c.fear = 0; c.guard = 0;
     c.state = 'follow';
     c.maxHp = Math.round(c.maxHp * 1.2);
     c.hp = c.maxHp;
@@ -1002,8 +1013,9 @@ export class CreatureStage implements Scene {
     if (!silent) {
       this.say(c, '💚', 2);
       audio.sfx('success', { pitch: 1.2 });
-      ui.toast(`${c.sp.name} joined your pack!`, { icon: '🐾', kind: 'good' });
-      this.game.history(`A ${c.sp.name} joined the pack`, '🐾');
+      const kin = c.sp === this.own;
+      ui.toast(kin ? 'Family joins your pack!' : `${c.sp.name} joined your pack!`, { icon: '🐾', kind: 'good' });
+      this.game.history(kin ? 'Family joined the pack' : `A ${c.sp.name} joined the pack`, '🐾');
     }
     if (this.pack.length >= 3) this.game.unlock('pack-leader');
     return true;
@@ -1015,7 +1027,7 @@ export class CreatureStage implements Scene {
 
   async packSlotTapped(i: number) {
     const m = this.pack[i];
-    if (!m) { this.hud.flashTip('Ally a species, then target a member and tap Recruit', 2.4); return; }
+    if (!m) { this.hud.flashTip('Tap one of your family at the nest, or a member of an allied species, then tap Recruit', 2.8); return; }
     this.paused = true;
     const r = await ui.modal({
       title: `${m.sp.name}`,
@@ -1026,9 +1038,15 @@ export class CreatureStage implements Scene {
     this.paused = false;
     if (r !== 'dismiss') return;
     this.removeFromPack(m);
-    m.role = m.sp.kind === 'loner' ? 'loner' : 'adult';
-    const n = m.sp.nest;
-    m.homeX = n?.x ?? m.x; m.homeY = n?.y ?? m.y; m.homeR = n ? n.r * 0.8 : 300;
+    if (m.sp === this.own) {
+      // Family goes back to the home nest.
+      m.role = 'kin';
+      m.homeX = this.homeNest.x; m.homeY = this.homeNest.y; m.homeR = 90;
+    } else {
+      m.role = m.sp.kind === 'loner' ? 'loner' : 'adult';
+      const n = m.sp.nest;
+      m.homeX = n?.x ?? m.x; m.homeY = n?.y ?? m.y; m.homeR = n ? n.r * 0.8 : 300;
+    }
     m.state = 'return';
     this.say(m, '👋', 1.5);
   }
@@ -1078,6 +1096,14 @@ export class CreatureStage implements Scene {
         if (c.near) this.fx.burst('drop', at.x, at.y, 6, { up: 80, grav: 400, size: 2, color: '#fff3c4', life: 0.6 });
       }
     }
+    // The home nest raises new family while fewer than two are at home.
+    this.kinT += dt;
+    if (this.kinT > 40) {
+      this.kinT = 0;
+      let home = 0;
+      for (const c of this.critters) if (c.role === 'kin' && !c.gone) home++;
+      if (home < 2 && !this.migrating) this.addKin(true);
+    }
     // Healing at friendly nests.
     let healing = false;
     for (const n of this.nests) {
@@ -1119,9 +1145,11 @@ export class CreatureStage implements Scene {
 
   private scan() {
     const p = this.player;
+    // Better eyes spot nests and bone piles from farther away.
+    const sight = this.sightLvl();
     for (const n of this.nests) {
       if (!n.active || n.home || n.discovered || !n.species) continue;
-      if (dist(p, n) < 520) {
+      if (dist(p, n) < 420 + 80 * sight) {
         n.discovered = true;
         n.species.met = true;
         const info = REL_INFO[n.species.relation];
@@ -1132,7 +1160,7 @@ export class CreatureStage implements Scene {
     }
     for (const b of this.bones) {
       if (b.discovered || b.dug) continue;
-      if (dist(p, b) < 320) {
+      if (dist(p, b) < 270 + 45 * sight) {
         b.discovered = true;
         this.hint('cr-bone', 'A bone pile! Stand on it and tap ⛏️ Dig to unlock a new part.', '🦴');
       }
@@ -1220,7 +1248,8 @@ export class CreatureStage implements Scene {
     if (this.own.diet === 'carnivore') { this.vomit('fruit'); return; }
     b.fruit--;
     const omni = this.own.diet === 'omnivore';
-    this.hunger = Math.min(100, this.hunger + (omni ? 20 : 26));
+    // Grasping hands pick more than a mouthful.
+    this.hunger = Math.min(100, this.hunger + (omni ? 20 : 26) + 4 * this.graspLvl());
     p.hp = Math.min(p.maxHp, p.hp + p.maxHp * (omni ? 0.06 : 0.12));
     audio.sfx('eat');
     this.fx.burst('drop', b.x, b.y, 8, { z: 14, up: 80, grav: 400, size: 2.6, color: b.berry, speed: 60, life: 0.6 });
@@ -1269,7 +1298,7 @@ export class CreatureStage implements Scene {
     p.facing = d.b.x > p.x ? 1 : -1;
     if (Math.random() < dt * 22) this.fx.spawn('dirt', d.b.x + (Math.random() - 0.5) * 20, d.b.y, { up: 140, grav: 500, size: 3, color: d.b.kind === 'sky' ? '#7fdcff' : '#8a6a42', speed: 60, life: 0.7 });
     if (Math.random() < dt * 3) audio.sfx('build', { pitch: 0.9 + Math.random() * 0.4, vol: 0.4 });
-    if (d.t >= 1.3) { this.dig = null; this.finishDig(d.b); }
+    if (d.t >= 1.3 / (1 + 0.35 * this.graspLvl())) { this.dig = null; this.finishDig(d.b); }
   }
 
   private finishDig(b: BonePile) {
@@ -1383,6 +1412,8 @@ export class CreatureStage implements Scene {
   }
 
   playerMaxHp(): number { return P.maxHpFor(this.brain, this.own.stats.health ?? 0); }
+  sightLvl(): number { return this.own.stats.sight ?? 0; }
+  graspLvl(): number { return this.own.stats.grasp ?? 0; }
 
   /** Fraction of a creature's height hidden below the water surface. */
   submersion(c: Critter): number {
@@ -1526,7 +1557,8 @@ export class CreatureStage implements Scene {
   private updateCamera(dt: number, snap = false) {
     const p = this.player, cam = this.cam;
     const sf = clamp(Math.min(this.game.w, this.game.h) / 400, 0.8, 1.7);
-    let z = BRAIN_ZOOM[this.brain] * sf * this.zoomUser;
+    // Sharper eyes see more of the island.
+    let z = (BRAIN_ZOOM[this.brain] * sf * this.zoomUser) / (1 + Math.max(0, this.sightLvl() - 1) * 0.045);
     if (this.phase === 'final') z *= 1 + 0.45 * easeInOutCubic(clamp(this.finalT / 2.2, 0, 1));
     const hh = critterHeight(p);
     const look = this.phase === 'play' ? 0.32 : 0;
@@ -1577,8 +1609,9 @@ export class CreatureStage implements Scene {
       c.hpShow = Math.max(c.hpShow, 2);
       audio.sfx('tap');
       if (c === this.mate) { this.intent = { kind: 'goto', x: c.x, y: c.y, r: 90, then: () => void this.mateAndEvolve() }; return; }
-      const rel = c.role === 'titan' ? 'Titan' : c.role === 'pack' ? 'Pack member' : c.befriended ? 'Friend' : REL_INFO[c.sp.relation].label;
-      this.hud.flashTip(`${c.sp.name} · ${rel}${this.canRecruit(c) ? ' · tap Recruit' : ''}`, 1.6);
+      const rel = c.role === 'titan' ? 'Titan' : c.role === 'pack' ? 'Pack member' : c.role === 'kin' ? 'Family' : c.befriended ? 'Friend' : REL_INFO[c.sp.relation].label;
+      const extra = this.canRecruit(c) ? ' · tap Recruit' : c.role === 'kin' ? (this.packSlots() ? ' · your pack is full' : ' · grow your brain to lead a pack') : '';
+      this.hud.flashTip(`${c.sp.name} · ${rel}${extra}`, 1.8);
       this.hint('cr-target', 'Targeted! In 🎵 Social stance tap an action to impress it; in ⚔️ Fight stance tap an attack.', '🎯');
       return;
     }

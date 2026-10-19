@@ -54,7 +54,7 @@ function brainUp(S: CreatureStage) {
   S.game.history(`Grew to brain level ${S.brain}`, '🧠');
   const slots = S.packSlots();
   ui.toast(`Max health ${p.maxHp} · Pack slots ${slots}${LEVELUP_WALLET ? ` · +${LEVELUP_WALLET} DNA` : ''}`, { icon: '🧠', kind: 'good' });
-  if (slots > 0) S.hint('cr-pack', 'Your pack has room! Befriend a species fully, then tap one of its members and “Recruit”.', '🐾');
+  if (slots > 0) S.hint('cr-pack', 'Your pack has room! Tap one of your family at the nest, or a member of a fully befriended species, then “Recruit”. Family at home also rush to defend you.', '🐾');
   const mi = MIGRATION_AT.indexOf(S.brain);
   if (mi >= 0 && S.migration === mi && !S.migrating) setTimeout(() => startMigration(S), 3600);
 }

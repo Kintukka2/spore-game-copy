@@ -101,12 +101,12 @@ export const CREATURE_CORE: PartDef[] = [
   // ------------------------------------------------------------ Eyes
   P({
     id: 'e-round', name: 'Bright Eye', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 6,
-    stats: { sight: 1 }, desc: 'All eyes see equally well. Pick your favourite.',
+    stats: { sight: 1 }, desc: 'A plain, honest eye.',
     draw(g, c) { drawEye(g, 5.5, c); },
   }),
   P({
-    id: 'e-stalk', name: 'Stalk Eye', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 14, box: [-5, -21, 12, 4],
-    stats: { sight: 1 },
+    id: 'e-stalk', name: 'Stalk Eye', category: 'eye', tier: 1, cost: 25, snap: 'head', layer: 'top', radius: 14, box: [-5, -21, 12, 4],
+    stats: { sight: 2 }, desc: 'Up on a stalk, it peeks over the long grass.',
     draw(g, c) {
       const sway = Math.sin(c.t * 2) * 2;
       g.strokeStyle = shade(c.colors.base, -0.6); g.lineWidth = 6; g.lineCap = 'round';
@@ -117,8 +117,8 @@ export const CREATURE_CORE: PartDef[] = [
     },
   }),
   P({
-    id: 'e-slit', name: 'Hunter Eye', category: 'eye', tier: 1, cost: 10, snap: 'head', layer: 'top', radius: 6,
-    stats: { sight: 1 },
+    id: 'e-slit', name: 'Hunter Eye', category: 'eye', tier: 2, cost: 60, snap: 'head', layer: 'top', radius: 6,
+    stats: { sight: 3 }, desc: 'A predator’s slit pupil. Spots movement from far off.',
     draw(g, c) { drawEye(g, 5, c, { iris: '#f2c84b', pupil: 'slit', look: 0.25 }); },
   }),
 

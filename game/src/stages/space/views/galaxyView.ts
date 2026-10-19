@@ -5,6 +5,7 @@ import { TAU, clamp } from '../../../engine/math';
 import type { PointerInfo } from '../../../engine/input';
 import { hexToRgb } from '../../../design/color';
 import { GALAXY_R, RING_IN, RING_OUT } from '../data';
+import { EVENT_INFO } from '../events';
 import { blit, canvas, glow, starSprite } from '../art/sprites';
 import type { SpaceStage } from '../stage';
 import type { Star } from '../types';
@@ -222,7 +223,7 @@ export class GalaxyView {
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 5);
     for (const ev of w.s.events) {
       const s = w.star(ev.star);
-      g.strokeStyle = `rgba(255,80,80,${0.5 + pulse * 0.5})`;
+      g.strokeStyle = EVENT_INFO[ev.kind].good ? `rgba(255,209,102,${0.5 + pulse * 0.5})` : `rgba(255,80,80,${0.5 + pulse * 0.5})`;
       g.lineWidth = 2.5 * px;
       g.beginPath(); g.arc(s.x, s.y, (16 + pulse * 6) * px, 0, TAU); g.stroke();
     }

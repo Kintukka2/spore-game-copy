@@ -313,7 +313,8 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 4. **Landing** (`surface/`): 🛬 Land on any rocky world that is not destroyed or sealed by the Hollow. The surface is the Civilization-stage map, with colours, seas, ice, mountains and trees matched to the planet's style: terran, lava, ice, toxic or barren. Your homeworld is the very map you united, with all its cities.
    - The ship hovers over the map. Drag to steer, or tap to fly somewhere.
    - Owned worlds show their cities.
-   - Herds of animals and patches of flora live on land. A 📡 life scan marks them on the minimap and points arrows toward them, new species first.
+   - Herds of animals and patches of flora live on land. A 📡 life scan (radius about a quarter of the planet, 6 s cooldown) marks them on the minimap and points arrows toward them, new species first.
+   - **Species tray** (top left): one icon per species living there, plants first, then animals. Each is a dark silhouette until a group of it is spotted on screen or by a scan; then it shows in colour with NEW (not yet catalogued) or ✓ (in the Xenopedia), dimmed once none are left. Tap a revealed icon to fly to its nearest group. It goes compact on rich worlds (more than 8 species).
    - Herds bolt from a fast-moving ship. Hover over a creature (or tap it) and the tractor beam lifts it aboard in about 1.5 s; fly off too soon and it slips away. Flying over flora gathers seed pods.
    - Abduction happens only on the surface now. The Life tab lists the species and offers a Land button. Landing also counts as exploring the planet.
 5. **Exploration marks:** visited systems carry a teal check on the galaxy map (gold once every planet is scanned or settled). Planet labels in the system view carry a check when explored or a "?" when not. The galaxy HUD counts systems explored and fully surveyed.
@@ -337,6 +338,15 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - **Threats:**
   - Pirate raids: an event that is "your colony is under attack" with a timer. Fly there and fight, or lose spice.
   - Eco-disasters: a timer; fix it or lose species.
+
+**Random planet events** (`events.ts`): every 3 to 6 minutes something happens on a world within about two jumps of the ship (never in Hollow, black-hole or at-war space). At most 4 events run at once, and at most 2 of them are opportunities. Threats show as red alerts, opportunities as gold ones. The planet panel's Overview shows a banner with a timer and the actions.
+- ☄️ **Meteor storm** (threat, a colony, 2:40): 3 to 8 rocks tumble in from one side of the sky and home in on the planet. Shoot them down (they are hostiles with no guns). Each impact drains 3 spice from the store, and every second one flattens a building. When the swarm is gone, ore salvage pays §15,000 minus §3,000 per impact (minimum §3,000). If you never show up, the store empties and two buildings go. An orbital turret sometimes breaks the swarm up alone.
+- 🆘 **Distress call** (any nearby world, 3:30): a stranded freighter drifts near the planet with an SOS beacon. Fly to it: a rescue pays §9,000 to §15,000 and, in empire space, +12 relations ("You rescued our stranded crew"). 30% of calls are pirate bait: three raiders de-cloak, and beating them pays their loot.
+- 🗿 **Ancient signal** (a landable world you do not own, 7:00): land, sweep with life scans (the relic is buried far from where you touch down) and beam up the glowing monolith (2.2 s). Collectors pay §22,000 to §38,000, plus 2 terraform pods or packs.
+- ✨ **Rare sighting** (a landable world with animals, 5:30): a one-off, recoloured cousin of a native (Golden, Starlit, Prism, Ghost or Ember …). It roams alone, bolts from your ship within 230 units at 128 speed, and must be chased down. It earns a §10,000 Xenopedia grant, a §8,000 bonus, and triple Menagerie crowds.
+- 🛍️ **Wandering trader** (any nearby world, 5:00): three one-off deals. A consumable tool bundle at half price (up to one rank ahead of yours), a buyer for your most valuable spice at 2.4× its base price, and a §15,000 mystery crate (credits, terraform pods, a colony gadget, or packing peanuts).
+- 🚀 **Refugee fleet** (a colony with room for another city, 4:20): take them in for a free city, or turn them away.
+- Opportunities that time out just end with a note. The timer waits while you are fighting in that system, or while you are down on the surface for a relic or rare sighting.
 
 **Diplomacy**
 - A relationship meter per empire: **Allied / Friendly / Neutral / Wary / Hostile / War**.

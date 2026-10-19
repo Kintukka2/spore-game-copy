@@ -19,13 +19,14 @@ import { generateWorld, nationPalette, PLAYER_COLOR } from '../../civ/world';
 import { H, slotPos, W, wdist, wdx, wrapX } from '../../civ/types';
 import { tScoreOf } from '../data';
 import { drawShip, shipLength } from '../art/shipArt';
-import { drawPlant, money } from '../ui/common';
+import { drawPlant, money, paintSpecimen } from '../ui/common';
 import { abduct, isHomeworld } from '../economy';
+import { resolve as resolveEvent } from '../events';
 import { tutorialEvent } from '../missions';
 import { catalogue, inXenopedia } from '../xenolab';
 import type { SpaceStage } from '../stage';
-import type { Specimen } from '../types';
-import { spawnLife, stepCritter, type Critter, type LifeSite } from './life';
+import type { GEvent, Specimen } from '../types';
+import { farSpot, spawnLife, stepCritter, type Critter, type LifeSite } from './life';
 import { surfaceLook } from './look';
 
 /** Ship hover height above its ground point (world units). */
@@ -33,10 +34,17 @@ const LIFT = 46;
 /** Reach of the tractor beam from the ship's ground point. */
 const REACH = 78;
 const SEED_CAP = 60;
+/** Life scan radius: about a quarter of the planet, so finding everything takes a few sweeps. */
+const SCAN_R = 760;
 
 interface SurfCity { x: number; y: number; name: string; color: string; large: boolean; slots: number; blds: { d: Design; dx: number; dy: number; size: number }[] }
 interface Built { key: string; T: Terrain; sites: { x: number; y: number; name: string; large: boolean; slots: number }[] }
-type Beam = { c: Critter; site?: undefined; p: number } | { c?: undefined; site: LifeSite; p: number };
+/** An ancient relic buried on the surface (Ancient signal event). */
+interface Relic { relic: true; x: number; y: number; seen: boolean; taken: boolean }
+type Target = Critter | LifeSite | Relic;
+type Beam = { c?: Critter; site?: LifeSite; relic?: Relic; p: number };
+/** One icon in the species tray: a species living here, or the relic. */
+interface Tile { sp?: Specimen; el: HTMLElement; cv?: HTMLCanvasElement; badge: HTMLElement; state: string }
 
 // The last landing's terrain, so hopping back down to the same world is instant.
 let lastBuilt: Built | null = null;
@@ -59,10 +67,12 @@ export class SurfaceScene implements Scene {
   private ship = { x: 0, y: 0, vx: 0, vy: 0, ang: 0 };
   private joy = { active: false, ox: 0, oy: 0, x: 0, y: 0 };
   private moveTarget: { x: number; y: number } | null = null;
-  private chase: Critter | LifeSite | null = null;
+  private chase: Target | null = null;
   private beam: Beam | null = null;
   private sites: LifeSite[] = [];
   private critters: Critter[] = [];
+  private relic: Relic | null = null;
+  private tiles: Tile[] = [];
   private cities: SurfCity[] = [];
   private clouds: { x: number; y: number; s: number; k: number }[] = [];
   private scanCd = 0;
@@ -90,11 +100,17 @@ export class SurfaceScene implements Scene {
   // ------------------------------------------------------------------ lifecycle
   enter(game: Game) {
     this.game = game;
+    this.w.onSurface = `${this.star}:${this.idx}`;
     this.cam.minZoom = 0.32;
     this.cam.maxZoom = 1.8;
     this.buildHud();
   }
-  exit() { this.left = true; }
+  exit() { this.left = true; this.w.onSurface = null; }
+
+  /** A live event of this kind on this world. */
+  private event(kind: GEvent['kind']): GEvent | undefined {
+    return this.w.s.events.find((e) => e.kind === kind && e.star === this.star && e.planet === this.idx);
+  }
 
   /** Generate (or reuse) the terrain, cities and life. Runs after the first loading frames have painted. */
   private build() {
@@ -144,6 +160,8 @@ export class SurfaceScene implements Scene {
     const add = (sp: Specimen | null) => { if (sp && !species.some((x) => x.seed === sp.seed)) species.push(sp); };
     for (const sp of ps.eco) add(sp);
     if (pl.life) for (const sp of w.natives(pl).slice(0, Math.max(1, t) * 4)) add(sp);
+    const rare = this.event('rare')?.sp;
+    add(rare ?? null);
     const life = spawnLife(T, species, pl.seed, this.cities, (sp) => w.specimenDesign(sp));
     this.sites = life.sites;
     this.critters = life.critters;
@@ -151,6 +169,11 @@ export class SurfaceScene implements Scene {
     const c0 = this.cities[0] ?? built.sites[0];
     if (c0) { this.ship.x = c0.x; this.ship.y = c0.y + 70; }
     else { this.ship.x = T.homeX; this.ship.y = T.homeY; }
+    const sig = this.event('relic');
+    if (sig) {
+      const p = farSpot(T, pl.seed ^ sig.id, this.ship);
+      if (p) this.relic = { relic: true, x: p.x, y: p.y, seen: false, taken: false };
+    }
     this.cam.x = this.ship.x; this.cam.y = this.ship.y;
     this.cam.setViewport(game.w, game.h);
     this.cam.zoom = clamp(Math.min(game.w, game.h) / 470, 0.6, 1.25);
@@ -159,10 +182,13 @@ export class SurfaceScene implements Scene {
       for (let i = 0; i < 9; i++) this.clouds.push({ x: (i / 9) * W + r.range(0, 200), y: r.range(260, H - 260), s: r.range(1.2, 2.4), k: i % 4 });
     }
     this.T = T;
+    this.buildTray();
     this.refreshHud(true);
     // A free scan on arrival points the way to the nearest life.
     if (this.sites.length) setTimeout(() => this.scan(true), 700);
-    else this.st.ui.toast(`No life signs on ${pl.name}. Fly around, or head back to orbit.`, '📡');
+    else if (!this.relic) this.st.ui.toast(`No life signs on ${pl.name}. Fly around, or head back to orbit.`, '📡');
+    if (rare) setTimeout(() => this.st.ui.toast(`The ${rare.name} is down here somewhere. It bolts at the sight of your ship: chase it down!`, '✨', 'gold'), 1600);
+    if (this.relic) setTimeout(() => this.st.ui.toast('The ancient signal is faint. Sweep the surface with 📡 Life scan to pin it down.', '🗿', 'gold'), rare ? 4200 : 1600);
     game.hint('landing', 'Drag anywhere to fly. Fly over a creature and tap 🛸 Beam up, or just tap the creature.', '🛸');
   }
 
@@ -212,22 +238,86 @@ export class SurfaceScene implements Scene {
   private refreshHud(force = false) {
     const w = this.w;
     const ps = w.peekPS(this.star, this.idx);
-    const live = new Set<number>();
-    for (const c of this.critters) if (!c.gone) live.add(c.sp.seed);
-    for (const s of this.sites) if (s.kind === 'flora') live.add(s.sp.seed);
-    const species = [...new Map(this.sites.map((s) => [s.sp.seed, s.sp])).values()].filter((sp) => live.has(sp.seed));
-    const fresh = species.filter((sp) => !inXenopedia(w, sp)).length;
-    const key = `${w.cargoUsed}/${w.cargoCap}/${w.count('seeds')}/${species.length}/${fresh}`;
+    this.updateTray(force);
+    const key = `${w.cargoUsed}/${w.cargoCap}/${w.count('seeds')}`;
     if (!force && key === this.lastHud) return;
     this.lastHud = key;
     this.elCargo.textContent = `📦 ${w.cargoUsed}/${w.cargoCap} · 🌱 ${w.count('seeds')}`;
     const t = tScoreOf(ps.atm, ps.temp);
     const owner = ps.owner === 'player' ? 'Your world' : ps.owner && ps.owner !== 'hollow' ? w.emap.get(ps.owner)?.name ?? '' : 'Unclaimed';
     this.elSub.textContent = `T${t} ${'★'.repeat(t)}${'☆'.repeat(3 - t)} · ${owner}`;
-    this.elLife.innerHTML = '';
-    this.elLife.append(species.length
-      ? h('span', null, `🧬 ${species.length} species here`, fresh ? h('span', { class: 'xl-new' }, `${fresh} NEW`) : ' · all catalogued')
-      : h('span', null, '🧬 No life signs'));
+  }
+
+  /** The species tray: one icon per species here (plants, then animals), dark until a group of it is spotted. */
+  private buildTray() {
+    const L = this.elLife;
+    L.innerHTML = '';
+    this.tiles = [];
+    const order = (sp: Specimen) => (sp.rare ? 2 : sp.diet === 'plant' ? 0 : 1);
+    const list = [...new Map(this.sites.map((s) => [s.sp.seed, s.sp])).values()].sort((a, b) => order(a) - order(b));
+    if (!list.length && !this.relic) { L.append(h('span', { class: 'sf-none' }, '🧬 No life signs')); return; }
+    L.classList.toggle('dense', list.length + (this.relic ? 1 : 0) > 8);
+    const tile = (t: Tile, ...kids: HTMLElement[]) => {
+      t.el.append(...kids, t.badge);
+      t.el.addEventListener('click', () => this.tapTile(t));
+      this.tiles.push(t);
+      L.append(t.el);
+    };
+    for (const sp of list) {
+      const cv = h('canvas') as HTMLCanvasElement;
+      tile({ sp, el: h('div', { class: 'sf-sp hid', role: 'button' }), cv, badge: h('i'), state: '' }, cv);
+    }
+    if (this.relic) {
+      tile({ el: h('div', { class: 'sf-sp hid relic', role: 'button' }), badge: h('i'), state: '' }, h('span', { class: 'sf-glyph' }, '🗿'));
+    }
+    // Paint once the canvases have their size.
+    requestAnimationFrame(() => this.updateTray(true));
+  }
+
+  private tileState(t: Tile): string {
+    if (!t.sp) { const r = this.relic!; return r.taken ? 'got gone' : r.seen ? 'new' : 'hid'; }
+    const seed = t.sp.seed;
+    let seen = false, left = false;
+    for (const s of this.sites) {
+      if (s.sp.seed !== seed) continue;
+      seen ||= s.seen;
+      left ||= s.kind === 'flora' ? !s.harvested : this.critters.some((c) => c.site === s && !c.gone);
+    }
+    if (!seen) return 'hid';
+    return (inXenopedia(this.w, t.sp) ? 'got' : 'new') + (left ? '' : ' gone');
+  }
+
+  private updateTray(force = false) {
+    for (const t of this.tiles) {
+      const state = this.tileState(t);
+      if (state === t.state && !force) continue;
+      const hid = state === 'hid', was = t.state === '' || t.state === 'hid';
+      t.el.className = `sf-sp ${state}` + (t.sp ? (t.sp.rare ? ' rare' : t.sp.diet === 'plant' ? ' pl' : ' an') : ' relic') + (was && !hid && t.state ? ' pop' : '');
+      t.badge.textContent = hid ? '?' : state.startsWith('new') ? 'NEW' : '✓';
+      const what = t.sp ? (t.sp.diet === 'plant' ? 'plant' : 'creature') : 'relic';
+      t.el.title = hid ? `Unknown ${what}` : t.sp ? t.sp.name : 'Ancient relic';
+      if (t.cv && t.sp && (force || hid !== was)) paintSpecimen(t.cv, this.w, t.sp, hid);
+      t.state = state;
+    }
+  }
+
+  /** Tap a tray icon: fly to the nearest group of that species. */
+  private tapTile(t: Tile) {
+    audio.sfx('tap');
+    if (t.state === 'hid') {
+      this.st.ui.toast(t.sp ? `An unknown ${t.sp.diet === 'plant' ? 'plant' : 'creature'} lives here. Explore, or use 📡 Life scan to find it.` : 'Something ancient is buried here. Use 📡 Life scan to pin it down.', '❔');
+      return;
+    }
+    const sh = this.ship;
+    let best: Target | null = null, bd = Infinity;
+    const consider = (o: Target) => { const d = wdist(o.x, o.y, sh.x, sh.y); if (d < bd) { bd = d; best = o; } };
+    if (t.sp) {
+      for (const c of this.critters) if (c.sp.seed === t.sp.seed && !c.gone && c.lift === 0) consider(c);
+      for (const s of this.sites) if (s.kind === 'flora' && s.sp.seed === t.sp.seed && !s.harvested) consider(s);
+    } else if (this.relic && !this.relic.taken) consider(this.relic);
+    if (!best) { this.st.ui.toast(t.sp ? `You have collected every ${t.sp.name} here.` : 'The relic is already aboard.', '✓'); return; }
+    this.chase = best;
+    this.moveTarget = null;
   }
 
   // ------------------------------------------------------------------ actions
@@ -238,13 +328,22 @@ export class SurfaceScene implements Scene {
     this.ping = 0;
     this.reveal = 10;
     let n = 0;
-    for (const s of this.sites) if (wdist(s.x, s.y, this.ship.x, this.ship.y) < 1500) { if (!s.seen) n++; s.seen = true; }
+    for (const s of this.sites) if (wdist(s.x, s.y, this.ship.x, this.ship.y) < SCAN_R) { if (!s.seen) n++; s.seen = true; }
+    const r = this.relic;
+    let relic = false;
+    if (r && !r.seen && !r.taken && wdist(r.x, r.y, this.ship.x, this.ship.y) < SCAN_R) {
+      r.seen = relic = true;
+      setTimeout(() => this.st.ui.toast('Life scan locked onto the ancient signal! Follow the 🗿 arrow.', '🗿', 'gold'), 900);
+    }
     audio.sfx('zap', { pitch: 0.7 });
-    if (!free && n) this.st.ui.toast(`Life scan: ${n} new life sign${n === 1 ? '' : 's'} marked on your map.`, '📡');
+    const hidden = this.tiles.some((t) => t.state === 'hid');
+    if (free || relic) return;
+    if (n) this.st.ui.toast(`Life scan: ${n} new life sign${n === 1 ? '' : 's'} marked on your map.`, '📡');
+    else if (hidden) this.st.ui.toast('Nothing new within range. Fly further out and scan again.', '📡');
   }
 
   /** The beam target under the ship, if any. */
-  private ctxTarget(): Critter | LifeSite | null {
+  private ctxTarget(): Target | null {
     const sh = this.ship;
     let best: Critter | null = null, bd = REACH;
     for (const c of this.critters) {
@@ -254,6 +353,8 @@ export class SurfaceScene implements Scene {
     }
     if (best) return best;
     for (const s of this.sites) if (s.kind === 'flora' && !s.harvested && wdist(s.x, s.y, sh.x, sh.y) < REACH - 8) return s;
+    const r = this.relic;
+    if (r && !r.taken && wdist(r.x, r.y, sh.x, sh.y) < REACH - 8) return r;
     return null;
   }
 
@@ -263,10 +364,13 @@ export class SurfaceScene implements Scene {
     if (tg) this.startBeam(tg);
   }
 
-  private startBeam(tg: Critter | LifeSite) {
+  private startBeam(tg: Target) {
     const w = this.w;
     this.chase = null;
-    if ('d' in tg) {
+    if ('relic' in tg) {
+      tg.seen = true;
+      this.beam = { relic: tg, p: 0 };
+    } else if ('d' in tg) {
       if (w.cargoUsed >= w.cargoCap) { this.st.ui.toast('Your cargo hold is full. Exhibit, splice or release specimens first.', '📦', 'bad'); audio.sfx('error'); return; }
       this.beam = { c: tg, p: 0 };
       tg.lift = 0.01;
@@ -306,9 +410,20 @@ export class SurfaceScene implements Scene {
       const grant = catalogue(w, c.sp);
       this.st.ui.toast(`${c.sp.name} beamed aboard.` + (grant ? ` New to the Xenopedia: ${money(grant)} research grant.` : ''), grant ? '📖' : '🛸', 'good');
       audio.sfx('success');
+      const sight = c.sp.rare ? this.event('rare') : undefined;
+      if (sight) resolveEvent(w, sight);
       if (this.star === w.gal.homeStar) tutorialEvent(w, 'abduct');
       if (!w.s.flags.labHint) { w.s.flags.labHint = true; setTimeout(() => this.st.ui.toast('Specimens can be exhibited, spliced into hybrids or released into ecosystems. See Ship → 🧬 Xeno-Lab.', '🧬'), 1800); }
-    } else {
+    } else if (b.relic) {
+      const r = b.relic;
+      if (wdist(r.x, r.y, sh.x, sh.y) > REACH + 20) { this.beam = null; audio.sfx('fail'); return; }
+      b.p += dt / 2.2;
+      if (b.p < 1) return;
+      this.beam = null;
+      r.taken = true;
+      const ev = this.event('relic');
+      if (ev) resolveEvent(w, ev);
+    } else if (b.site) {
       const s = b.site;
       if (wdist(s.x, s.y, sh.x, sh.y) > REACH + 20) { this.beam = null; audio.sfx('fail'); return; }
       b.p += dt / 0.9;
@@ -358,7 +473,7 @@ export class SurfaceScene implements Scene {
       let tgt: { x: number; y: number } | null = this.moveTarget;
       if (this.chase) {
         const ch = this.chase;
-        const gone = 'd' in ch ? ch.gone || ch.lift > 0 : ch.harvested;
+        const gone = 'relic' in ch ? ch.taken : 'd' in ch ? ch.gone || ch.lift > 0 : ch.harvested;
         if (gone) this.chase = null;
         else {
           tgt = { x: ch.x, y: ch.y };
@@ -397,6 +512,8 @@ export class SurfaceScene implements Scene {
     this.updateBeam(dt);
     const b = cam.bounds(-20);
     for (const s of this.sites) if (!s.seen && s.y > b.y0 && s.y < b.y1 && Math.abs(wdx(cam.x, s.x)) < (b.x1 - b.x0) / 2) s.seen = true;
+    const rl = this.relic;
+    if (rl && !rl.seen && rl.y > b.y0 && rl.y < b.y1 && Math.abs(wdx(cam.x, rl.x)) < (b.x1 - b.x0) / 2) rl.seen = true;
     // Timers
     if (this.scanCd > 0) this.scanCd -= dt;
     if (this.ping >= 0) { this.ping += dt; if (this.ping > 1.4) this.ping = -1; }
@@ -404,7 +521,7 @@ export class SurfaceScene implements Scene {
     this.elScan.classList.toggle('cool', this.scanCd > 0);
     // Contextual action
     const tg = this.beam ? null : this.ctxTarget();
-    const ctxKey = this.beam ? 'beam' : tg ? ('d' in tg ? 'c' + tg.sp.seed : 'f' + tg.sp.seed) : '';
+    const ctxKey = this.beam ? 'beam' : tg ? ('relic' in tg ? 'relic' : 'd' in tg ? 'c' + tg.sp.seed : 'f' + tg.sp.seed) : '';
     if (ctxKey !== this.lastCtx) {
       this.lastCtx = ctxKey;
       const el = this.elCtx;
@@ -412,6 +529,7 @@ export class SurfaceScene implements Scene {
       el.style.display = ctxKey ? '' : 'none';
       el.disabled = !!this.beam;
       if (this.beam) el.append('🛸 Hold steady…');
+      else if (tg && 'relic' in tg) el.append('🗿 Beam up the relic');
       else if (tg) {
         el.append('d' in tg ? `🛸 Beam up ${tg.sp.name}` : `🌱 Gather ${tg.sp.name}`);
         if (!inXenopedia(this.w, tg.sp)) el.append(h('span', { class: 'xl-new' }, 'NEW'));
@@ -435,6 +553,7 @@ export class SurfaceScene implements Scene {
     drawTerrainDecor(g, cam, T);
     this.drawCityGround(g);
     this.drawFlora(g);
+    this.drawRelic(g);
     this.drawThings(g);
     this.drawPing(g);
     this.drawShipAndBeam(g);
@@ -501,6 +620,36 @@ export class SurfaceScene implements Scene {
     g.globalAlpha = 1;
   }
 
+  /** The relic: a carved monolith humming with violet light. */
+  private drawRelic(g: CanvasRenderingContext2D) {
+    const r = this.relic;
+    if (!r || r.taken) return;
+    const x = nearX(this.cam, r.x), y = r.y, b = this.cam.bounds(80);
+    if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) return;
+    const pul = 0.5 + 0.5 * Math.sin(this.t * 3);
+    const up = this.beam?.relic === r ? this.beam.p : 0;
+    g.fillStyle = `rgba(150,120,255,${0.2 + pul * 0.15})`;
+    g.beginPath(); g.ellipse(x, y, 44 + pul * 6, 17 + pul * 2, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.beginPath(); g.ellipse(x, y, 13, 5, 0, 0, TAU); g.fill();
+    g.save();
+    g.translate(x, y - up * (LIFT - 14));
+    g.scale(1 - up * 0.4, 1 - up * 0.4);
+    g.rotate(up * Math.sin(this.t * 6) * 0.3);
+    g.fillStyle = '#2b2740';
+    g.strokeStyle = '#9d8cff';
+    g.lineWidth = 1.8;
+    g.beginPath(); g.moveTo(-10, 0); g.lineTo(-8, -40); g.lineTo(0, -47); g.lineTo(8, -40); g.lineTo(10, 0); g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = `rgba(200,185,255,${0.5 + pul * 0.5})`;
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.moveTo(-4, -34); g.lineTo(0, -30); g.lineTo(4, -34);
+    g.moveTo(0, -25); g.lineTo(0, -16);
+    g.moveTo(-4, -10); g.lineTo(4, -10);
+    g.stroke();
+    g.restore();
+  }
+
   /** Buildings and creatures, painted back to front. */
   private drawThings(g: CanvasRenderingContext2D) {
     const cam = this.cam, b = cam.bounds(90);
@@ -534,7 +683,7 @@ export class SurfaceScene implements Scene {
     const x = nearX(this.cam, this.ship.x);
     g.strokeStyle = `rgba(120,240,220,${(1 - p) * 0.7})`;
     g.lineWidth = 4 / this.cam.zoom;
-    g.beginPath(); g.ellipse(x, this.ship.y, 60 + p * 1100, (60 + p * 1100) * 0.7, 0, 0, TAU); g.stroke();
+    g.beginPath(); g.ellipse(x, this.ship.y, 60 + p * SCAN_R, (60 + p * SCAN_R) * 0.7, 0, 0, TAU); g.stroke();
   }
 
   private drawShipAndBeam(g: CanvasRenderingContext2D) {
@@ -636,7 +785,12 @@ export class SurfaceScene implements Scene {
         x = s.x + x / n; y /= n;
       } else if (s.harvested) continue;
       const p = cam.worldToScreen(nearX(cam, x), y - (s.kind === 'herd' ? 40 : 34));
-      label(s.sp.name, p.x, p.y, '#ffffff', inXenopedia(this.w, s.sp) ? undefined : 'NEW');
+      label(s.sp.name, p.x, p.y, s.sp.rare ? '#ffd166' : '#ffffff', inXenopedia(this.w, s.sp) ? undefined : 'NEW');
+    }
+    const rl = this.relic;
+    if (rl && rl.seen && !rl.taken && wdist(rl.x, rl.y, sh.x, sh.y) < 320) {
+      const p = cam.worldToScreen(nearX(cam, rl.x), rl.y - 62);
+      label('Ancient relic', p.x, p.y, '#c9bcff');
     }
   }
 
@@ -645,9 +799,11 @@ export class SurfaceScene implements Scene {
     if (this.reveal <= 0) return;
     const cam = this.cam, sh = this.ship;
     const alive = (s: LifeSite) => (s.kind === 'flora' ? !s.harvested : this.critters.some((c) => c.site === s && !c.gone));
-    const cand = this.sites.filter((s) => s.seen && alive(s))
+    const cand: { s: LifeSite | Relic; d: number; fresh: boolean }[] = this.sites.filter((s) => s.seen && alive(s))
       .map((s) => ({ s, d: wdist(s.x, s.y, sh.x, sh.y), fresh: !inXenopedia(this.w, s.sp) }))
       .sort((a, b) => (a.fresh === b.fresh ? a.d - b.d : a.fresh ? -1 : 1)).slice(0, 3);
+    const rl = this.relic;
+    if (rl && rl.seen && !rl.taken) cand.unshift({ s: rl, d: wdist(rl.x, rl.y, sh.x, sh.y), fresh: true });
     g.globalAlpha = Math.min(1, this.reveal);
     for (const { s, d, fresh } of cand) {
       const p = cam.worldToScreen(nearX(cam, s.x), s.y);
@@ -671,7 +827,7 @@ export class SurfaceScene implements Scene {
       g.font = '15px system-ui, sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(s.kind === 'herd' ? '🐾' : '🌿', 0, 1);
+      g.fillText('relic' in s ? '🗿' : s.kind === 'herd' ? (s.sp.rare ? '✨' : '🐾') : '🌿', 0, 1);
       g.font = '600 10px Fredoka, system-ui, sans-serif';
       g.fillStyle = '#e6eef8';
       g.fillText(`${Math.round(d / 10) * 10}`, 0, 26);
@@ -713,7 +869,14 @@ export class SurfaceScene implements Scene {
       if (!s.seen) continue;
       const empty = s.kind === 'flora' ? s.harvested : !this.critters.some((q) => q.site === s && !q.gone);
       g.fillStyle = empty ? 'rgba(160,160,160,0.7)' : !inXenopedia(this.w, s.sp) ? '#ffd166' : s.kind === 'herd' ? '#ff9a7a' : '#7bd389';
-      g.beginPath(); g.arc(s.x * sx, s.y * sy, 2.4, 0, TAU); g.fill();
+      g.beginPath(); g.arc(s.x * sx, s.y * sy, s.sp.rare ? 3.4 : 2.4, 0, TAU); g.fill();
+    }
+    const rl = this.relic;
+    if (rl && rl.seen && !rl.taken) {
+      g.fillStyle = '#b8a6ff';
+      g.strokeStyle = '#04101e';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(rl.x * sx, rl.y * sy - 4); g.lineTo(rl.x * sx + 3.4, rl.y * sy); g.lineTo(rl.x * sx, rl.y * sy + 4); g.lineTo(rl.x * sx - 3.4, rl.y * sy); g.closePath(); g.fill(); g.stroke();
     }
     const b = this.cam.bounds(0);
     g.strokeStyle = 'rgba(255,255,255,0.7)';
@@ -733,13 +896,15 @@ export class SurfaceScene implements Scene {
     const p = this.cam.screenToWorld(x, y);
     const z = this.cam.zoom;
     // A creature (aim at its body, not its feet) or a flora patch?
-    let best: Critter | LifeSite | null = null, bd = 30 / z;
+    let best: Target | null = null, bd = 30 / z;
     for (const c of this.critters) {
       if (c.gone || c.lift > 0) continue;
       const d = Math.hypot(wdx(p.x, c.x), c.y - c.size * 0.4 - p.y);
       if (d < bd) { bd = d; best = c; }
     }
     if (!best) for (const s of this.sites) if (s.kind === 'flora' && !s.harvested && Math.hypot(wdx(p.x, s.x), s.y - 8 - p.y) < 40) { best = s; break; }
+    const rl = this.relic;
+    if (!best && rl && !rl.taken && Math.hypot(wdx(p.x, rl.x), rl.y - 22 - p.y) < 36) best = rl;
     if (best) { this.chase = best; this.moveTarget = null; audio.sfx('tap'); return; }
     this.moveTarget = { x: wrapX(p.x), y: clamp(p.y, 90, H - 90) };
     this.chase = null;

@@ -10,10 +10,11 @@ import type { Design, PartCategory, PartInstance } from '../../design/types';
 import type { Specimen } from './types';
 import type { World } from './world';
 
-export const GRANT = { animal: 2500, plant: 1000, hybrid: 4000 };
+export const GRANT = { animal: 2500, plant: 1000, hybrid: 4000, rare: 10000 };
 export const ZOO_CAP = 24;
-/** Tourism per exhibit per minute; hybrids draw three times the crowd. */
+/** Tourism per exhibit per minute; hybrids and rare sightings draw three times the crowd. */
 export const ZOO_RATE = 150;
+export function crowd(sp: Specimen): number { return sp.hybrid || sp.rare ? 3 : 1; }
 export const SPLICE_COST = 6000;
 
 export function inXenopedia(w: World, sp: Specimen): boolean {
@@ -24,7 +25,7 @@ export function inXenopedia(w: World, sp: Specimen): boolean {
 export function catalogue(w: World, sp: Specimen): number {
   if (inXenopedia(w, sp)) return 0;
   (w.s.catalog ??= []).push({ ...sp });
-  const grant = sp.hybrid ? GRANT.hybrid : sp.diet === 'plant' ? GRANT.plant : GRANT.animal;
+  const grant = sp.rare ? GRANT.rare : sp.hybrid ? GRANT.hybrid : sp.diet === 'plant' ? GRANT.plant : GRANT.animal;
   w.addMoney(grant);
   w.counter('catalogued');
   return grant;
@@ -44,7 +45,7 @@ export function canExhibitHere(w: World): boolean {
 }
 
 export function zooRate(w: World): number {
-  return (w.s.zoo ?? []).reduce((a, z) => a + ZOO_RATE * (z.hybrid ? 3 : 1), 0);
+  return (w.s.zoo ?? []).reduce((a, z) => a + ZOO_RATE * crowd(z), 0);
 }
 
 export function exhibit(w: World, i: number): string | null {

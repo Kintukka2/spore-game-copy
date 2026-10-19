@@ -18,10 +18,27 @@ import { generateShip } from '../../../design/generate';
 import { RNG } from '../../../engine/rng';
 import type { SpaceStage } from '../stage';
 import { drawExploreBadge } from './badge';
+import { SPICE, SPICE_COLORS, TOOL_MAP } from '../data';
+import { shade } from '../../../design/color';
 
 interface Beacon { a: number; taken: boolean }
 interface FloatText { x: number; y: number; text: string; color: string; life: number }
 interface Traffic { design: Design; x: number; y: number; vx: number; vy: number; angle: number; to: number; engine: string; size: number }
+
+/** A scan pulse: a beam from the ship, then rings and a sweep across the planet. */
+interface ScanFx { idx: number; t: number; pay: number; paid: boolean }
+
+type RockKind = 'ore' | 'ice' | 'magma' | 'crystal';
+/** An asteroid in a protoplanetary disk's belt. */
+interface Asteroid { kind: RockKind; orbit: number; a: number; speed: number; r: number; hp: number; maxHp: number; seed: number; flash: number }
+const ROCK_LOOK: Record<RockKind, { fill: string; edge: string; glow?: string }> = {
+  ore: { fill: '#6b5a4c', edge: '#c2a582' },
+  ice: { fill: '#bfe3f5', edge: '#ffffff', glow: '#9fe3ff' },
+  magma: { fill: '#3a2420', edge: '#ff7a3a', glow: '#ff6a2a' },
+  crystal: { fill: '#7a4fd8', edge: '#e6dbff', glow: '#c39bff' },
+};
+/** Rocks in a full belt; mined ones re-form at one a minute. */
+const BELT = 14;
 
 let freighterDesign: Design | null = null;
 /** The stranded ship of a distress call. */
@@ -43,6 +60,11 @@ export class SystemView {
   private beacons: Beacon[] = [];
   /** A distress beacon drifting near a planet. */
   private rescue: { ev: number; planet: number; a: number } | null = null;
+  private scans: ScanFx[] = [];
+  private field: Asteroid[] = [];
+  private mineT: Asteroid | null = null;
+  private mineSfx = 0;
+  private mining = false;
   private trailT = 0;
   private danger = false;
   private floats: FloatText[] = [];
@@ -73,6 +95,8 @@ export class SystemView {
     this.parked = null;
     this.nearPlanet = null;
     this.rescue = null;
+    this.scans = [];
+    this.mineT = null;
     const s = w.star(star);
     this.hue = (s.seed % 360);
     this.radius = Math.max(900, ...this.planets.map((p) => p.orbit + 500));
@@ -102,6 +126,7 @@ export class SystemView {
     }
     this.spawnForSystem(how);
     this.spawnTraffic();
+    this.spawnBelt();
     this.danger = false;
     this.updateMusic();
   }
@@ -144,6 +169,101 @@ export class SystemView {
         this.st.ui.toast('Pirates! It\'s an ambush!', '🏴‍☠️', 'bad');
       }
     }
+  }
+
+  /** How many belt rocks are still missing here (mined ones re-form at one a minute). */
+  private beltDebt(): number {
+    const w = this.st.w;
+    const [n, at] = String(w.s.flags[`belt:${this.star}`] ?? '0:0').split(':').map(Number);
+    return Math.max(0, (n || 0) - (w.s.t - (at || 0)) / 60);
+  }
+
+  /** Protoplanetary disks: a belt of asteroids to mine. */
+  private spawnBelt() {
+    this.field = [];
+    const w = this.st.w;
+    if (w.star(this.star).type !== 'proto') return;
+    const n = Math.max(3, BELT - Math.round(this.beltDebt()));
+    for (let i = 0; i < n; i++) {
+      const x = Math.random();
+      const kind: RockKind = x < 0.58 ? 'ore' : x < 0.76 ? 'ice' : x < 0.91 ? 'magma' : 'crystal';
+      const r = kind === 'crystal' ? 15 + Math.random() * 7 : kind === 'ore' ? 22 + Math.random() * 18 : 19 + Math.random() * 12;
+      const hp = 60 + r * 3;
+      this.field.push({ kind, orbit: 190 + Math.random() * 450, a: Math.random() * TAU, speed: 0.02 + Math.random() * 0.03, r, hp, maxHp: hp, seed: Math.random() * 1000, flash: 0 });
+    }
+    this.st.game.hint('proto', 'A protoplanetary disk: a newborn star whose planets have not formed yet. Tap an asteroid in its belt to mine it.', '💫');
+  }
+
+  private rockPos(a: Asteroid) {
+    const ang = a.a + a.speed * this.t;
+    return { x: Math.cos(ang) * a.orbit, y: Math.sin(ang) * a.orbit };
+  }
+
+  /** A mined rock breaks open. Ore sells; ice and magma hold terraform charges; crystals hold spice. */
+  private crack(m: Asteroid) {
+    const w = this.st.w;
+    const p = this.rockPos(m);
+    this.field = this.field.filter((x) => x !== m);
+    this.mineT = null;
+    const look = ROCK_LOOK[m.kind];
+    this.st.fx.explosion(p.x, p.y, 0.5 + m.r / 40, look.edge);
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * TAU, v = 60 + Math.random() * 140;
+      this.st.fx.spawn(p.x, p.y, Math.cos(a) * v, Math.sin(a) * v, 0.9, 3 + Math.random() * 4, i % 3 ? look.fill : look.edge, 1, 1.5);
+    }
+    audio.sfx('explode', { vol: 0.5, pitch: 1.3 });
+    w.counter('mined');
+    w.s.flags[`belt:${this.star}`] = `${this.beltDebt() + 1}:${w.s.t}`;
+    const charge = (id: string, label: string) => {
+      if (w.count(id) < (TOOL_MAP[id].max ?? 99)) { w.give(id, 1); w.addMoney(500); this.floatText(p.x, p.y, `${TOOL_MAP[id].icon} +1 ${label}`, look.edge); }
+      else { w.addMoney(2500); this.floatText(p.x, p.y, '+§2,500', '#ffd166'); }
+    };
+    if (m.kind === 'ore') {
+      const n = Math.round(((900 + m.r * 60) * (0.8 + Math.random() * 0.4)) / 50) * 50;
+      w.addMoney(n);
+      this.floatText(p.x, p.y, `+§${n.toLocaleString('en-US')} ore`, '#ffd166');
+      audio.sfx('coin', { vol: 0.5 });
+    } else if (m.kind === 'ice') charge('icecomet', 'Ice Comet');
+    else if (m.kind === 'magma') charge('meteor', 'Meteor Call');
+    else {
+      const c = SPICE_COLORS[Math.floor(Math.random() * SPICE_COLORS.length)];
+      const n = Math.min(2, w.cargoCap - w.cargoUsed);
+      if (n > 0) { w.s.spice[c] += n; this.floatText(p.x, p.y, `💎 +${n} ${SPICE[c].name}`, SPICE[c].hex); }
+      else { w.addMoney(5000); this.floatText(p.x, p.y, '💎 +§5,000', '#ffd166'); this.st.ui.toast('Your hold is full, so you sold the spice crystal on the spot: +§5,000.', '💎'); }
+      audio.sfx('levelup', { vol: 0.4 });
+    }
+    if (!this.field.length) this.st.ui.toast('The belt is mined out. Rocks re-form here over time, about one a minute.', '⛏️');
+  }
+
+  /** Play a scan on a planet; `delay` staggers a sweep. */
+  scanFx(idx: number, pay: number, delay = 0) {
+    this.scans.push({ idx, t: -delay, pay, paid: false });
+  }
+
+  /** Quick-scan the planet nearest the ship. */
+  scanNearest() {
+    let best = -1, bd = Infinity;
+    for (const p of this.planets) {
+      if (this.st.w.peekPS(this.star, p.idx).destroyed) continue;
+      const pp = this.planetPos(p.idx), d = Math.hypot(pp.x - this.ship.x, pp.y - this.ship.y);
+      if (d < bd) { bd = d; best = p.idx; }
+    }
+    if (best >= 0) this.st.quickScan(best);
+  }
+
+  /** Right-click or press-and-hold: scan the planet underneath, or sweep the whole system from the star. */
+  onAltTap(x: number, y: number) {
+    const p = this.cam.screenToWorld(x, y);
+    const z = this.cam.zoom;
+    for (const pl of this.planets) {
+      const pp = this.planetPos(pl.idx);
+      if (Math.hypot(pp.x - p.x, pp.y - p.y) < pl.size + 22 / z) {
+        if (this.st.w.peekPS(this.star, pl.idx).destroyed) return;
+        this.st.quickScan(pl.idx);
+        return;
+      }
+    }
+    if (Math.hypot(p.x, p.y) < this.starRadius() + 20 / z) this.st.sweepSystem();
   }
 
   /** Peaceful ships shuttling between the worlds of an owned system. */
@@ -393,6 +513,34 @@ export class SystemView {
         } else resolveEvent(w, ev);
       }
     }
+    // Scan pulses
+    for (const f of this.scans) {
+      f.t += dt;
+      if (f.pay && !f.paid && f.t > 0.4) {
+        f.paid = true;
+        const pp = this.planetPos(f.idx);
+        this.floatText(pp.x, pp.y - this.planetSize(f.idx) - 18, `+§${f.pay.toLocaleString('en-US')}`, '#ffd166');
+      }
+    }
+    this.scans = this.scans.filter((f) => f.t < 1.6);
+    // Mining: the laser cuts the chosen rock while it is in reach and no fight is on.
+    this.mining = false;
+    const m = this.mineT;
+    for (const a of this.field) a.flash = Math.max(0, a.flash - dt * 4);
+    if (m && !this.field.includes(m)) this.mineT = null;
+    else if (m && !this.combat.laserFiring) {
+      const q = this.rockPos(m);
+      if (Math.hypot(q.x - sh.x, q.y - sh.y) < 330 && w.s.energy > 0.5) {
+        this.mining = true;
+        m.hp -= this.combat.laserDps() * dt;
+        m.flash = 1;
+        w.s.energy = Math.max(0, w.s.energy - 0.8 * dt);
+        if (Math.random() < dt * 30) this.st.fx.spawn(q.x + (Math.random() - 0.5) * m.r, q.y + (Math.random() - 0.5) * m.r, (Math.random() - 0.5) * 140, (Math.random() - 0.5) * 140, 0.35, 2.5, ROCK_LOOK[m.kind].edge, 1, 3);
+        this.mineSfx -= dt;
+        if (this.mineSfx <= 0) { audio.sfx('laser', { vol: 0.3, pitch: 0.7 + Math.random() * 0.2 }); this.mineSfx = 0.4; }
+        if (m.hp <= 0) this.crack(m);
+      }
+    }
     // Nearest planet for the HUD button
     this.nearPlanet = null;
     let bd = Infinity;
@@ -483,6 +631,8 @@ export class SystemView {
       }
     }
     if (this.rescue) this.drawRescue(g, z);
+    this.drawBelt(g, z);
+    this.drawScans(g, z);
     this.drawLabels(g, z);
     // Shots
     this.drawShots(g, z);
@@ -542,6 +692,139 @@ export class SystemView {
     this.drawOffscreen(g, W, H);
     this.drawJoystick(g);
     this.st.fx.drawFlash(g, W, H);
+  }
+
+  private drawBelt(g: CanvasRenderingContext2D, z: number) {
+    if (!this.field.length) return;
+    const sh = this.ship;
+    for (const a of this.field) {
+      const p = this.rockPos(a);
+      if (!this.cam.isVisible(p.x, p.y, a.r * 3)) continue;
+      const look = ROCK_LOOK[a.kind];
+      g.save();
+      g.translate(p.x, p.y);
+      if (look.glow) {
+        g.globalCompositeOperation = 'lighter';
+        g.globalAlpha = a.kind === 'crystal' ? 0.6 + 0.4 * Math.sin(this.t * 3 + a.seed) : 0.55;
+        blit(g, glow(look.glow, 32), 0, 0, a.r * 2.6);
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = 'source-over';
+      }
+      // Lit from a fixed side: spin the outline, not the shading.
+      const rot = a.seed + this.t * 0.25 * (Math.floor(a.seed) % 2 ? 1 : -1);
+      const r = a.r;
+      const gr = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r * 1.25);
+      gr.addColorStop(0, shade(look.fill, 0.3));
+      gr.addColorStop(1, shade(look.fill, -0.45));
+      g.fillStyle = gr;
+      g.strokeStyle = look.edge;
+      g.lineWidth = 1.8 / z;
+      g.beginPath();
+      if (a.kind === 'crystal') {
+        const pts = [[0, -1.6], [0.72, -0.6], [0.72, 0.9], [0, 1.4], [-0.72, 0.9], [-0.72, -0.6]];
+        pts.forEach(([px, py], i) => {
+          const x = (px * Math.cos(rot) - py * Math.sin(rot)) * r, y = (px * Math.sin(rot) + py * Math.cos(rot)) * r;
+          if (i) g.lineTo(x, y); else g.moveTo(x, y);
+        });
+      } else {
+        const k = 12;
+        for (let i = 0; i < k; i++) {
+          const ang = (i / k) * TAU + rot;
+          const rr = r * (0.82 + 0.12 * Math.sin(a.seed * 7.3 + i * 2.1) + 0.07 * Math.sin(a.seed * 3.1 + i * 4.7));
+          if (i) g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); else g.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+        }
+      }
+      g.closePath(); g.fill(); g.stroke();
+      g.rotate(rot);
+      if (a.kind === 'magma') {
+        g.strokeStyle = `rgba(255,150,60,${0.65 + 0.35 * Math.sin(this.t * 4 + a.seed)})`;
+        g.lineWidth = 2 / z;
+        g.beginPath(); g.moveTo(-r * 0.55, -r * 0.2); g.lineTo(-r * 0.05, r * 0.1); g.lineTo(r * 0.45, -r * 0.35); g.moveTo(-r * 0.05, r * 0.1); g.lineTo(r * 0.1, r * 0.6); g.stroke();
+      } else if (a.kind === 'ore') {
+        g.fillStyle = 'rgba(30,22,16,0.45)';
+        g.beginPath(); g.arc(r * 0.3, r * 0.15, r * 0.2, 0, TAU); g.fill();
+        g.beginPath(); g.arc(-r * 0.3, -r * 0.3, r * 0.13, 0, TAU); g.fill();
+        g.fillStyle = '#ffd166';
+        for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(Math.cos(a.seed + i * 1.7) * r * 0.5, Math.sin(a.seed + i * 1.7) * r * 0.5, r * 0.08, 0, TAU); g.fill(); }
+      } else if (a.kind === 'ice') {
+        g.strokeStyle = 'rgba(255,255,255,0.85)';
+        g.lineWidth = 1.6 / z;
+        g.beginPath(); g.moveTo(-r * 0.45, -r * 0.25); g.lineTo(r * 0.15, -r * 0.5); g.moveTo(-r * 0.2, r * 0.25); g.lineTo(r * 0.35, r * 0.05); g.stroke();
+      } else {
+        g.strokeStyle = 'rgba(240,230,255,0.7)';
+        g.lineWidth = 1.2 / z;
+        g.beginPath(); g.moveTo(0, -r * 1.6); g.lineTo(0, r * 1.4); g.moveTo(-r * 0.72, -r * 0.6); g.lineTo(0, -r * 0.1); g.lineTo(r * 0.72, -r * 0.6); g.stroke();
+        const tw = Math.max(0, Math.sin(this.t * 2.5 + a.seed));
+        if (tw > 0.6) { g.fillStyle = `rgba(255,255,255,${(tw - 0.6) * 2.5})`; g.beginPath(); g.arc(r * 0.3, -r * 0.7, r * 0.18, 0, TAU); g.fill(); }
+      }
+      if (a.flash > 0) { g.globalAlpha = a.flash * 0.35; g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, a.r * 0.8, 0, TAU); g.fill(); g.globalAlpha = 1; }
+      g.restore();
+      if (a.hp < a.maxHp) {
+        const wdt = 36 / z * Math.min(1, z * 1.4), hh = 4 / z;
+        g.fillStyle = 'rgba(0,0,0,0.6)';
+        g.fillRect(p.x - wdt / 2, p.y - a.r - 12 / z, wdt, hh);
+        g.fillStyle = look.edge;
+        g.fillRect(p.x - wdt / 2, p.y - a.r - 12 / z, wdt * clamp(a.hp / a.maxHp, 0, 1), hh);
+      }
+    }
+    const m = this.mineT;
+    if (!m) return;
+    const q = this.rockPos(m);
+    this.drawReticle(g, q.x, q.y, m.r + 12, '#ffcf9e', z);
+    if (this.mining) {
+      const flick = 0.7 + Math.random() * 0.3;
+      g.globalCompositeOperation = 'lighter';
+      g.lineCap = 'round';
+      g.strokeStyle = `rgba(255,190,110,${0.35 * flick})`;
+      g.lineWidth = 9 / z;
+      g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(q.x, q.y); g.stroke();
+      g.strokeStyle = `rgba(255,245,220,${0.9 * flick})`;
+      g.lineWidth = 2.4 / z;
+      g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(q.x, q.y); g.stroke();
+      blit(g, glow('#ffcf9e', 24), q.x, q.y, 24);
+      g.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  private drawScans(g: CanvasRenderingContext2D, z: number) {
+    const sh = this.ship;
+    for (const f of this.scans) {
+      if (f.t < 0) continue;
+      const pp = this.planetPos(f.idx), R = this.planetSize(f.idx);
+      g.globalCompositeOperation = 'lighter';
+      // Beam from the ship
+      if (f.t < 0.5) {
+        const a = 1 - f.t / 0.5;
+        g.strokeStyle = `rgba(120,240,255,${0.75 * a})`;
+        g.lineWidth = 3 / z;
+        g.setLineDash([10 / z, 8 / z]);
+        g.lineDashOffset = -f.t * 300 / z;
+        g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(pp.x, pp.y); g.stroke();
+        g.setLineDash([]);
+      }
+      // Rings rolling outward
+      for (let i = 0; i < 2; i++) {
+        const k = (f.t - 0.25 - i * 0.25) / 1.1;
+        if (k <= 0 || k >= 1) continue;
+        g.strokeStyle = `rgba(120,240,255,${(1 - k) * 0.8})`;
+        g.lineWidth = (3 - k * 2) / z;
+        g.beginPath(); g.arc(pp.x, pp.y, R * (1.05 + k * 1.4), 0, TAU); g.stroke();
+      }
+      // A sweep line across the disc
+      const q = (f.t - 0.15) / 0.9;
+      if (q > 0 && q < 1) {
+        g.save();
+        g.beginPath(); g.arc(pp.x, pp.y, R, 0, TAU); g.clip();
+        const y = pp.y - R + q * R * 2;
+        g.fillStyle = 'rgba(120,240,255,0.16)';
+        g.fillRect(pp.x - R, y - R * 0.5, R * 2, R * 0.5);
+        g.strokeStyle = 'rgba(190,250,255,0.9)';
+        g.lineWidth = 2 / z;
+        g.beginPath(); g.moveTo(pp.x - R, y); g.lineTo(pp.x + R, y); g.stroke();
+        g.restore();
+      }
+      g.globalCompositeOperation = 'source-over';
+    }
   }
 
   private drawRescue(g: CanvasRenderingContext2D, z: number) {
@@ -859,7 +1142,8 @@ export class SystemView {
   }
 
   // ------------------------------------------------------------------ input
-  onTap(x: number, y: number) {
+  onTap(x: number, y: number, alt = false) {
+    if (alt) { this.onAltTap(x, y); return; }
     const p = this.cam.screenToWorld(x, y);
     const z = this.cam.zoom;
     const w = this.st.w;
@@ -873,6 +1157,17 @@ export class SystemView {
     if (best) {
       this.combat.playerTarget = best;
       audio.sfx('tap');
+      return;
+    }
+    // Asteroid? Pick it to mine and move within laser reach.
+    for (const a of this.field) {
+      const q = this.rockPos(a);
+      if (Math.hypot(q.x - p.x, q.y - p.y) > a.r + 18 / z) continue;
+      this.mineT = a;
+      const dx = this.ship.x - q.x, dy = this.ship.y - q.y, d = Math.hypot(dx, dy) || 1;
+      if (d > 260) { this.moveTarget = { x: q.x + (dx / d) * 200, y: q.y + (dy / d) * 200 }; this.autoPlanet = null; this.parked = null; }
+      audio.sfx('tap');
+      this.st.game.hint('mining', 'Mining! Stay within reach and your laser cuts the rock. Ore sells, ice and magma hold terraform charges, crystals hold spice.', '⛏️');
       return;
     }
     // Planet?

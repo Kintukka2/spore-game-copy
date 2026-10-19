@@ -22,6 +22,7 @@ import { drawShip, shipLength } from '../art/shipArt';
 import { drawPlant, money, paintSpecimen } from '../ui/common';
 import { abduct, isHomeworld } from '../economy';
 import { resolve as resolveEvent } from '../events';
+import { lifeOn } from '../scan';
 import { tutorialEvent } from '../missions';
 import { catalogue, inXenopedia } from '../xenolab';
 import type { SpaceStage } from '../stage';
@@ -156,10 +157,8 @@ export class SurfaceScene implements Scene {
       }
     }
     // Life: whatever lives in the planet's ecosystem, plus its natives.
-    const species: Specimen[] = [];
+    const species: Specimen[] = lifeOn(w, this.star, this.idx);
     const add = (sp: Specimen | null) => { if (sp && !species.some((x) => x.seed === sp.seed)) species.push(sp); };
-    for (const sp of ps.eco) add(sp);
-    if (pl.life) for (const sp of w.natives(pl).slice(0, Math.max(1, t) * 4)) add(sp);
     const rare = this.event('rare')?.sp;
     add(rare ?? null);
     const life = spawnLife(T, species, pl.seed, this.cities, (sp) => w.specimenDesign(sp));

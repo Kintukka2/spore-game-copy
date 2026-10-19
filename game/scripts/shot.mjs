@@ -1,5 +1,6 @@
 // Screenshot helper for development and agents.
 // Usage: node scripts/shot.mjs "<query-string>" [out.png] [--wait=ms] [--actions=file.json] [--w=390 --h=844]
+// Actions: tap, click, rclick, press [x,y,ms], hover, hoverSel, clickSel, text, role, eval, key, hold (key), drag, wait, shot.
 // Starts against an already-running dev server at http://localhost:5173 unless --url is passed.
 import { chromium } from 'playwright';
 import fs from 'node:fs';
@@ -25,6 +26,8 @@ if (flags.actions) {
   for (const a of actions) {
     if (a.tap) await page.touchscreen.tap(a.tap[0], a.tap[1]);
     if (a.click) await page.mouse.click(a.click[0], a.click[1]);
+    if (a.rclick) await page.mouse.click(a.rclick[0], a.rclick[1], { button: 'right' });
+    if (a.press) { await page.mouse.move(a.press[0], a.press[1]); await page.mouse.down(); await page.waitForTimeout(a.press[2] ?? 700); await page.mouse.up(); }
     if (a.hover) await page.mouse.move(a.hover[0], a.hover[1], { steps: 4 });
     if (a.hoverSel) { try { await page.locator(a.hoverSel).first().hover({ force: true, timeout: 3000 }); logs.push('[hover] ' + a.hoverSel); } catch { logs.push('[miss] ' + a.hoverSel); } }
     if (a.clickSel) { try { await page.locator(a.clickSel).first().click({ force: true, timeout: 3000 }); logs.push('[click] ' + a.clickSel); } catch { logs.push('[miss] ' + a.clickSel); } }

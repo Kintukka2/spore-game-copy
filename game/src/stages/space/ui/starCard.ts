@@ -48,7 +48,10 @@ export class StarCard {
     if (!isCore) kv.append(h('span', null, 'Owner'), h('span', null, ownerEl));
     // Planets & spice
     const pls = w.gal.planets(this.id);
-    if (s.type === 'blackhole') {
+    if (s.type === 'proto') {
+      kv.append(h('span', null, 'Planets'), h('span', null, 'None yet: they are still forming'));
+      kv.append(h('span', null, 'Belt'), h('b', { style: 'color:#ffcf9e' }, '⛏️ Asteroids: ore, ice, magma, crystals'));
+    } else if (s.type === 'blackhole') {
       kv.append(h('span', null, 'Rift'), h('span', null, w.s.knownTwins.includes(this.id) && s.twin !== undefined ? `Leads to ${w.star(s.twin).name}` : 'Leads somewhere far away'));
     } else if (!isCore) {
       if (visited || owner === 'player' || (e && e.met)) {

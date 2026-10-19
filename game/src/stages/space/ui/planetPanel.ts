@@ -11,13 +11,15 @@ import {
   genesis, happiness, isHomeworld, maxCities, production, sell, sellPrice, slotKind, slots, storageCap, terraform, used, type BuildingId, type TerraTool,
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
-import { deliver, deliverables, onScan, tutorialEvent } from '../missions';
+import { deliver, deliverables, tutorialEvent } from '../missions';
+import { scanPlanet } from '../scan';
 import { dismiss, EVENT_INFO, resolve as resolveEvent, takeDeal, traderDeals, welcomeRefugees } from '../events';
 import type { Empire, GEvent, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
 import { inXenopedia } from '../xenolab';
 import { landingBlock } from '../surface/look';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './common';
+import { showScan } from './scanCard';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
 
@@ -335,7 +337,7 @@ export class PlanetPanel {
     B.append(info);
     const acts = h('div', { class: 'sp-tools' });
     const wanted = w.s.missions.some((m) => (m.kind === 'scan' || (m.kind === 'tutorial' && m.step === 'scan')) && m.star === this.star && m.planet === this.idx);
-    acts.append(button(ps.scanned && !wanted ? '🔍 Scanned' : '🔍 Scan', () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary', disabled: !!ps.scanned && !wanted }));
+    acts.append(button(ps.scanned && !wanted ? '🔍 Re-scan' : '🔍 Scan', () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary' }));
     if (pl.kind !== 'gas') {
       const cc = canColonize(w, this.star, this.idx);
       if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
@@ -403,27 +405,9 @@ export class PlanetPanel {
   }
 
   private scan() {
-    const w = this.w;
-    const ps = w.ps(this.star, this.idx);
-    const first = !ps.scanned;
-    ps.scanned = true;
     this.scanT = 1.2;
-    audio.sfx('zap', { pitch: 1.5 });
-    onScan(w, this.star, this.idx);
-    if (this.pl.feature === 'wreck' && this.star === w.gal.homeStar) tutorialEvent(w, 'scan');
-    if (first && this.pl.feature === 'wreck') {
-      const reward = 15000;
-      w.addMoney(reward);
-      this.st.ui.toast(`Scanned the wreck: salvaged data worth ${money(reward)}.`, '🛰️', 'good');
-    } else if (first && this.pl.feature === 'ruin') {
-      const gifts = ['stormpod', 'meteor', 'icecomet', 'droughtpod', 'repair', 'recharge'];
-      const g = gifts[Math.floor(Math.random() * gifts.length)];
-      w.give(g, 2);
-      w.addMoney(8000);
-      this.st.ui.toast('The ruins held old relics and supplies. +§8,000 and 2 tools.', '🏛️', 'good');
-    } else {
-      this.st.ui.toast(`${this.pl.name}: ${this.pl.life ? 'life signs logged' : 'no life signs'}.`, '🔍');
-    }
+    showScan(this.w, [scanPlanet(this.w, this.star, this.idx)]);
+    this.st.game.hint('quickscan', 'Shortcut: in the system view, right-click (or press and hold) a planet to scan it from anywhere. Do it on the star to sweep every world at once.', '🔍');
     this.render();
   }
 

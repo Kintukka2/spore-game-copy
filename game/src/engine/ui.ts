@@ -79,15 +79,36 @@ class UI {
     this.layers = [];
   }
 
-  toast(msg: string, opts: { icon?: string; kind?: 'info' | 'good' | 'bad' | 'gold'; ms?: number } = {}) {
+  /** A toast with text or custom content. Repeating a message that is still on screen bumps it instead of stacking. */
+  toast(msg: string | Node, opts: { icon?: string; kind?: 'info' | 'good' | 'bad' | 'gold' | 'scan'; ms?: number } = {}): HTMLElement {
+    const ms = opts.ms ?? 2600;
+    if (typeof msg === 'string') {
+      for (const el of this.toastBox.children) {
+        const old = el as HTMLElement;
+        if (old.dataset.msg !== msg || old.dataset.out) continue;
+        old.classList.remove('bump');
+        void old.offsetWidth;
+        old.classList.add('bump');
+        this.hideToast(old, ms);
+        return old;
+      }
+    }
     const t = h('div', { class: 'toast ' + (opts.kind ?? 'info') }, opts.icon ? h('span', { class: 'toast-icon' }, opts.icon) : null, h('span', null, msg));
+    if (typeof msg === 'string') t.dataset.msg = msg;
     this.toastBox.append(t);
     while (this.toastBox.children.length > 4) this.toastBox.firstElementChild?.remove();
     requestAnimationFrame(() => t.classList.add('in'));
-    setTimeout(() => {
+    this.hideToast(t, ms);
+    return t;
+  }
+  private toastTimers = new WeakMap<HTMLElement, number>();
+  private hideToast(t: HTMLElement, ms: number) {
+    clearTimeout(this.toastTimers.get(t));
+    this.toastTimers.set(t, window.setTimeout(() => {
+      t.dataset.out = '1';
       t.classList.remove('in');
       setTimeout(() => t.remove(), 400);
-    }, opts.ms ?? 2600);
+    }, ms));
   }
 
   /** Modal dialog. Resolves with the id of the button pressed (or 'dismiss'). */

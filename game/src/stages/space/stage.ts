@@ -31,6 +31,8 @@ import { catalogue, splice } from './xenolab';
 import { SurfaceScene } from './surface/scene';
 import { landingBlock } from './surface/look';
 import { EVENT_INFO, randomEvent, start as startEvent } from './events';
+import { scanPlanet } from './scan';
+import { showScan } from './ui/scanCard';
 import { playEnding } from './ending';
 
 export type ViewMode = 'galaxy' | 'system' | 'warp';
@@ -213,11 +215,12 @@ export class SpaceStage implements Scene, WorldHooks {
   onResize() { this.hud?.refresh(true); this.hud?.layoutAbilities(); }
 
   // ------------------------------------------------------------------ input
-  onTap(x: number, y: number) {
+  onTap(x: number, y: number, p?: PointerInfo) {
     if (!this.ready) return;
     if (this.mode === 'galaxy') this.gv.onTap(x, y);
-    else if (this.mode === 'system') this.sv.onTap(x, y);
+    else if (this.mode === 'system') this.sv.onTap(x, y, p?.button === 2);
   }
+  onLongPress(x: number, y: number) { if (this.ready && this.mode === 'system') this.sv.onAltTap(x, y); }
   onDragStart(p: PointerInfo) { if (this.mode === 'galaxy') this.gv.onDragStart(); else if (this.mode === 'system') this.sv.onDragStart(p); }
   onDrag(p: PointerInfo, dx: number, dy: number) { if (this.mode === 'galaxy') this.gv.onDrag(p, dx, dy); else if (this.mode === 'system') this.sv.onDrag(p); }
   onDragEnd() { if (this.mode === 'galaxy') this.gv.onDragEnd(); else this.sv.onDragEnd(); }
@@ -227,6 +230,7 @@ export class SpaceStage implements Scene, WorldHooks {
     if (!down || !this.ready) return;
     if (k === 'm' || k === 'tab') this.toggleView();
     if (k === ' ' && this.mode === 'system') this.sv.combat.firePulse();
+    if (k === 'q' && this.mode === 'system' && !this.panel) this.sv.scanNearest();
   }
 
   // ------------------------------------------------------------------ views
@@ -366,7 +370,28 @@ export class SpaceStage implements Scene, WorldHooks {
   tapStar() {
     const s = this.w.star(this.sv.star);
     if (s.type === 'blackhole') this.enterRift();
-    else this.ui.toast(`${s.name}: ${STAR_INFO[s.type].name}.`, '☀️');
+    else if (s.type === 'proto') this.ui.toast(`${s.name} is a protoplanetary disk: a newborn star still wrapped in the dust and gas its planets will form from, so there are no worlds here yet. Its asteroid belt is rich in ore, ice, magma and spice crystals. Tap a rock to mine it.`, '💫', 'gold');
+    else this.ui.toast(`${s.name}: ${STAR_INFO[s.type].name}. Right-click or press and hold it to sweep-scan every world here.`, '☀️');
+  }
+
+  /** Scan one world of this system from wherever the ship is. */
+  quickScan(idx: number) {
+    if (this.panel || this.mode !== 'system') return;
+    const r = scanPlanet(this.w, this.sv.star, idx);
+    this.sv.scanFx(idx, r.pay);
+    showScan(this.w, [r]);
+    this.hud.refresh(true);
+  }
+
+  /** Scan every world of this system at once. */
+  sweepSystem() {
+    if (this.panel || this.mode !== 'system') return;
+    const pls = this.sv.planets.filter((p) => !this.w.peekPS(this.sv.star, p.idx).destroyed);
+    if (!pls.length) { this.tapStar(); return; }
+    const rs = pls.map((p) => scanPlanet(this.w, this.sv.star, p.idx));
+    rs.forEach((r, i) => this.sv.scanFx(r.idx, r.pay, i * 0.12));
+    showScan(this.w, rs);
+    this.hud.refresh(true);
   }
 
   enterRift() {

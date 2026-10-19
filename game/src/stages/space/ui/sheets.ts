@@ -177,7 +177,8 @@ export function openMissions(st: SpaceStage) {
       if (!w.s.events.length) B.append(h('p', { class: 'dim' }, 'All quiet across your worlds.'));
       for (const ev of w.s.events) {
         const pl = w.planet(ev.star, ev.planet);
-        B.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, EVENT_INFO[ev.kind].icon), h('div', { class: 'sp-txt' }, h('b', null, `${EVENT_INFO[ev.kind].label}: ${pl.name}`), `${w.star(ev.star).name} · ${fmtTime(ev.until - w.s.t)} left`), button('Go', () => { sh.close(); st.gotoEvent(ev); }, { cls: 'small primary' })));
+        const info = EVENT_INFO[ev.kind];
+        B.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, info.icon), h('div', { class: 'sp-txt' }, h('b', { style: info.good ? 'color:#ffd166' : '' }, `${info.label}: ${pl.name}`), `${w.star(ev.star).name} · ${fmtTime(ev.until - w.s.t)} left · ${info.how}`), button('Go', () => { sh.close(); st.gotoEvent(ev); }, { cls: 'small ' + (info.good ? 'gold' : 'primary') })));
       }
     }
   };

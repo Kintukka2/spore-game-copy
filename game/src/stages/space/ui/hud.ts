@@ -137,6 +137,7 @@ export class SpaceHud {
       button('Skip tutorial', () => st.debug('tut'), { cls: 'small' }),
       button('Raid now', () => st.debug('raid'), { cls: 'small' }),
       button('Eco now', () => st.debug('eco'), { cls: 'small' }),
+      ...(['meteor', 'distress', 'relic', 'rare', 'trader', 'refugees'] as const).map((k) => button(`${EVENT_INFO[k].icon} ${k}`, () => st.debug(k), { cls: 'small' })),
       button('Jump near core', () => st.debug('core'), { cls: 'small' }),
     );
     this.debugEl = h('div', { class: 'sp-debug' }, toggle, list);
@@ -194,7 +195,7 @@ export class SpaceHud {
       this.alerts.innerHTML = '';
       for (const ev of s.events.slice(0, 3)) {
         const pl = w.planet(ev.star, ev.planet);
-        const chip = h('div', { class: 'sp-alert' + (ev.kind === 'eco' ? ' eco' : ''), role: 'button' }, EVENT_INFO[ev.kind].icon, ` ${pl.name} ${fmtTime(ev.until - s.t)}`);
+        const chip = h('div', { class: 'sp-alert' + (ev.kind === 'eco' ? ' eco' : EVENT_INFO[ev.kind].good ? ' good' : ''), role: 'button', title: `${EVENT_INFO[ev.kind].label}: ${EVENT_INFO[ev.kind].how}` }, EVENT_INFO[ev.kind].icon, ` ${pl.name} ${fmtTime(ev.until - s.t)}`);
         chip.addEventListener('click', () => st.gotoEvent(ev));
         this.alerts.append(chip);
       }

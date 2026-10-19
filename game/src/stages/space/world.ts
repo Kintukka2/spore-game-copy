@@ -54,6 +54,8 @@ export class World {
   inCombat = false;
   /** True while warping between stars (no recharging). */
   inWarp = false;
+  /** "star:idx" of the world the ship has landed on, if any. */
+  onSurface: string | null = null;
   /** Set by the system view: the star the player currently flies in. */
   dirtyTerritory = true;
   rankCache = -1;

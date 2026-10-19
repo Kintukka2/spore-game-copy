@@ -30,7 +30,7 @@ import { collectSystem } from './economy';
 import { catalogue, splice } from './xenolab';
 import { SurfaceScene } from './surface/scene';
 import { landingBlock } from './surface/look';
-import { start as startEvent } from './events';
+import { EVENT_INFO, randomEvent, start as startEvent } from './events';
 import { playEnding } from './ending';
 
 export type ViewMode = 'galaxy' | 'system' | 'warp';
@@ -132,6 +132,9 @@ export class SpaceStage implements Scene, WorldHooks {
     const err = landingBlock(w.planet(star, idx), w.peekPS(star, idx), !!w.star(star).hollow);
     if (err) { this.ui.toast(err, '🛬'); audio.sfx('error'); return; }
     closeAllSheets();
+    // Hold position in orbit so the ship does not wander into another panel during the fade.
+    this.sv.autoPlanet = null;
+    this.sv.moveTarget = null;
     audio.sfx('warp', { pitch: 0.8, vol: 0.6 });
     void this.game.fade(() => this.game.push(new SurfaceScene(this, star, idx)), 450);
   }
@@ -390,7 +393,7 @@ export class SpaceStage implements Scene, WorldHooks {
     this.panel?.close();
     if (ev.star === this.w.s.loc) {
       this.showSystem();
-      if (ev.kind === 'eco') this.sv.goToPlanet(ev.planet);
+      if (['eco', 'relic', 'rare', 'trader', 'refugees'].includes(ev.kind)) this.sv.goToPlanet(ev.planet);
       return;
     }
     this.showGalaxy(ev.star);
@@ -446,10 +449,24 @@ export class SpaceStage implements Scene, WorldHooks {
   takeoverOffer(e: Empire, star: number, price: number) { this.dialog(() => takeoverDialog(this, e, star, price)); }
   eventStarted(ev: GEvent) {
     const pl = this.w.planet(ev.star, ev.planet);
-    const msg = ev.kind === 'raid' ? `Pirates are raiding ${pl.name}!` : ev.kind === 'eco' ? `Eco-disaster on ${pl.name}! A plague is spreading.` : ev.kind === 'hollow' ? `The Hollow strike ${pl.name}!` : `${this.w.emap.get(ev.empire ?? '')?.name ?? 'Enemies'} invade ${pl.name}!`;
-    this.ui.toast(msg + ' Tap the alert to go there.', ev.kind === 'eco' ? '☣️' : '🚨', 'bad');
-    if (ev.star === this.w.s.loc && ev.kind !== 'eco') this.sv.startEventFight(ev.id);
+    const sys = this.w.star(ev.star).name;
+    const msg: Record<GEvent['kind'], string> = {
+      raid: `Pirates are raiding ${pl.name}!`,
+      eco: `Eco-disaster on ${pl.name}! A plague is spreading.`,
+      hollow: `The Hollow strike ${pl.name}!`,
+      invasion: `${this.w.emap.get(ev.empire ?? '')?.name ?? 'Enemies'} invade ${pl.name}!`,
+      meteor: `A meteor storm is bearing down on ${pl.name}! Shoot the rocks down before they hit.`,
+      distress: `Distress call from a stranded ship near ${pl.name} (${sys}).`,
+      relic: `An ancient signal is rising from the surface of ${pl.name} (${sys}). Land to find its source.`,
+      rare: `Rare sighting! A ${ev.sp?.name ?? 'strange creature'} roams ${pl.name} (${sys}). Land and catch it before it migrates.`,
+      trader: `A wandering trader has set up shop at ${pl.name} (${sys}).`,
+      refugees: `A refugee fleet asks to settle on your colony ${pl.name}.`,
+    };
+    const info = EVENT_INFO[ev.kind];
+    this.ui.toast(msg[ev.kind] + ' Tap the alert to go there.', info.good ? info.icon : ev.kind === 'eco' ? '☣️' : '🚨', info.good ? 'gold' : 'bad');
+    if (ev.star === this.w.s.loc) this.sv.setupEvent(ev);
     this.game.hint('alerts', 'Alerts appear under your mission. Tap one to set course. Get there before the timer runs out.', '🚨');
+    if (info.good) this.game.hint('opportunity', 'Gold alerts are opportunities: rescues, relics, rare creatures, traders and refugees. They pay well, but they do not wait.', '✨');
   }
   eventEnded() { this.hud.refresh(true); }
   rankUp(rank: number) {
@@ -695,6 +712,10 @@ export class SpaceStage implements Scene, WorldHooks {
         startEvent(w, { id: w.nid(), kind: 'raid', star: col[0], planet: col[1], until: w.s.t + 150 });
         break;
       }
+      case 'meteor': case 'distress': case 'relic': case 'rare': case 'trader': case 'refugees':
+        w.s.flags.tutDone = true;
+        if (!randomEvent(w, what)) this.ui.toast(`No world nearby suits a ${EVENT_INFO[what].label.toLowerCase()}.`, '🐞');
+        break;
       case 'eco': {
         let col = w.colonies().find(([s]) => s !== w.gal.homeStar) ?? [w.gal.homeStar, 2] as [number, number];
         const marks: number[] = [];

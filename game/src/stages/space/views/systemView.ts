@@ -10,15 +10,24 @@ import { drawPlanet, sphereFor, styleFor, type PlanetLook } from '../art/planetA
 import { drawShip } from '../art/shipArt';
 import { Combat, type Craft } from '../combat';
 import { strength } from '../empires';
+import { EVENT_INFO, resolve as resolveEvent } from '../events';
 import { tutorialEvent } from '../missions';
-import type { Planet } from '../types';
+import type { GEvent, Planet } from '../types';
 import type { Design } from '../../../design/types';
+import { generateShip } from '../../../design/generate';
+import { RNG } from '../../../engine/rng';
 import type { SpaceStage } from '../stage';
 import { drawExploreBadge } from './badge';
 
 interface Beacon { a: number; taken: boolean }
 interface FloatText { x: number; y: number; text: string; color: string; life: number }
 interface Traffic { design: Design; x: number; y: number; vx: number; vy: number; angle: number; to: number; engine: string; size: number }
+
+let freighterDesign: Design | null = null;
+/** The stranded ship of a distress call. */
+function freighter(): Design {
+  return (freighterDesign ??= generateShip(new RNG(9001), { base: '#5d6b7a', coat: '#d8dee6', detail: '#ffb347', pattern: 'stripes' }, 'Freighter'));
+}
 
 export class SystemView {
   cam = new Camera();
@@ -32,6 +41,8 @@ export class SystemView {
   parked: { idx: number; ox: number; oy: number } | null = null;
   private joy = { active: false, ox: 0, oy: 0, x: 0, y: 0 };
   private beacons: Beacon[] = [];
+  /** A distress beacon drifting near a planet. */
+  private rescue: { ev: number; planet: number; a: number } | null = null;
   private trailT = 0;
   private danger = false;
   private floats: FloatText[] = [];
@@ -61,6 +72,7 @@ export class SystemView {
     this.autoPlanet = null;
     this.parked = null;
     this.nearPlanet = null;
+    this.rescue = null;
     const s = w.star(star);
     this.hue = (s.seed % 360);
     this.radius = Math.max(900, ...this.planets.map((p) => p.orbit + 500));
@@ -115,10 +127,7 @@ export class SystemView {
       this.spawnTurretsFor(e.id);
     }
     // Events here
-    for (const ev of w.s.events) {
-      if (ev.star !== star || ev.kind === 'eco') continue;
-      this.startEventFight(ev.id);
-    }
+    for (const ev of w.s.events) if (ev.star === star) this.setupEvent(ev);
     // Mission pirates
     for (const m of w.s.missions) {
       if (m.kind === 'pirates' && m.star === star) {
@@ -189,6 +198,21 @@ export class SystemView {
     }
   }
 
+  /** Bring an event in this system to life: fights, meteor swarms, distress beacons. */
+  setupEvent(ev: GEvent) {
+    if (ev.kind === 'distress') {
+      if (ev.started) this.startEventFight(ev.id);
+      else if (!this.rescue) this.rescue = { ev: ev.id, planet: ev.planet, a: Math.random() * TAU };
+    } else if (ev.kind === 'raid' || ev.kind === 'invasion' || ev.kind === 'hollow' || ev.kind === 'meteor') this.startEventFight(ev.id);
+  }
+
+  private rescuePos() {
+    const r = this.rescue!;
+    const pp = this.planetPos(r.planet);
+    const R = this.planetSize(r.planet) + 170, a = r.a + this.t * 0.06;
+    return { x: pp.x + Math.cos(a) * R, y: pp.y + Math.sin(a) * R };
+  }
+
   startEventFight(evId: number) {
     const w = this.st.w;
     const ev = w.s.events.find((e) => e.id === evId);
@@ -200,6 +224,8 @@ export class SystemView {
     if (ev.kind === 'raid') this.combat.spawnPirates(3 + Math.floor(Math.random() * 2), x, y, { ev: ev.id, planet: ev.planet });
     else if (ev.kind === 'invasion' && ev.empire) this.combat.spawnEmpire(ev.empire, 3, x, y, { ev: ev.id, planet: ev.planet });
     else if (ev.kind === 'hollow') this.combat.spawnEmpire('hollow', 3, x, y, { ev: ev.id, planet: ev.planet });
+    else if (ev.kind === 'meteor') this.combat.spawnMeteors(ev.planet, Math.max(3, 8 - (ev.hits ?? 0)), ev.id);
+    else if (ev.kind === 'distress') this.combat.spawnPirates(3, x, y, { ev: ev.id });
     this.updateMusic();
   }
 
@@ -350,6 +376,23 @@ export class SystemView {
       }
       if (left === 0) { this.beacons = []; tutorialEvent(w, 'helm'); }
     }
+    // Distress beacon: fly to it to answer the call.
+    if (this.rescue) {
+      const ev = w.s.events.find((e) => e.id === this.rescue!.ev);
+      const b = this.rescuePos();
+      if (!ev) this.rescue = null;
+      else if (Math.hypot(b.x - sh.x, b.y - sh.y) < 75) {
+        this.rescue = null;
+        audio.sfx('pop');
+        this.st.fx.ring(b.x, b.y, 10, 110, 0.6, '#ffd166', 4);
+        if (ev.trap) {
+          ev.started = true;
+          this.combat.spawnPirates(3, b.x, b.y, { ev: ev.id });
+          this.st.ui.toast('It\'s a trap! Pirates de-cloak around the beacon!', '🏴‍☠️', 'bad');
+          audio.sfx('alarm');
+        } else resolveEvent(w, ev);
+      }
+    }
     // Nearest planet for the HUD button
     this.nearPlanet = null;
     let bd = Infinity;
@@ -439,6 +482,7 @@ export class SystemView {
         g.beginPath(); g.arc(bx, by, 28 * pulse, 0, TAU); g.stroke();
       }
     }
+    if (this.rescue) this.drawRescue(g, z);
     this.drawLabels(g, z);
     // Shots
     this.drawShots(g, z);
@@ -498,6 +542,23 @@ export class SystemView {
     this.drawOffscreen(g, W, H);
     this.drawJoystick(g);
     this.st.fx.drawFlash(g, W, H);
+  }
+
+  private drawRescue(g: CanvasRenderingContext2D, z: number) {
+    const b = this.rescuePos();
+    const pulse = 1 + Math.sin(this.t * 4) * 0.15;
+    g.globalCompositeOperation = 'lighter';
+    blit(g, glow('#ffd166', 32), b.x, b.y, 64 * pulse);
+    g.globalCompositeOperation = 'source-over';
+    drawShip(g, freighter(), b.x, b.y, this.t * 0.2, 0.45, this.t, { thrust: 0, engine: '#666' });
+    g.strokeStyle = `rgba(255,225,150,${0.5 + 0.5 * Math.sin(this.t * 6)})`;
+    g.lineWidth = 2.5 / z;
+    g.beginPath(); g.arc(b.x, b.y, 42 * pulse, 0, TAU); g.stroke();
+    g.font = `700 ${13 / z}px Fredoka, system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#ffd166';
+    g.fillText('🆘 SOS', b.x, b.y - 42 * pulse - 12 / z);
   }
 
   private drawStar(g: CanvasRenderingContext2D) {
@@ -609,7 +670,7 @@ export class SystemView {
     const ev = w.s.events.find((e) => e.star === this.star && e.planet === p.idx);
     if (ev) {
       const pul = 0.5 + 0.5 * Math.sin(this.t * 6);
-      g.strokeStyle = `rgba(255,70,70,${0.4 + pul * 0.6})`;
+      g.strokeStyle = EVENT_INFO[ev.kind].good ? `rgba(255,209,102,${0.4 + pul * 0.6})` : `rgba(255,70,70,${0.4 + pul * 0.6})`;
       g.lineWidth = 3 / z;
       g.beginPath(); g.arc(x, y, p.size * (1.5 + pul * 0.15), 0, TAU); g.stroke();
     }
@@ -638,6 +699,30 @@ export class SystemView {
       g.fillStyle = col;
       g.fillRect(4, -3, 14, 6);
       if (c.flash > 0) { g.globalAlpha = c.flash; g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 11, 0, TAU); g.fill(); }
+      g.restore();
+      return;
+    }
+    if (c.kind === 'rock') {
+      g.save();
+      g.translate(c.x, c.y);
+      g.globalCompositeOperation = 'lighter';
+      blit(g, glow('#ff8a3a', 32), 0, 0, c.radius * 2.6);
+      g.globalCompositeOperation = 'source-over';
+      g.rotate(c.angle);
+      const r = c.radius;
+      g.fillStyle = frozen ? '#8fb8d8' : '#6b5546';
+      g.strokeStyle = '#d8b48a';
+      g.lineWidth = 2 / z;
+      g.beginPath();
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * TAU, rr = r * (0.75 + 0.25 * Math.sin(c.id * 7.3 + i * 2.1));
+        if (i) g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(30,20,14,0.45)';
+      g.beginPath(); g.arc(r * 0.25, -r * 0.2, r * 0.22, 0, TAU); g.fill();
+      g.beginPath(); g.arc(-r * 0.3, r * 0.25, r * 0.15, 0, TAU); g.fill();
+      if (c.flash > 0) { g.globalAlpha = c.flash; g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, r * 0.8, 0, TAU); g.fill(); g.globalAlpha = 1; }
       g.restore();
       return;
     }
@@ -738,6 +823,7 @@ export class SystemView {
     for (const m of this.st.w.s.missions) {
       if (m.star === this.star && m.planet !== undefined) { const pp = this.planetPos(m.planet); marks.push({ x: pp.x, y: pp.y, color: '#ffd166' }); }
     }
+    if (this.rescue) marks.push({ ...this.rescuePos(), color: '#ffd166' });
     const pad = 26, top = 130, bottom = 150;
     for (const m of marks) {
       const p = this.cam.worldToScreen(m.x, m.y);

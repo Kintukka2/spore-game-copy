@@ -63,6 +63,8 @@ export interface Specimen {
   hybrid?: boolean;
   design?: Design;
   parents?: [string, string];
+  /** A rare sighting (event): carries its own design, big grant, triple Menagerie crowds. */
+  rare?: boolean;
 }
 
 export interface Buildings {
@@ -166,7 +168,7 @@ export interface Mission {
   main?: boolean;
 }
 
-export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow';
+export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow' | 'meteor' | 'distress' | 'relic' | 'rare' | 'trader' | 'refugees';
 
 export interface GEvent {
   id: number;
@@ -178,6 +180,15 @@ export interface GEvent {
   /** Eco-disaster: purge markers remaining (lat/lon pairs). */
   marks?: number[];
   started?: boolean;
+  /** Meteor storm: rocks that got through. */
+  hits?: number;
+  /** Distress call: the beacon is pirate bait. */
+  trap?: boolean;
+  /** Rare creature: the specimen roaming the surface. */
+  sp?: Specimen;
+  /** Wandering trader: deals still on offer, and the roll for its wares. */
+  deals?: number[];
+  seed?: number;
 }
 
 export interface SpaceSave {

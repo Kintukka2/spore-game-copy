@@ -68,7 +68,7 @@ export class StarCard {
     }
     // Events / missions here
     const ev = w.s.events.find((x) => x.star === this.id);
-    if (ev) kv.append(h('span', null, 'Alert'), h('b', { style: 'color:#ff8a8a' }, `${EVENT_INFO[ev.kind].icon} ${EVENT_INFO[ev.kind].label}`));
+    if (ev) kv.append(h('span', null, EVENT_INFO[ev.kind].good ? 'Opportunity' : 'Alert'), h('b', { style: `color:${EVENT_INFO[ev.kind].good ? '#ffd166' : '#ff8a8a'}` }, `${EVENT_INFO[ev.kind].icon} ${EVENT_INFO[ev.kind].label}`));
     const ms = w.s.missions.filter((m) => m.star === this.id);
     if (ms.length) kv.append(h('span', null, 'Mission'), h('b', { style: 'color:#ffd166' }, ms.map((m) => m.title).join(', ')));
     // Distance

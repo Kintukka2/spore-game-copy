@@ -128,11 +128,26 @@ export function drawPlant(c: HTMLCanvasElement, seed: number) {
 
 export function specimenThumb(w: World, sp: Specimen, cw = 80, ch = 52): HTMLCanvasElement {
   const c = h('canvas', { style: `width:${cw}px;height:${ch}px` }) as HTMLCanvasElement;
-  requestAnimationFrame(() => {
-    if (sp.diet === 'plant') drawPlant(c, sp.seed);
-    else { const d = w.specimenDesign(sp); if (d) try { drawThumb(c, d, { pad: 3 }); } catch { /* ignore */ } }
-  });
+  requestAnimationFrame(() => paintSpecimen(c, w, sp));
   return c;
+}
+
+/** Paint a specimen into a laid-out canvas; `dark` leaves only its silhouette. */
+export function paintSpecimen(c: HTMLCanvasElement, w: World, sp: Specimen, dark = false) {
+  if (sp.diet === 'plant') drawPlant(c, sp.seed);
+  else {
+    const d = w.specimenDesign(sp);
+    if (!d) return;
+    try { drawThumb(c, d, { pad: 3 }); } catch { return; }
+  }
+  if (!dark) return;
+  const g = c.getContext('2d')!;
+  g.save();
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-in';
+  g.fillStyle = '#0b1626';
+  g.fillRect(0, 0, c.width, c.height);
+  g.restore();
 }
 
 export function dietIcon(d: Specimen['diet']): string {

@@ -2,7 +2,7 @@
 import { button, h } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import type { SpaceStage } from '../stage';
-import { canExhibitHere, exhibit, GRANT, retire, SPLICE_COST, syncCatalog, ZOO_CAP, ZOO_RATE, zooRate } from '../xenolab';
+import { canExhibitHere, crowd, exhibit, GRANT, retire, SPLICE_COST, syncCatalog, ZOO_CAP, ZOO_RATE, zooRate } from '../xenolab';
 import { dietIcon, money, specimenThumb } from './common';
 
 const XENO_SHOWN = 48;
@@ -34,7 +34,7 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
       const err = exhibit(w, i);
       if (err) { st.ui.toast(err, '🏛️'); audio.sfx('error'); return; }
       audio.sfx('success');
-      st.ui.toast(`${sp.name} joins the Menagerie: +${money(ZOO_RATE * (sp.hybrid ? 3 : 1))}/min in tourism.`, '🏛️', 'good');
+      st.ui.toast(`${sp.name} joins the Menagerie: +${money(ZOO_RATE * crowd(sp))}/min in tourism.`, '🏛️', 'good');
       pick.length = 0;
       rerender();
     }, { cls: 'small' + (here ? ' gold' : '') });
@@ -45,7 +45,7 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
       rerender();
     }, { cls: 'small' + (picked ? ' primary' : '') });
     B.append(h('div', { class: 'sp-item xl-row' + (picked ? ' picked' : '') }, specimenThumb(w, sp, 64, 44),
-      h('div', { class: 'sp-txt' }, h('b', null, sp.name, sp.hybrid ? h('span', { class: 'xl-tag' }, 'Hybrid') : null),
+      h('div', { class: 'sp-txt' }, h('b', null, sp.name, sp.hybrid ? h('span', { class: 'xl-tag' }, 'Hybrid') : sp.rare ? h('span', { class: 'xl-tag' }, 'Rare') : null),
         sp.hybrid ? (sp.parents ? sp.parents.join(' × ') : 'Fits any animal slot') : `${dietIcon(sp.diet)} ${sp.diet}`),
       h('div', { class: 'xl-btns' }, ex, sel)));
   });
@@ -72,7 +72,7 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
   if (zoo.length) {
     const grid = h('div', { class: 'xl-grid' });
     zoo.forEach((z, i) => {
-      const cell = h('div', { class: 'xl-cell' + (z.hybrid ? ' hy' : ''), title: here ? 'Tap to take it back aboard' : z.name }, specimenThumb(w, z, 70, 44), h('span', null, z.name));
+      const cell = h('div', { class: 'xl-cell' + (z.hybrid || z.rare ? ' hy' : ''), title: here ? 'Tap to take it back aboard' : z.name }, specimenThumb(w, z, 70, 44), h('span', null, z.name));
       if (here) cell.addEventListener('click', () => {
         const err = retire(w, i);
         if (err) { st.ui.toast(err, '🏛️'); audio.sfx('error'); return; }
@@ -90,7 +90,7 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
     B.append(h('div', { class: 'sp-mini' }, `Collect a species for the first time to catalogue it: ${money(GRANT.animal)} per animal, ${money(GRANT.plant)} per plant, ${money(GRANT.hybrid)} per hybrid. Look for NEW on a world's Life tab.`));
   } else {
     const grid = h('div', { class: 'xl-grid small' });
-    for (const c of cat.slice(-XENO_SHOWN).reverse()) grid.append(h('div', { class: 'xl-cell' + (c.hybrid ? ' hy' : ''), title: c.name }, specimenThumb(w, c, 56, 36), h('span', null, c.name)));
+    for (const c of cat.slice(-XENO_SHOWN).reverse()) grid.append(h('div', { class: 'xl-cell' + (c.hybrid || c.rare ? ' hy' : ''), title: c.name }, specimenThumb(w, c, 56, 36), h('span', null, c.name)));
     B.append(grid);
     if (cat.length > XENO_SHOWN) B.append(h('div', { class: 'sp-mini' }, `…and ${cat.length - XENO_SHOWN} more.`));
   }

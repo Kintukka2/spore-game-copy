@@ -12,8 +12,8 @@ import {
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
 import { deliver, deliverables, onScan, tutorialEvent } from '../missions';
-import { resolve as resolveEvent } from '../events';
-import type { Empire, Planet, Specimen } from '../types';
+import { dismiss, EVENT_INFO, resolve as resolveEvent, takeDeal, traderDeals, welcomeRefugees } from '../events';
+import type { Empire, GEvent, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
 import { inXenopedia } from '../xenolab';
 import { landingBlock } from '../surface/look';
@@ -218,6 +218,7 @@ export class PlanetPanel {
     this.chart = null;
     this.body.innerHTML = '';
     this.renderBadge();
+    if (this.tab === 'overview') this.eventBanner();
     switch (this.tab) {
       case 'overview': this.overview(); break;
       case 'terra': this.terra(); break;
@@ -226,6 +227,62 @@ export class PlanetPanel {
       case 'trade': this.trade(); break;
     }
     void w;
+  }
+
+  /** What is happening at this world right now, and what you can do about it. */
+  private eventBanner() {
+    const w = this.w;
+    for (const ev of w.s.events.filter((e) => e.star === this.star && e.planet === this.idx)) {
+      const info = EVENT_INFO[ev.kind];
+      const timer = h('span', { class: 'sp-ev-t' });
+      const tick = () => {
+        if (!w.s.events.includes(ev)) { this.render(); return; }
+        timer.textContent = `⏱ ${fmtTime(ev.until - w.s.t)}`;
+      };
+      tick();
+      this.dynamic.push(tick);
+      const box = h('div', { class: 'sp-ev' + (info.good ? ' good' : '') }, h('div', { class: 'sp-ev-h' }, h('b', null, `${info.icon} ${info.label}`), timer), h('div', { class: 'sp-ev-d' }, this.eventText(ev)));
+      if (ev.kind === 'rare' && ev.sp) box.append(h('div', { class: 'sp-item' }, specimenThumb(w, ev.sp, 70, 46), h('div', { class: 'sp-txt' }, h('b', { style: 'color:#ffd166' }, ev.sp.name), `${dietIcon(ev.sp.diet)} ${ev.sp.diet} · Xenopedia grant ${money(10000)} · triple crowds at the Menagerie`)));
+      if (ev.kind === 'trader') {
+        traderDeals(w, ev).forEach((d, i) => {
+          if (!d) return;
+          const label = d.price < 0 ? `Sell +${money(-d.price)}` : `Buy ${money(d.price)}`;
+          box.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, d.icon), h('div', { class: 'sp-txt' }, h('b', null, d.label), d.block ?? ''),
+            button(label, () => {
+              const msg = takeDeal(w, ev, i);
+              if (!msg) { audio.sfx('error'); return; }
+              this.st.ui.toast(msg, '🛍️', 'good');
+              if (!w.s.events.includes(ev)) this.st.ui.toast('Sold out! The trader packs up, delighted.', '🛍️');
+              this.render();
+            }, { cls: 'small gold', disabled: !!d.block })));
+        });
+      }
+      const acts = h('div', { class: 'sp-tools' });
+      if (ev.kind === 'refugees') {
+        acts.append(
+          button('🏠 Take them in', () => { this.st.ui.toast(welcomeRefugees(w, ev), '🚀', 'good'); this.render(); }, { cls: 'gold' }),
+          button('Turn them away', () => { dismiss(w, ev); this.st.ui.toast('The refugee fleet moves on, disappointed.', '🚀'); this.render(); }),
+        );
+      }
+      if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, !!w.star(this.star).hollow)) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' }));
+      if (ev.kind === 'eco') acts.append(button('🌿 Life tab', () => { this.tab = 'life'; this.render(); }));
+      if (acts.childElementCount) box.append(acts);
+      this.body.append(box);
+    }
+  }
+
+  private eventText(ev: GEvent): string {
+    const ps = this.ps;
+    switch (ev.kind) {
+      case 'meteor': return 'Rocks are falling toward this world. Fly out and shoot them down: each one that lands cracks the spice stores, and every second one flattens a building.';
+      case 'distress': return 'A stranded ship drifts near this planet, its beacon blinking. Fly to the 🆘 marker to answer the call.';
+      case 'relic': return 'Something ancient is buried down there. Land, sweep the surface with 📡 Life scan, and beam the relic up.';
+      case 'rare': return 'A one-of-a-kind creature has been spotted on the surface. It bolts at the sight of your ship: land, chase it down and beam it aboard.';
+      case 'trader': return 'A wandering trader has set up shop in orbit. Each deal can be taken once.';
+      case 'refugees': return ps.cities < maxCities(this.w, this.star, this.idx) ? 'Refugees from a dying world ask to settle here. They would found a whole new city.' : 'Refugees from a dying world ask to settle here. There is no room for a new city, but they would pay their way.';
+      case 'eco': return 'A plague is spreading. Tap the glowing outbreaks on the globe to purge them.';
+      default: return 'Hostile ships are attacking this world. Destroy them!';
+    }
   }
 
   private renderBadge() {

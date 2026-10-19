@@ -6,10 +6,10 @@ import { generateShip } from '../../design/generate';
 import type { Design } from '../../design/types';
 import { aggression, annexSystem, addMod, strength } from './empires';
 import { onPiratesCleared } from './missions';
-import { resolve as resolveEvent } from './events';
+import { meteorImpact, resolve as resolveEvent } from './events';
 import type { SpaceStage } from './stage';
 
-export type CraftKind = 'player' | 'ally' | 'squire' | 'pirate' | 'empire' | 'hollow' | 'turret';
+export type CraftKind = 'player' | 'ally' | 'squire' | 'pirate' | 'empire' | 'hollow' | 'turret' | 'rock';
 
 export interface Craft {
   id: number;
@@ -140,6 +140,22 @@ export class Combat {
     }
   }
 
+  /** Meteor storm: rocks tumble in toward a planet from one side of the sky. */
+  spawnMeteors(planet: number, n: number, ev: number) {
+    const sv = this.st.sv;
+    const pp = sv.planetPos(planet);
+    const a0 = Math.random() * TAU;
+    const k = this.st.game.diff(0.8, 1, 1.25);
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (Math.random() - 0.5) * 1.2, d = 950 + i * 120 + Math.random() * 140;
+      const size = 0.4 + Math.random() * 0.35;
+      const c = this.make('rock', 1, null, pp.x + Math.cos(a) * d, pp.y + Math.sin(a) * d, { hp: 60 * k * (size / 0.55), speed: (50 + Math.random() * 25) * k, dmg: 0, range: 0, rate: 99, size, color: '#c8a27a', engine: '#ff9a4a' });
+      c.radius = 12 + size * 20;
+      c.planet = planet;
+      c.ev = ev;
+    }
+  }
+
   spawnTurrets(planet: number, n: number, hpEach: number, empire: string) {
     const w = this.st.w;
     const e = w.emap.get(empire);
@@ -247,11 +263,11 @@ export class Combat {
   private kill(c: Craft, byPlayer: boolean) {
     c.alive = false;
     const big = c.boss || c.kind === 'hollow';
-    this.st.fx.explosion(c.x, c.y, big ? 1.5 : c.kind === 'turret' ? 0.8 : 1, c.kind === 'hollow' ? '#ff4a5a' : '#ffb347');
+    this.st.fx.explosion(c.x, c.y, big ? 1.5 : c.kind === 'turret' ? 0.8 : 1, c.kind === 'hollow' ? '#ff4a5a' : c.kind === 'rock' ? '#c8a27a' : '#ffb347');
     audio.sfx('explode', { vol: big ? 1 : 0.7 });
     const w = this.st.w;
     if (this.playerTarget === c) this.playerTarget = null;
-    if (c.team === 1 && byPlayer) {
+    if (c.team === 1 && byPlayer && c.kind !== 'rock') {
       w.counter('kills');
       if (c.kind === 'pirate') {
         const loot = c.boss ? 9000 : 2500 + Math.floor(Math.random() * 2000);
@@ -373,6 +389,7 @@ export class Combat {
         if (c.ttl <= 0) { c.alive = false; this.st.fx.ring(c.x, c.y, 5, 40, 0.4, '#3ee6c4'); continue; }
       }
       if (c.kind === 'turret') this.updateTurret(c, dt, frozen);
+      else if (c.kind === 'rock') this.updateRock(c, dt, frozen);
       else if (c.team === 1) this.updateHostile(c, dt, frozen);
       else this.updateFriend(c, dt);
     }
@@ -454,6 +471,27 @@ export class Combat {
         this.shots.push({ x: c.x, y: c.y, vx: Math.cos(a) * 500, vy: Math.sin(a) * 500, dmg: 0, team: 1, kind: 'bolt', target: null, life: d / 500, color: c.shotColor, size: 3, trail: 0 });
       } else this.shoot(c, { x: tx, y: ty, vx: tvx, vy: tvy });
     }
+  }
+
+  /** Meteors home in on their planet, trailing fire, and crash into it unless shot down. */
+  private updateRock(c: Craft, dt: number, frozen: boolean) {
+    if (frozen || c.frozen > 0) { c.frozen = Math.max(0, c.frozen - dt); return; }
+    const sv = this.st.sv;
+    const pp = sv.planetPos(c.planet!);
+    const dx = pp.x - c.x, dy = pp.y - c.y, d = Math.hypot(dx, dy) || 1;
+    c.vx = (dx / d) * c.speed; c.vy = (dy / d) * c.speed;
+    c.x += c.vx * dt; c.y += c.vy * dt;
+    c.angle += dt * c.orbitDir * 1.3;
+    if (Math.random() < dt * 24) this.st.fx.spawn(c.x - (dx / d) * c.radius * 0.8, c.y - (dy / d) * c.radius * 0.8, -c.vx * 0.6 + (Math.random() - 0.5) * 20, -c.vy * 0.6 + (Math.random() - 0.5) * 20, 0.6, 4 + c.size * 6, Math.random() < 0.5 ? '#ff9a4a' : '#ffd166', 0, 2);
+    if (d > sv.planetSize(c.planet!) + c.radius * 0.4) return;
+    c.alive = false;
+    if (this.playerTarget === c) this.playerTarget = null;
+    this.st.fx.explosion(c.x, c.y, 1.2, '#ff8a3a');
+    this.st.fx.shake = Math.max(this.st.fx.shake, 4);
+    audio.sfx('explode', { vol: 0.8, pitch: 0.7 });
+    const ev = this.st.w.s.events.find((e) => e.id === c.ev);
+    if (ev) meteorImpact(this.st.w, ev);
+    this.checkCleared(c);
   }
 
   private updateTurret(c: Craft, dt: number, frozen: boolean) {

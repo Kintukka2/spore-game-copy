@@ -114,6 +114,7 @@
 - **Titan (epic) creatures:**
   - 1 or 2 per island. Huge (size about 3–4×), slow, about 10× HP, and kill in a couple of hits.
   - Always hostile and cannot be socialized.
+  - Territorial with everyone: any creature that strays near gets chased (a quick lunge for prey, a lumber after you) and stomped. A stomp hits everything in reach, and the survivors and their herd stampede away from the Titan.
   - Killing one gives `titan-slayer` and lots of DNA.
 - **Loner (rogue) creatures:** strong, nestless wanderers. They join your pack after a single successful socialization.
 - **Bone piles:** scattered across the map. Dig one up (stand on it and tap) to unlock a random locked creature part with `game.unlockPart`; prefer the next tier of parts you already use. 10 piles → `paleontologist`.
@@ -155,7 +156,7 @@
 - If neither count is above 0, base it on individual interactions.
 
 **End**
-1. When the brain bar is full, offer **"Become sapient"**.
+1. When the brain bar is full, it turns into a **"Become sapient"** button in the top bar. It stays there, out of the way, for as long as you keep playing.
 2. A final edit opens (the body becomes permanent after it).
 3. Write `state.allies` (designs of up to 3 allied species in your pack; they become pets in Tribal).
 4. Call `game.completeStage(card)`.

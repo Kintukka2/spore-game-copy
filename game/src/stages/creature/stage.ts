@@ -1443,7 +1443,7 @@ export class CreatureStage implements Scene {
 
   objective(): string {
     if (this.phase !== 'play' && this.phase !== 'cine') return '';
-    if (this.sapientReady) return '🧠 Brain fully grown! Tap “Become sapient” when ready.';
+    if (this.sapientReady) return '🧠 Brain fully grown! Tap “Become sapient” up top when you are ready.';
     if (this.migrating) return '🧭 Migrate: follow the 🏡 arrow to your new nest.';
     if (!this.alive) return '';
     if (this.hunger < 25) return this.own.diet === 'carnivore' ? '🍖 Starving! Find meat to eat.' : '🍓 Starving! Find a berry bush.';

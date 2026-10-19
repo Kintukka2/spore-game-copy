@@ -197,8 +197,9 @@ function thinkNpc(S: CreatureStage, c: Critter, dt: number) {
     if (!c.emote && Math.random() < dt) S.say(c, '💤', 1.4);
     return;
   }
+  if (c.fear <= 0) c.scare = null;
   if (c.fear > 0 || (rel === 'afraid' && pd < 230 && S.playerAlive && !c.befriended)) {
-    flee(S, c, p, dt);
+    flee(S, c, c.scare && !c.scare.gone ? c.scare : p, dt);
     return;
   }
   if (c.aggro > 0 && c.target && !c.target.gone && c.target.hp > 0 && !c.befriended && S.playerAlive) {
@@ -289,21 +290,44 @@ function thinkTitan(S: CreatureStage, c: Critter, dt: number) {
   const pd = dist(c, p);
   const homeD = Math.hypot(c.x - c.homeX, c.y - c.homeY);
   if (pd < 700) S.titanSeen(c);
-  if (S.playerAlive && pd < 340 && homeD < 950 && c.aggro <= 0) {
+  const huntingOther = c.aggro > 0 && !!c.target && !S.isPlayerSide(c.target);
+  if (S.playerAlive && homeD < 950 && ((c.aggro <= 0 && pd < 340) || (huntingOther && pd < 200))) {
     c.target = nearestPlayerSide(S, c);
     c.aggro = 5;
     audio.sfx('roar', { pitch: 0.5, vol: 0.8 });
     S.fx.shake(6);
     S.say(c, '💢', 1.5);
   }
-  if (c.aggro > 0 && c.target && !c.target.gone && S.playerAlive) {
+  // Titans are territorial with everyone: any creature that strays too close gets chased and stomped.
+  if (c.aggro <= 0 && homeD < 950 && c.cd2 <= 0 && Math.random() < dt * 3) {
+    let prey: Critter | null = null, bd = 240;
+    for (const o of S.critters) {
+      if (o === c || o.gone || o.dead || o.role === 'titan' || o.role === 'mate' || S.isPlayerSide(o) || o.z > 20) continue;
+      if (o.state === 'ascend' || o.state === 'abducted') continue;
+      const d = dist(o, c);
+      if (d < bd) { bd = d; prey = o; }
+    }
+    if (prey) {
+      c.target = prey;
+      c.aggro = 6;
+      // A short startle; the real stampede starts once the stomps land.
+      prey.fear = Math.max(prey.fear, 1.2);
+      prey.scare = c;
+      S.say(c, '💢', 1.5);
+      if (c.near) audio.sfx('roar', { pitch: 0.55, vol: 0.5 });
+    }
+  }
+  const t0 = c.target;
+  if (c.aggro > 0 && t0 && (t0.gone || t0.dead)) { c.aggro = 0; c.target = null; c.cd2 = 6; }
+  if (c.aggro > 0 && c.target && !c.target.gone && (S.playerAlive || !S.isPlayerSide(c.target))) {
     const t = c.target;
     const d = dist(c, t);
-    if (d > 800 || homeD > 1100) { c.aggro = 0; c.target = null; return; }
+    if (d > 800 || homeD > 1100) { c.aggro = 0; c.target = null; c.cd2 = 4; return; }
     c.aggro = Math.max(c.aggro, 1.5);
     setState(c, 'chase');
     const reach = c.r * 0.9 + t.r + 26;
-    if (d > reach) steer(c, t.x, t.y, Math.min(66, c.sp.speed), dt, 0);
+    // Lumbering after you (so you can escape), but a quick lunge for other prey.
+    if (d > reach) steer(c, t.x, t.y, S.isPlayerSide(t) ? Math.min(66, c.sp.speed) : Math.min(105, c.sp.speed * 1.2), dt, 0);
     else {
       brake(c, dt);
       face(c, t.x);

@@ -107,10 +107,14 @@ export function titanStomp(S: CreatureStage, c: Critter) {
   setAction(c, 'strike', 0.7);
   // A Titan kills in a couple of hits whatever your size (damage() applies the difficulty scale).
   const reach = c.r * 0.9 + 70;
-  const hits: Critter[] = [S.player, ...S.pack];
-  for (const o of hits) {
-    if (o.gone || o.z > 30) continue;
-    if (d2(o, c) < reach + o.r) damage(S, o, Math.max(20, o.maxHp * 0.42), c, { stun: 0.6, knock: 260 });
+  // The stomp hits everything in reach, not just your side; survivors and their herd bolt.
+  for (const o of S.critters) {
+    if (o === c || o.gone || o.dead || o.role === 'titan' || o.z > 30) continue;
+    if (d2(o, c) >= reach + o.r) continue;
+    damage(S, o, Math.max(20, o.maxHp * 0.42), c, { stun: 0.6, knock: 260 });
+    if (o === S.player || S.isPlayerSide(o)) continue;
+    o.fear = Math.max(o.fear, 5); o.scare = c; o.aggro = 0; o.target = null;
+    S.alertAttacked(o, c, (m) => { if (m.role !== 'titan' && !S.isPlayerSide(m)) { m.fear = Math.max(m.fear, 4); m.scare = c; } });
   }
   audio.sfx('hit', { pitch: 0.5, vol: 1 });
   audio.sfx('explode', { pitch: 1.8, vol: 0.4 });

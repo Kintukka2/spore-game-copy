@@ -38,8 +38,8 @@ const CSS = `
 .cr-hud .ability.combat { background:radial-gradient(circle at 35% 30%, rgba(255,200,190,.55), rgba(80,18,20,.9)); }
 .cr-hud .ability .ab-icon { filter:drop-shadow(0 0 1.5px rgba(255,255,255,.95)) drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
 .cr-hud .cr-ctx { position:absolute; right:calc(12px + var(--safe-r)); bottom:calc(272px + var(--safe-b)); font-size:17px; min-height:50px; padding:0 18px; }
-.cr-hud .cr-sapwrap { position:absolute; left:0; right:0; bottom:calc(382px + var(--safe-b)); display:flex; justify-content:center; pointer-events:none; }
-.cr-hud .cr-sapwrap > .btn { pointer-events:auto; }
+.cr-hud .cr-sapbar { flex:1; min-width:0; height:36px; padding:0 12px; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; animation:crSapGlow 2.4s ease-in-out infinite; }
+@keyframes crSapGlow { 50% { box-shadow:0 0 16px 2px rgba(62,230,196,.6); } }
 .cr-hud .cr-tip { position:absolute; left:50%; top:57%; transform:translate(-50%,-50%); font-size:15px; font-weight:600; background:rgba(4,14,24,.75); padding:7px 14px; border-radius:12px; pointer-events:none; opacity:0; transition:opacity .25s; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis; }
 .cr-hud .cr-tip.on { opacity:1; }
 .cr-hud .cr-debug { position:absolute; right:calc(10px + var(--safe-r)); top:calc(162px + var(--safe-t)); display:flex; flex-direction:column; gap:6px; padding:8px; }
@@ -52,7 +52,6 @@ body.cr-active .toasts { top:calc(160px + var(--safe-t)); }
   .cr-hud .cr-map { width:74px; height:74px; }
   .cr-hud .cr-tl { width:min(260px, 34vw); top:calc(54px + var(--safe-t)); }
   .cr-hud .cr-tr { top:calc(54px + var(--safe-t)); }
-  .cr-hud .cr-sapwrap { bottom:calc(74px + var(--safe-b)); right:220px; }
   .cr-hud .cr-debug { top:calc(134px + var(--safe-t)); flex-direction:row; flex-wrap:wrap; max-width:46vw; }
   body.cr-active .toasts { top:calc(54px + var(--safe-t)); }
 }
@@ -157,10 +156,12 @@ export class CreatureHud {
     this.root.append(cluster);
     this.ctxBtn = button('', () => S.contextAction(), { cls: 'gold cr-ctx', sound: false });
     this.ctxBtn.style.display = 'none';
-    this.sapientBtn = button('🧠 Become sapient', () => S.offerSapience(), { cls: 'primary big pulse' });
+    // When the brain is full the progress bar turns into the Become sapient button, out of the way of play.
+    this.sapientBtn = button('🧠 Become sapient', () => S.offerSapience(), { cls: 'primary cr-sapbar', title: 'Become sapient' });
     this.sapientBtn.style.display = 'none';
+    this.base.progress.el.after(this.sapientBtn);
     this.tip = h('div', { class: 'cr-tip' });
-    this.root.append(this.ctxBtn, h('div', { class: 'cr-sapwrap' }, this.sapientBtn), this.tip);
+    this.root.append(this.ctxBtn, this.tip);
     this.refreshStance();
     this.update(1, true);
   }
@@ -260,7 +261,11 @@ export class CreatureHud {
       this.ctxBtn.style.display = ctx ? '' : 'none';
     }
     const sap = S.sapientReady && S.phase === 'play';
-    if (this.last.sap !== sap) { this.last.sap = sap; this.sapientBtn.style.display = sap ? '' : 'none'; }
+    if (this.last.sap !== sap) {
+      this.last.sap = sap;
+      this.sapientBtn.style.display = sap ? '' : 'none';
+      this.base.progress.el.style.display = sap ? 'none' : '';
+    }
     this.updatePack();
   }
 

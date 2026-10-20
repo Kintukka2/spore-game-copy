@@ -1,6 +1,7 @@
 // The scan report: a rich toast that says what a scan found (habitability, spice, life, signals and pay).
 import { h, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
+import { article } from '../../../engine/math';
 import { SPICE, tScoreOf } from '../data';
 import { canColonize, isHomeworld } from '../economy';
 import { EVENT_INFO } from '../events';
@@ -67,7 +68,7 @@ function single(w: World, r: ScanResult): HTMLElement {
   for (const ev of w.s.events) {
     if (ev.star !== r.star || ev.planet !== r.idx) continue;
     const info = EVENT_INFO[ev.kind];
-    box.append(h('div', { class: 'sc-find' + (info.good ? '' : ' bad') }, `${info.icon} ${info.label}: ${ev.kind === 'rare' && ev.sp ? `a ${ev.sp.name} roams here. ` : ''}${info.how}`));
+    box.append(h('div', { class: 'sc-find' + (info.good ? '' : ' bad') }, `${info.icon} ${info.label}: ${ev.kind === 'rare' && ev.sp ? `${article(ev.sp.name, true)} ${ev.sp.name} roams here. ` : ''}${info.how}`));
   }
   return box;
 }
@@ -98,7 +99,7 @@ function sweep(w: World, rs: ScanResult[]): HTMLElement {
 export function showScan(w: World, rs: ScanResult[]) {
   if (!rs.length) return;
   const el = rs.length === 1 ? single(w, rs[0]) : sweep(w, rs);
-  const t = ui.toast(el, { kind: 'scan', ms: rs.length === 1 ? 6000 : 8000 });
+  const t = ui.toast(el, { kind: 'scan', ms: rs.length === 1 ? 3600 : 5200 });
   t.addEventListener('pointerdown', () => { t.classList.remove('in'); setTimeout(() => t.remove(), 300); }, { once: true });
   audio.sfx('zap', { pitch: 1.5 });
   const pay = rs.reduce((a, r) => a + r.pay, 0);

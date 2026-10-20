@@ -13,13 +13,15 @@ import {
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
 import { deliver, deliverables, tutorialEvent } from '../missions';
 import { scanPlanet } from '../scan';
-import { dismiss, EVENT_INFO, resolve as resolveEvent, takeDeal, traderDeals, welcomeRefugees } from '../events';
+import { dismiss, EVENT_INFO, welcomeRefugees } from '../events';
 import type { Empire, GEvent, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
 import { inXenopedia } from '../xenolab';
 import { landingBlock } from '../surface/look';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './common';
 import { showScan } from './scanCard';
+import { openOutbreak } from './outbreak';
+import { openTrader } from './traderView';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
 
@@ -177,29 +179,23 @@ export class PlanetPanel {
     return { x: cx + x * r, y: cy + y * r, vis: z > 0.1 };
   }
 
+  /** The focused outbreak minigame. */
+  private contain(ev: GEvent) {
+    audio.sfx('tap');
+    openOutbreak(this.st, ev, () => { if (this.el.isConnected) this.render(); });
+  }
+  private visitTrader(ev: GEvent) {
+    audio.sfx('tap');
+    openTrader(this.st, ev, () => { if (this.el.isConnected) this.render(); });
+  }
+
   private ecoEvent() {
     return this.w.s.events.find((e) => e.star === this.star && e.planet === this.idx && e.kind === 'eco');
   }
 
-  private onGlobeTap(e: PointerEvent) {
+  private onGlobeTap(_e: PointerEvent) {
     const ev = this.ecoEvent();
-    if (!ev?.marks) return;
-    const rect = this.globe.getBoundingClientRect();
-    const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    const cw = rect.width, ch = rect.height;
-    const r = Math.min(cw, ch) * (this.pl.rings ? 0.27 : 0.36);
-    for (let i = 0; i < ev.marks.length; i += 2) {
-      const p = this.markPos(ev.marks[i], ev.marks[i + 1], cw / 2, ch / 2, r);
-      if (p.vis && Math.hypot(p.x - x, p.y - y) < 26) {
-        ev.marks.splice(i, 2);
-        audio.sfx('laser');
-        audio.sfx('pop', { pitch: 1.3 });
-        this.bursts.push({ t: 0.6, color: '#7dff6a' });
-        if (ev.marks.length === 0) { resolveEvent(this.w, ev); this.render(); }
-        else this.render();
-        return;
-      }
-    }
+    if (ev?.marks) this.contain(ev);
   }
 
   // ------------------------------------------------------------------ layout
@@ -245,21 +241,9 @@ export class PlanetPanel {
       this.dynamic.push(tick);
       const box = h('div', { class: 'sp-ev' + (info.good ? ' good' : '') }, h('div', { class: 'sp-ev-h' }, h('b', null, `${info.icon} ${info.label}`), timer), h('div', { class: 'sp-ev-d' }, this.eventText(ev)));
       if (ev.kind === 'rare' && ev.sp) box.append(h('div', { class: 'sp-item' }, specimenThumb(w, ev.sp, 70, 46), h('div', { class: 'sp-txt' }, h('b', { style: 'color:#ffd166' }, ev.sp.name), `${dietIcon(ev.sp.diet)} ${ev.sp.diet} · Xenopedia grant ${money(10000)} · triple crowds at the Menagerie`)));
-      if (ev.kind === 'trader') {
-        traderDeals(w, ev).forEach((d, i) => {
-          if (!d) return;
-          const label = d.price < 0 ? `Sell +${money(-d.price)}` : `Buy ${money(d.price)}`;
-          box.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, d.icon), h('div', { class: 'sp-txt' }, h('b', null, d.label), d.block ?? ''),
-            button(label, () => {
-              const msg = takeDeal(w, ev, i);
-              if (!msg) { audio.sfx('error'); return; }
-              this.st.ui.toast(msg, '🛍️', 'good');
-              if (!w.s.events.includes(ev)) this.st.ui.toast('Sold out! The trader packs up, delighted.', '🛍️');
-              this.render();
-            }, { cls: 'small gold', disabled: !!d.block })));
-        });
-      }
       const acts = h('div', { class: 'sp-tools' });
+      if (ev.kind === 'trader') acts.append(button(`🛍️ Visit the trader (${ev.deals?.length ?? 0} deals)`, () => this.visitTrader(ev), { cls: 'gold sp-wide' }));
+      if (ev.kind === 'eco') acts.append(button(`☣️ Contain the outbreak (${(ev.marks?.length ?? 0) / 2})`, () => this.contain(ev), { cls: 'sp-wide sp-toxic' }));
       if (ev.kind === 'refugees') {
         acts.append(
           button('🏠 Take them in', () => { this.st.ui.toast(welcomeRefugees(w, ev), '🚀', 'good'); this.render(); }, { cls: 'gold' }),
@@ -267,7 +251,6 @@ export class PlanetPanel {
         );
       }
       if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, !!w.star(this.star).hollow)) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' }));
-      if (ev.kind === 'eco') acts.append(button('🌿 Life tab', () => { this.tab = 'life'; this.render(); }));
       if (acts.childElementCount) box.append(acts);
       this.body.append(box);
     }
@@ -520,7 +503,8 @@ export class PlanetPanel {
       const upd = () => { tl.textContent = `☣️ Outbreak! ${(ev.marks?.length ?? 0) / 2} infected herds left · ${fmtTime(ev.until - w.s.t)}`; };
       upd();
       this.dynamic.push(upd);
-      box.append(tl, h('div', null, 'Tap the glowing green spots on the planet to purge the infection. Drag the globe to spin it.'));
+      box.append(tl, h('div', null, 'Infected herds are dying. Purge every spot before the timer runs out, and before the infection spreads.'),
+        button('☣️ Contain the outbreak', () => this.contain(ev), { cls: 'sp-wide sp-toxic' }));
       B.append(box);
     }
     const t = tScoreOf(ps.atm, ps.temp);

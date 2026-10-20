@@ -3,7 +3,7 @@
 // - Menagerie: specimens exhibited at home draw tourists and pay out every minute.
 // - Gene Splicer: two specimens fuse into a hybrid that fits any animal slot.
 import { RNG, uid } from '../../engine/rng';
-import { clamp } from '../../engine/math';
+import { article, clamp } from '../../engine/math';
 import { getPart } from '../../design/registry';
 import { cloneDesign } from '../../design/generate';
 import type { Design, PartCategory, PartInstance } from '../../design/types';
@@ -54,7 +54,7 @@ export function exhibit(w: World, i: number): string | null {
   if (!sp) return 'That specimen is gone.';
   const zoo = (w.s.zoo ??= []);
   if (zoo.length >= ZOO_CAP) return `The Menagerie is full (${ZOO_CAP} exhibits). Retire one first.`;
-  if (zoo.some((z) => z.seed === sp.seed)) return `A ${sp.name} is already on show. Visitors want something new!`;
+  if (zoo.some((z) => z.seed === sp.seed)) return `${article(sp.name, true)} ${sp.name} is already on show. Visitors want something new!`;
   w.s.specimens.splice(i, 1);
   zoo.push(sp);
   w.counter('exhibits');

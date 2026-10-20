@@ -130,6 +130,7 @@ export const TOOLS: ToolDef[] = [
   { id: 'embassy', name: 'Embassy', icon: '🏛️', cat: 'social', price: 400000, rank: 4, kind: 'consumable', max: 5, desc: 'Build an embassy on an empire\'s world: a large, permanent relations boost.' },
   // Special reward
   { id: 'genesis', name: 'Genesis Seed', icon: '🌱', cat: 'terraform', price: 0, rank: 99, kind: 'consumable', max: 12, special: true, desc: 'Ori\'s gift. Turns any planet into a thriving T3 world with a full ecosystem.' },
+  { id: 'crate', name: 'Mystery Crate', icon: '📦', cat: 'standard', price: 0, rank: 99, kind: 'consumable', max: 9, special: true, desc: 'A sealed crate from a wandering trader. Open it from your Cargo.' },
 ];
 export const TOOL_MAP: Record<string, ToolDef> = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 

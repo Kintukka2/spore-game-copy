@@ -5,7 +5,7 @@ import type { PointerInfo } from '../../engine/input';
 import { audio, type Mood } from '../../engine/audio';
 import { ui } from '../../engine/ui';
 import { RNG } from '../../engine/rng';
-import { TAU } from '../../engine/math';
+import { article, TAU } from '../../engine/math';
 import { openEditor } from '../../editor/editor';
 import { cloneDesign, generateShip } from '../../design/generate';
 import { shade } from '../../design/color';
@@ -483,7 +483,7 @@ export class SpaceStage implements Scene, WorldHooks {
       meteor: `A meteor storm is bearing down on ${pl.name}! Shoot the rocks down before they hit.`,
       distress: `Distress call from a stranded ship near ${pl.name} (${sys}).`,
       relic: `An ancient signal is rising from the surface of ${pl.name} (${sys}). Land to find its source.`,
-      rare: `Rare sighting! A ${ev.sp?.name ?? 'strange creature'} roams ${pl.name} (${sys}). Land and catch it before it migrates.`,
+      rare: `Rare sighting! ${article(ev.sp?.name ?? 'strange', true)} ${ev.sp?.name ?? 'strange creature'} roams ${pl.name} (${sys}). Land and catch it before it migrates.`,
       trader: `A wandering trader has set up shop at ${pl.name} (${sys}).`,
       refugees: `A refugee fleet asks to settle on your colony ${pl.name}.`,
     };

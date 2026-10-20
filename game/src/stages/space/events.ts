@@ -311,7 +311,7 @@ export function eventAt(w: World, star: number): GEvent | undefined {
 }
 
 // ------------------------------------------------------------------ trader & refugees
-export interface Deal { icon: string; label: string; price: number; block: string | null; take(): string }
+export interface Deal { kind: 'tool' | 'spice' | 'crate'; icon: string; name: string; desc: string; price: number; block: string | null; take(): string }
 
 /** The trader's three deals (null once taken): a cut-price tool bundle, a spice buyer and a mystery crate. */
 export function traderDeals(w: World, ev: GEvent): (Deal | null)[] {
@@ -322,7 +322,7 @@ export function traderDeals(w: World, ev: GEvent): (Deal | null)[] {
   const n = t.price <= 30000 ? 3 : 1;
   const toolPrice = Math.round((w.toolPrice(t, 'own') * n * 0.5) / 100) * 100;
   const tool: Deal = {
-    icon: t.icon, label: `${n} × ${t.name} at half price`, price: toolPrice,
+    kind: 'tool', icon: t.icon, name: `${n} × ${t.name}`, desc: `Half the shop price. ${t.desc}`, price: toolPrice,
     block: w.s.money < toolPrice ? 'Not enough money' : (w.s.tools[t.id] ?? 0) + n > (t.max ?? 99) ? 'No room for more' : null,
     take() { w.addMoney(-toolPrice); w.give(t.id, n); return `Bought ${n} × ${t.icon} ${t.name} for §${fmt(toolPrice)}.`; },
   };
@@ -330,31 +330,15 @@ export function traderDeals(w: World, ev: GEvent): (Deal | null)[] {
   const have = w.s.spice[c];
   const unit = Math.round(SPICE[c].base * 2.4);
   const spice: Deal = {
-    icon: '🧂', label: have ? `Buys your ${have} ${SPICE[c].name} at §${fmt(unit)} each` : 'Buys spice at 2.4× the going rate', price: -have * unit,
+    kind: 'spice', icon: '🧂', name: have ? `Your ${have} ${SPICE[c].name}` : 'Spice buyer', desc: have ? `Bought at §${fmt(unit)} each, 2.4× the going rate.` : 'Pays 2.4× the going rate for spice. Come back with some!', price: -have * unit,
     block: have ? null : 'You carry no spice',
     take() { w.s.spice[c] = 0; w.addMoney(have * unit); w.hooks?.changed(); return `Sold ${have} ${SPICE[c].name} for §${fmt(have * unit)}.`; },
   };
   const crateCost = 15000;
   const crate: Deal = {
-    icon: '📦', label: 'A sealed mystery crate', price: crateCost,
-    block: w.s.money < crateCost ? 'Not enough money' : null,
-    take() {
-      w.addMoney(-crateCost);
-      const x = Math.random();
-      if (x < 0.35) { const m = 30000 + Math.floor(Math.random() * 20000); w.addMoney(m); return `The crate was stuffed with old credit chits: +§${fmt(m)}!`; }
-      if (x < 0.65) {
-        const pods = ['stormpod', 'droughtpod', 'meteor', 'icecomet'];
-        const p = pods[Math.floor(Math.random() * pods.length)];
-        w.give(p, 3);
-        return `Inside: 3 × ${TOOL_MAP[p].icon} ${TOOL_MAP[p].name}.`;
-      }
-      if (x < 0.85) {
-        const g = ['silo', 'bioshield', 'turret'][Math.floor(Math.random() * 3)];
-        w.give(g, 1);
-        return `Inside: a ${TOOL_MAP[g].icon} ${TOOL_MAP[g].name}! Install it on a colony.`;
-      }
-      return 'Inside: space packing peanuts. The trader is very sorry. (They are not.)';
-    },
+    kind: 'crate', icon: '📦', name: 'Mystery crate', desc: 'Sealed tight and rattling. Credits? Gadgets? Something alive? It goes to your hold to open whenever you like.', price: crateCost,
+    block: w.s.money < crateCost ? 'Not enough money' : w.count('crate') >= (TOOL_MAP.crate.max ?? 9) ? 'No room for more crates' : null,
+    take() { w.addMoney(-crateCost); w.give('crate', 1); return 'A mystery crate is stowed in your hold. Open it from Ship → Cargo.'; },
   };
   const all = [tool, spice, crate];
   return all.map((d, i) => (ev.deals ?? []).includes(i) ? d : null);

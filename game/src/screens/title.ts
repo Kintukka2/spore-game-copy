@@ -57,7 +57,7 @@ export class TitleScreen implements Scene {
     menu.append(row);
     L.append(h('div', { class: 'screen' },
       h('div', { style: 'flex:1' }),
-      h('div', { class: 'title-logo' }, 'PRIMORDIA'),
+      h('div', { class: 'title-logo' }, 'SPORK'),
       h('div', { class: 'title-tag' }, 'From a single cell to the stars'),
       menu,
       h('div', { style: 'flex:1.2' }),

@@ -1,4 +1,4 @@
-# Primordia: game design document
+# Spork: game design document
 
 **Pitch.** Guide one species from a microbe in a tide pool to a galaxy-spanning civilization. Every stage plays as a different genre. Everything you meet — creatures, vehicles, ships — is built from the same part-based Design system, in editors you can open at any time. Your playstyle in each stage earns a green, blue or red card. The cards grant abilities in later stages and decide your species' philosophy in space.
 

@@ -1,6 +1,6 @@
 {
-  "name": "Primordia",
-  "short_name": "Primordia",
+  "name": "Spork",
+  "short_name": "Spork",
   "description": "Evolve a species from a single cell to the stars.",
   "start_url": "./",
   "scope": "./",

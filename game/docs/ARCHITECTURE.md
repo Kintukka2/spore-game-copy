@@ -1,6 +1,6 @@
-# Primordia: architecture and contributor guide
+# Spork: architecture and contributor guide
 
-Primordia is a mobile-first browser game (TypeScript + Canvas 2D + DOM overlay, built with Vite). It runs in any phone browser and installs as an app (PWA). There are no image or audio assets: everything is drawn and synthesized procedurally.
+Spork is a mobile-first browser game (TypeScript + Canvas 2D + DOM overlay, built with Vite). It runs in any phone browser and installs as an app (PWA). There are no image or audio assets: everything is drawn and synthesized procedurally.
 
 ## Running
 

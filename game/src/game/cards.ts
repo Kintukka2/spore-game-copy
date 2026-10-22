@@ -1,5 +1,5 @@
 // Consequence cards, the abilities they grant in later stages, and Space-stage archetypes.
-// Mechanics mirror the original's structure; all names and effects are Primordia's own.
+// Mechanics mirror the original's structure; all names and effects are Spork's own.
 
 export type StageId = 'cell' | 'creature' | 'tribal' | 'civ' | 'space';
 export type CardStage = Exclude<StageId, 'space'>;

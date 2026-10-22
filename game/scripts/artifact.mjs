@@ -6,7 +6,7 @@ const src = fs.readFileSync('dist-single/index.html', 'utf8');
 const style = [...src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
 const scripts = [...src.matchAll(/<script type="module"[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 if (!scripts.length) throw new Error('no module script found');
-const out = `<title>Primordia</title>
+const out = `<title>Sporadium</title>
 <meta name="description" content="Evolve a species from a single cell to the stars.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,5 +21,5 @@ ${scripts.join('\n')}
 </script>
 `;
 fs.mkdirSync('dist-artifact', { recursive: true });
-fs.writeFileSync('dist-artifact/primordia.html', out);
-console.log('dist-artifact/primordia.html', (out.length / 1024).toFixed(0) + ' KB');
+fs.writeFileSync('dist-artifact/sporadium.html', out);
+console.log('dist-artifact/sporadium.html', (out.length / 1024).toFixed(0) + ' KB');

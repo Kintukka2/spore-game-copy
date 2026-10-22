@@ -1,8 +1,8 @@
-# Primordia
+# Sporadium
 
 *Evolve a species from a single cell to the stars.*
 
-Primordia is a mobile-first evolution game inspired by the stage structure of Will Wright's *Spore* (Maxis/EA, 2008). It reimagines it for phones with its own names, art and rules. It runs in any modern mobile browser and can be installed to the home screen as an app (PWA). Every creature, vehicle, building, ship, planet, sound and piece of music is generated procedurally, so the game ships with no image or audio files.
+Sporadium is a mobile-first evolution game inspired by the stage structure of Will Wright's *Spore* (Maxis/EA, 2008). It reimagines it for phones with its own names, art and rules. It runs in any modern mobile browser and can be installed to the home screen as an app (PWA). Every creature, vehicle, building, ship, planet, sound and piece of music is generated procedurally, so the game ships with no image or audio files.
 
 ## The five stages
 

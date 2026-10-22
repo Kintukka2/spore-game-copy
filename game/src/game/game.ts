@@ -34,6 +34,7 @@ interface StackEntry {
   input: InputHandler[] | null;
 }
 
+// Storage keys keep the game's first name (Primordia) so existing saves carry over.
 const SAVE_KEY = 'primordia.save.v1';
 const SETTINGS_KEY = 'primordia.settings.v1';
 const ACH_KEY = 'primordia.achievements.v1';

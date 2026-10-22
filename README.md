@@ -1,8 +1,8 @@
 # spore-game-copy
 
-## 🎮 Spork: the game
+## 🎮 Sporadium: the game
 
-[`game/`](game/README.md) is **Spork**, a mobile-first evolution game inspired by the stage structure of *Spore*, with its own names, art and rules. It starts with a single cell in a tide pool. You walk ashore, lead a tribe, unite a planet, and take to a spiral galaxy of about 840 stars. Every creature, vehicle, building and starship is built from parts in one shared touch editor. Everything you see and hear is generated procedurally.
+[`game/`](game/README.md) is **Sporadium**, a mobile-first evolution game inspired by the stage structure of *Spore*, with its own names, art and rules. It starts with a single cell in a tide pool. You walk ashore, lead a tribe, unite a planet, and take to a spiral galaxy of about 840 stars. Every creature, vehicle, building and starship is built from parts in one shared touch editor. Everything you see and hear is generated procedurally.
 
 ```bash
 cd game && npm install && npm run dev   # then open the printed URL on your phone or desktop

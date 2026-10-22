@@ -117,7 +117,7 @@ class CoreCinematic implements Scene {
     const w = this.st.w;
     const mins = Math.round(s.playSeconds / 60);
     const roll = h('div', { class: 'sp-credits-roll' },
-      h('h1', null, 'SPORK'),
+      h('h1', null, 'SPORADIUM'),
       h('p', null, 'From a single cell to the heart of the galaxy'),
       h('h3', null, 'Your story'),
       h('p', null, `The ${s.speciesName} of ${s.planetName}`),

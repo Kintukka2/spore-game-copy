@@ -1,6 +1,6 @@
-# Spork: architecture and contributor guide
+# Sporadium: architecture and contributor guide
 
-Spork is a mobile-first browser game (TypeScript + Canvas 2D + DOM overlay, built with Vite). It runs in any phone browser and installs as an app (PWA). There are no image or audio assets: everything is drawn and synthesized procedurally.
+Sporadium is a mobile-first browser game (TypeScript + Canvas 2D + DOM overlay, built with Vite). It runs in any phone browser and installs as an app (PWA). There are no image or audio assets: everything is drawn and synthesized procedurally.
 
 ## Running
 

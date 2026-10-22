@@ -1,6 +1,6 @@
 {
-  "name": "Spork",
-  "short_name": "Spork",
+  "name": "Sporadium",
+  "short_name": "Sporadium",
   "description": "Evolve a species from a single cell to the stars.",
   "start_url": "./",
   "scope": "./",

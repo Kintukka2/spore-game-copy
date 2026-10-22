@@ -1,5 +1,5 @@
 // Static data for the Space stage: galaxy constants, spice, tools, badges and ranks.
-// All names are Spork's own; the structure follows the original's space stage.
+// All names are Sporadium's own; the structure follows the original's space stage.
 import type { ArchetypeId } from '../../game/cards';
 
 // ------------------------------------------------------------------ Galaxy geometry

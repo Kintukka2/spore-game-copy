@@ -378,12 +378,13 @@ export class SpaceStage implements Scene, WorldHooks {
     const s = this.w.star(this.sv.star);
     if (s.type === 'blackhole') this.enterRift();
     else if (s.type === 'proto') this.ui.toast(`${s.name} is a protoplanetary disk: a newborn star still wrapped in the dust and gas its planets will form from, so there are no worlds here yet. Its asteroid belt is rich in ore, ice, magma and spice crystals. Tap a rock to mine it.`, '💫', 'gold');
-    else this.ui.toast(`${s.name}: ${STAR_INFO[s.type].name}. Right-click or press and hold it to sweep-scan every world here.`, '☀️');
+    else this.ui.toast(`${s.name}: ${STAR_INFO[s.type].name}. Right-click or press and hold it to sweep-scan every world here (⚡1 a world).`, '☀️');
   }
 
   /** Scan one world of this system from wherever the ship is. */
   quickScan(idx: number) {
     if (this.panel || this.mode !== 'system') return;
+    if (!this.w.spendScan()) return;
     const r = scanPlanet(this.w, this.sv.star, idx);
     this.sv.scanFx(idx, r.pay);
     showScan(this.w, [r]);
@@ -395,6 +396,7 @@ export class SpaceStage implements Scene, WorldHooks {
     if (this.panel || this.mode !== 'system') return;
     const pls = this.sv.planets.filter((p) => !this.w.peekPS(this.sv.star, p.idx).destroyed);
     if (!pls.length) { this.tapStar(); return; }
+    if (!this.w.spendScan(pls.length)) return;
     const rs = pls.map((p) => scanPlanet(this.w, this.sv.star, p.idx));
     rs.forEach((r, i) => this.sv.scanFx(r.idx, r.pay, i * 0.12));
     showScan(this.w, rs);

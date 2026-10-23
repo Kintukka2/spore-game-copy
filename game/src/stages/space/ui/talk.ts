@@ -26,6 +26,8 @@ export interface Line {
   say: string;
   replies: Reply[];
   mood?: Mood;
+  /** A warning box above the replies: the line is asking you to confirm something drastic. */
+  warn?: string;
 }
 
 export interface Speaker {
@@ -181,12 +183,14 @@ export function openTalk(sp: Speaker, first: Line): Promise<void> {
     const notes = h('div', { class: 'ft-notes' });
     const mid = h('div', { class: 'ft-mid' }, notes);
     const opts = h('div', { class: 'ft-opts', role: 'listbox' });
+    const warnEl = h('div', { class: 'ft-warn', role: 'alert' });
+    warnEl.hidden = true;
     const relEl = h('span', { class: 'ft-rel' });
     const capsEl = h('span', { class: 'ft-caps' });
     const box = h('div', { class: 'ft-box' },
       h('div', { class: 'ft-tab' }, h('b', null, sp.name), sp.sub ? h('span', null, sp.sub) : null),
       h('div', { class: 'ft-info' }, capsEl, relEl),
-      opts);
+      warnEl, opts);
     const root = h('div', { class: `ft ft-${scheme}` }, cv, h('div', { class: 'ft-scan' }), h('div', { class: 'ft-top' }, say), mid, box);
     document.body.append(root);
 
@@ -220,8 +224,11 @@ export function openTalk(sp: Speaker, first: Line): Promise<void> {
       line = l;
       text = l.say;
       shown = 0; pause = 0;
-      guardUntil = performance.now() + 220;
+      // A confirmation ignores clicks a little longer, so a double-click cannot answer it by accident.
+      guardUntil = performance.now() + (l.warn ? 700 : 220);
       opts.innerHTML = '';
+      warnEl.textContent = l.warn ?? '';
+      warnEl.hidden = !l.warn;
       l.replies.forEach((r, i) => {
         const el = h('div', { class: 'ft-opt' + (r.fail ? ' fail' : '') + (seen.has(r.text) && !r.leave ? ' seen' : ''), role: 'option' },
           r.tag ? h('span', { class: 'ft-tag' }, `[${r.tag}] `) : null, r.text);

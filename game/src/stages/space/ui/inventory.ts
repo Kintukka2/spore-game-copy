@@ -3,7 +3,7 @@
 import { h } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { SPICE, SPICE_COLORS, TOOL_MAP, TOOLS, type SpiceColor } from '../data';
-import { COMP_IDS, COMPONENTS, craftState, owned, RECIPES, type CompId } from '../salvage';
+import { COMP_IDS, COMPONENTS, craftState, hasBlueprint, owned, RECIPES, type CompId } from '../salvage';
 import { inXenopedia } from '../xenolab';
 import type { SpaceStage } from '../stage';
 import { dietIcon, money, paintSpecimen } from './common';
@@ -15,7 +15,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'parts', label: 'Parts' }, { id: 'plans', label: 'Blueprints' },
 ];
 
-interface Action { key: string; label: string; run: () => void }
+/** `ask` is the question put to you before it runs (uses, opening crates, losing cargo for good). */
+interface Action { key: string; label: string; run: () => void; ask?: string }
 interface Item {
   icon: string;
   name: string;
@@ -59,7 +60,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
         paint: (cv) => { const g = ctx(cv); g.fillStyle = SPICE[c].hex; g.shadowColor = SPICE[c].hex; g.shadowBlur = 24; g.beginPath(); g.arc(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * 0.28, 0, Math.PI * 2); g.fill(); },
         actions: [
           { key: 'X', label: 'Jettison 1', run: () => { w.s.spice[c]--; audio.sfx('remove'); } },
-          { key: 'Z', label: 'Jettison all', run: () => { w.s.spice[c] = 0; audio.sfx('remove'); } },
+          { key: 'Z', label: 'Jettison all', ask: `Jettison all ${w.s.spice[c]} ${SPICE[c].name}? It is lost for good.`, run: () => { w.s.spice[c] = 0; audio.sfx('remove'); } },
         ],
       }));
     }
@@ -73,16 +74,17 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
         paint: (cv) => paintSpecimen(cv, w, sp),
         actions: [
           ...(w.s.loc === w.gal.homeStar ? [{ key: 'L', label: 'Xeno-Lab', run: () => { close(); st.openLab(); } }] : []),
-          { key: 'X', label: 'Set free', run: () => { w.s.specimens.splice(i, 1); audio.sfx('remove'); } },
+          { key: 'X', label: 'Set free', ask: `Set the ${sp.name} free? It is gone for good.`, run: () => { w.s.specimens.splice(i, 1); audio.sfx('remove'); } },
         ],
       }));
     }
     if (tab === 'aid') {
       return TOOLS.filter((t) => t.kind === 'consumable' && w.count(t.id) > 0).map((t) => {
         const actions: Action[] = [];
-        if (t.id === 'repair') actions.push({ key: 'E', label: 'Use', run: () => st.useRepair() });
-        if (t.id === 'recharge') actions.push({ key: 'E', label: 'Use', run: () => st.useEnergyPack() });
-        if (t.id === 'crate') actions.push({ key: 'E', label: 'Open', run: () => openCrate(st, () => render()) });
+        const use = `Use 1 × ${t.icon} ${t.name}? ${t.desc}`;
+        if (t.id === 'repair') actions.push({ key: 'E', label: 'Use', ask: use, run: () => st.useRepair() });
+        if (t.id === 'recharge') actions.push({ key: 'E', label: 'Use', ask: use, run: () => st.useEnergyPack() });
+        if (t.id === 'crate') actions.push({ key: 'E', label: 'Open', ask: `Open a ${t.icon} ${t.name}? Whatever is inside is yours.`, run: () => openCrate(st, () => render()) });
         return {
           icon: t.icon, name: t.name, qty: w.count(t.id),
           stats: [['Carried', `${w.count(t.id)} / ${t.max ?? 99}`], ['Shop price', t.special ? 'Not for sale' : money(t.price)]] as [string, string][],
@@ -93,11 +95,12 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     }
     if (tab === 'parts') {
       return COMP_IDS.filter((c) => (w.s.comps?.[c] ?? 0) > 0).map((c: CompId) => {
-        const uses = Object.entries(RECIPES).filter(([, r]) => r[c]).map(([id]) => TOOL_MAP[id].name);
+        // Only the blueprints you hold say what a component builds.
+        const uses = Object.entries(RECIPES).filter(([id, r]) => r[c] && hasBlueprint(w, id) && !owned(w, TOOL_MAP[id])).map(([id]) => TOOL_MAP[id].name);
         return {
           icon: COMPONENTS[c].icon, name: COMPONENTS[c].name, qty: w.s.comps![c],
-          stats: [['Rarity', COMPONENTS[c].rarity], ['Used in', `${uses.length} parts`]] as [string, string][],
-          desc: `${COMPONENTS[c].desc} Needed for: ${uses.slice(0, 5).join(', ')}${uses.length > 5 ? '…' : ''}.`,
+          stats: [['Rarity', COMPONENTS[c].rarity], ['Your blueprints', uses.length ? `${uses.length} use it` : 'none use it']] as [string, string][],
+          desc: `${COMPONENTS[c].desc} ${uses.length ? `Needed for: ${uses.slice(0, 5).join(', ')}${uses.length > 5 ? '…' : ''}.` : 'None of your blueprints call for it. Find more blueprints to learn what it builds.'}`,
           actions: [],
         };
       });
@@ -144,10 +147,32 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
   const renderKeys = () => {
     keys.innerHTML = '';
     const key = (k: string, label: string, f: () => void, cls = '') => { const b = h('div', { class: 'ft-opt bt-key ' + cls, role: 'button' }, h('span', { class: 'ft-tag' }, `[${k}] `), label); b.addEventListener('click', f); keys.append(b); };
-    for (const a of list[sel]?.actions ?? []) key(a.key, a.label, () => act(a));
+    for (const a of list[sel]?.actions ?? []) key(a.key, a.label, () => ask(a));
     key('Tab', 'Close', close);
   };
   const act = (a: Action) => { a.run(); render(); };
+  // Every use asks first, in the hold's own terminal style.
+  let asking: { a: Action; el: HTMLElement } | null = null;
+  const dismiss = () => { asking?.el.remove(); asking = null; };
+  const confirmAsk = () => { const a = asking?.a; dismiss(); if (a) act(a); };
+  const ask = (a: Action) => {
+    dismiss();
+    if (!a.ask) { act(a); return; }
+    const opt = (k: string, label: string, f: () => void, on = false) => {
+      const b = h('div', { class: 'ft-opt bt-key' + (on ? ' on' : ''), role: 'button' }, h('span', { class: 'ft-tag' }, `[${k}] `), label);
+      b.addEventListener('click', (e) => { e.stopPropagation(); f(); });
+      return b;
+    };
+    const el = h('div', { class: 'inv-ask', role: 'dialog', 'aria-modal': 'true' },
+      h('div', { class: 'inv-ask-box' }, h('p', null, a.ask),
+        h('div', { class: 'bt-keys' }, opt(a.key, `Yes, ${a.label.toLowerCase()}`, confirmAsk, true), opt('Esc', 'Cancel', () => { audio.sfx('click', { pitch: 0.8 }); dismiss(); }))));
+    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === el) dismiss(); });
+    box.append(el);
+    asking = { a, el };
+    audio.sfx('tap');
+  };
+  /** Clicking an item you can use asks to use it. */
+  const primary = (it?: Item) => it?.actions.find((x) => x.key === 'E');
   const render = () => {
     if (closing) return;
     capsEl.textContent = `${money(w.s.money)} · Hold ${w.cargoUsed}/${w.cargoCap}`;
@@ -167,7 +192,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     rows = list.map((it, i) => {
       const r = h('div', { class: 'bt-row inv-row' }, h('span', { class: 'bt-mark' }), h('span', { class: 'bt-ic' }, it.icon), h('span', { class: 'bt-name' }, it.name), h('span', { class: 'bt-val' }, it.tag ? h('i', { class: 'inv-ready' }, it.tag) : it.qty !== undefined ? `×${it.qty}` : ''));
       r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { sel = i; detail(); } });
-      r.addEventListener('click', () => { sel = i; detail(); });
+      r.addEventListener('click', () => { sel = i; detail(); const p = primary(list[i]); if (p) ask(p); });
       listEl.append(r);
       return r;
     });
@@ -179,6 +204,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
   const close = () => {
     if (closing) return;
     closing = true;
+    dismiss();
     window.removeEventListener('keydown', onKey, true);
     root.classList.add('out');
     setTimeout(() => root.remove(), 200);
@@ -188,6 +214,12 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     if (document.querySelector('.sp-crate, .sp-sheet-wrap')) return;
     e.stopPropagation();
     const k = e.key.toLowerCase();
+    if (asking) {
+      if (k === 'enter' || k === 'y' || k === asking.a.key.toLowerCase()) confirmAsk();
+      else if (k === 'escape' || k === 'tab' || k === 'n') { audio.sfx('click', { pitch: 0.8 }); dismiss(); }
+      e.preventDefault();
+      return;
+    }
     const ti = TABS.findIndex((t) => t.id === tab);
     if (k === 'arrowdown' || k === 's') { sel = Math.min(list.length - 1, sel + 1); detail(); rows[sel]?.scrollIntoView({ block: 'nearest' }); }
     else if (k === 'arrowup' || k === 'w') { sel = Math.max(0, sel - 1); detail(); rows[sel]?.scrollIntoView({ block: 'nearest' }); }
@@ -196,14 +228,14 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     else if (k === 'tab' || k === 'escape') close();
     else {
       const a = list[sel]?.actions.find((x) => x.key.toLowerCase() === k || (k === 'enter' && x === list[sel].actions[0]));
-      if (a) act(a);
+      if (a) ask(a);
       else return;
     }
     e.preventDefault();
   };
   window.addEventListener('keydown', onKey, true);
   // A click outside the frame closes the hold.
-  root.addEventListener('pointerdown', (e) => { if (e.target === root) close(); });
+  root.addEventListener('pointerdown', (e) => { if (e.target !== root) return; if (asking) dismiss(); else close(); });
   audio.sfx('click', { pitch: 0.7 });
   render();
 }

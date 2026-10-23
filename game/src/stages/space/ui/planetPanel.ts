@@ -3,7 +3,7 @@
 import { button, h, progressBar, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { TAU } from '../../../engine/math';
-import { SPICE, SPICE_COLORS, tScoreOf, type SpiceColor } from '../data';
+import { SCAN_ENERGY, SPICE, SPICE_COLORS, tScoreOf, type SpiceColor } from '../data';
 import { drawPlanet, SphereSprite, styleFor, type PlanetLook } from '../art/planetArt';
 import { blit, glow } from '../art/sprites';
 import {
@@ -319,7 +319,7 @@ export class PlanetPanel {
     B.append(info);
     const acts = h('div', { class: 'sp-tools' });
     const wanted = w.s.missions.some((m) => (m.kind === 'scan' || (m.kind === 'tutorial' && m.step === 'scan')) && m.star === this.star && m.planet === this.idx);
-    acts.append(button(ps.scanned && !wanted ? '🔍 Re-scan' : '🔍 Scan', () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary' }));
+    acts.append(button(`${ps.scanned && !wanted ? '🔍 Re-scan' : '🔍 Scan'} ⚡${SCAN_ENERGY}`, () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary', title: `Scanning costs ⚡${SCAN_ENERGY} energy` }));
     if (pl.kind !== 'gas') {
       const cc = canColonize(w, this.star, this.idx);
       if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
@@ -388,9 +388,10 @@ export class PlanetPanel {
   }
 
   private scan() {
+    if (!this.w.spendScan()) return;
     this.scanT = 1.2;
     showScan(this.w, [scanPlanet(this.w, this.star, this.idx)]);
-    this.st.game.hint('quickscan', 'Shortcut: in the system view, right-click (or press and hold) a planet to scan it from anywhere. Do it on the star to sweep every world at once.', '🔍');
+    this.st.game.hint('quickscan', 'Shortcut: in the system view, right-click (or press and hold) a planet to scan it from anywhere. Do it on the star to sweep every world at once. Each world scanned costs ⚡1.', '🔍');
     this.render();
   }
 
@@ -667,14 +668,23 @@ export class PlanetPanel {
     for (const m of deliverables(w, e)) {
       B.append(h('div', { class: 'sp-offer' }, h('b', null, `📦 ${m.title}`), button(`Deliver for ${money(m.reward)}`, () => { deliver(w, m); this.render(); }, { cls: 'gold' })));
     }
-    B.append(h('div', { class: 'sp-section' }, 'Spice market'));
+    B.append(h('div', { class: 'sp-section' }, 'Spice market'),
+      h('div', { class: 'sp-mini' }, 'Each sale or purchase moves that spice\'s price. It drifts back to normal over a few minutes.'));
     for (const c of SPICE_COLORS) {
       const have = w.s.spice[c];
-      const price = sellPrice(w, e, c);
       const prod = e.produces.includes(c);
+      // Prices tick live, so their recovery shows as time passes rather than only when the tab is redrawn.
+      const priceEl = h('span', { class: 'sp-price' }), restEl = h('span');
+      const upd = () => {
+        const d = e.demand[c];
+        priceEl.textContent = `sells ${money(sellPrice(w, e, c))}`;
+        restEl.textContent = (prod ? ` · buy ${money(buyPrice(w, e, c))}` : demandLabel(d)) + (d < 0.97 ? ' · ↗ recovering' : '');
+      };
+      upd();
+      this.dynamic.push(upd);
       const row = h('div', { class: 'sp-item', style: 'padding:8px' },
         h('span', { class: 'sp-dot', style: `background:${SPICE[c].hex};width:16px;height:16px` }),
-        h('div', { class: 'sp-txt' }, h('b', null, `${SPICE[c].name} ×${have}`), h('span', { class: 'sp-price' }, `sells ${money(price)}`), prod ? ` · buy ${money(buyPrice(w, e, c))}` : demandLabel(e.demand[c])));
+        h('div', { class: 'sp-txt' }, h('b', null, `${SPICE[c].name} ×${have}`), priceEl, restEl));
       row.append(button('Sell', () => this.doSell(e, c, 1), { cls: 'small', disabled: have <= 0 }));
       row.append(button('All', () => this.doSell(e, c, have), { cls: 'small primary', disabled: have <= 0 }));
       if (prod) row.append(button('Buy', () => { const n = buy(w, e, c, 1); if (!n) { audio.sfx('error'); this.st.ui.toast(w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'Not enough money.', '💱'); } this.render(); }, { cls: 'small' }));

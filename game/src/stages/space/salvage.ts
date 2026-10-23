@@ -145,8 +145,7 @@ export function previewSalvage(s: Salvage): { icon: string; text: string; desc: 
   const out: { icon: string; text: string; desc: string }[] = [];
   if (s.bp) {
     const t = TOOL_MAP[s.bp];
-    const rec = Object.entries(RECIPES[s.bp] ?? {}).map(([c, n]) => `${n} ${COMPONENTS[c as CompId].icon}`).join(' ');
-    out.push({ icon: '📐', text: `${t.name} blueprint`, desc: `Plans for ${t.icon} ${t.name}: ${t.desc} Build it at a shop with ${rec}.` });
+    out.push({ icon: '📐', text: `${t.name} blueprint`, desc: `Plans for ${t.icon} ${t.name}: ${t.desc} Take it to learn which components it calls for.` });
   }
   for (const [c, n] of Object.entries(s.comps ?? {}) as [CompId, number][]) {
     if (n) out.push({ icon: COMPONENTS[c].icon, text: `${n} × ${COMPONENTS[c].name}`, desc: `${COMPONENTS[c].desc} (${COMPONENTS[c].rarity} component)` });

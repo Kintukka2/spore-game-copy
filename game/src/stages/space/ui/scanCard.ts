@@ -97,6 +97,17 @@ function sweep(w: World, rs: ScanResult[]): HTMLElement {
   return box;
 }
 
+/** An itemised card for a haul of several things at once (relics, salvage, mission bonuses, deals). */
+export function showLoot(w: World, title: string, items: { icon: string; text: string }[], icon = '🎁') {
+  if (!items.length) return;
+  const box = h('div', { class: 'sc lc' }, h('div', { class: 'sc-h' }, h('b', null, `${icon} ${title}`)));
+  for (const it of items) box.append(h('div', { class: 'lc-row' }, h('span', { class: 'lc-ic' }, it.icon), h('span', null, it.text)));
+  const t = ui.toast(box, { kind: 'scan', ms: 3600 + items.length * 500 });
+  t.addEventListener('pointerdown', () => { t.classList.remove('in'); setTimeout(() => t.remove(), 300); }, { once: true });
+  audio.sfx('coin', { vol: 0.5 });
+  void w;
+}
+
 /** Pop the report for one scan, or a sweep of several. */
 export function showScan(w: World, rs: ScanResult[]) {
   if (!rs.length) return;

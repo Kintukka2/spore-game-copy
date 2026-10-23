@@ -12,6 +12,7 @@ import type { SpaceStage } from '../stage';
 import { fmtTime, money } from './common';
 import { openCrate } from './crateOpen';
 import { faceScene } from './talk';
+import { showLoot } from './scanCard';
 
 const TITLES = ['the Haggler', 'of the Long Road', 'the Starlane Peddler', 'the Bargainer', 'Junk-Prince', 'the Generous (Allegedly)'];
 export const LINES = {
@@ -128,17 +129,17 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       const deals = traderDeals(w, ev);
       // Sell first, so your sales pay for your buys.
       const order = [...picked].sort((a, b) => (deals[a]?.price ?? 0) - (deals[b]?.price ?? 0));
-      const done: string[] = [];
+      const done: { icon: string; text: string }[] = [];
       let lastKind: Deal['kind'] | null = null;
       for (const i of order) {
         const d = traderDeals(w, ev)[i];
         const msg = takeDeal(w, ev, i);
-        if (msg && d) { done.push(`${d.icon} ${d.name}`); lastKind = d.kind; }
+        if (msg && d) { done.push({ icon: d.icon, text: d.price < 0 ? `Sold ${d.name.replace(/^Your /, '')} (+${money(-d.price)})` : `${d.name} (${money(d.price)})` }); lastKind = d.kind; }
       }
       picked.clear();
       if (done.length) {
         audio.sfx('coin');
-        st.ui.toast(`Deal: ${done.join(', ')}`, '🛍️', 'good');
+        showLoot(w, 'Deal struck', done, '🛍️');
         st.hud.layoutAbilities();
       }
       if (!w.s.events.includes(ev)) talk('sold');

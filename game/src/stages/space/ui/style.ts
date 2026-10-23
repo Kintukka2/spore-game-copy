@@ -36,6 +36,52 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .md { background:#05030a radial-gradient(ellipse at 50% 50%, #2a1530, #05030a 72%); }
 .md .ob-stat { border-color:rgba(255,154,74,.4); }
 .md-cv { cursor:crosshair; }
+/* Terraforming view: the world large, its climate at the top, the tools along the bottom. */
+.tf { background:#02040c radial-gradient(ellipse at 50% 42%, #10223a, #02040c 72%); }
+.tf .ob-stat { border-color:rgba(124,196,255,.3); }
+.tf-t { flex:0 0 auto; min-width:92px; justify-content:center; }
+.tf-t b { color:#ffd166; }
+.ob-stat .tf-stars { font-size:14px; color:#ffd166; }
+.ob-stat .tf-sub { font-size:11px; color:#9dff8a; }
+.ob-stat .tf-sub.bad { color:#ffcf80; }
+.tf-ax { align-items:stretch; gap:7px; padding:6px 12px 9px; min-width:0; }
+.tf-ax > span { font-size:12px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ob-stat.tf-ax > span b { font-size:13px; color:var(--ink); }
+.tf-track { position:relative; height:10px; border-radius:6px; overflow:visible; }
+.tf-track.air { background:linear-gradient(90deg, #5e4a38, #8a8f96 50%, #cfe8ff); }
+.tf-track.heat { background:linear-gradient(90deg, #3f7fd0, #9aa0a8 50%, #ff6a2a); }
+.tf-band { position:absolute; top:0; bottom:0; background:rgba(76,217,123,.26); }
+.tf-band.b1 { left:20%; right:20%; }
+.tf-band.b2 { left:30%; right:30%; }
+.tf-band.b3 { left:40%; right:40%; background:rgba(76,217,123,.5); }
+.tf-mk { position:absolute; top:-4px; width:6px; height:18px; margin-left:-3px; border-radius:3px; background:#fff; box-shadow:0 0 0 2px #3ee6c4, 0 0 8px rgba(255,255,255,.7); }
+.tf-chart { position:absolute; right:10px; top:8px; width:clamp(118px, 21vw, 190px); height:clamp(118px, 21vw, 190px); border-radius:14px; background:rgba(2,8,18,.72); border:1px solid rgba(124,196,255,.25); pointer-events:none; }
+.tf-cv { cursor:grab; }
+.tf-cv:active { cursor:grabbing; }
+.tf-tools { display:flex; gap:8px; padding:6px 12px 2px; overflow-x:auto; justify-content:safe center; scrollbar-width:thin; }
+.tf-card { position:relative; flex:0 0 auto; width:106px; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 6px 7px; border-radius:14px; background:rgba(8,16,30,.85); border:1.5px solid color-mix(in srgb, var(--c) 55%, transparent); color:var(--ink); font:inherit; cursor:pointer; transition:transform .12s, background .15s, opacity .2s, box-shadow .15s; }
+.tf-card:hover:not(.off):not(.busy), .tf-card:focus-visible { transform:translateY(-3px); background:color-mix(in srgb, var(--c) 16%, rgba(8,16,30,.9)); box-shadow:0 0 16px color-mix(in srgb, var(--c) 40%, transparent); outline:none; }
+.tf-card:active:not(.off):not(.busy) { transform:scale(.96); }
+.tf-card.off { opacity:.42; filter:grayscale(.6); }
+.tf-card.busy { opacity:.55; cursor:wait; }
+.tf-card.queued { border-color:var(--c); box-shadow:0 0 0 2px var(--c), 0 0 18px color-mix(in srgb, var(--c) 45%, transparent); animation:tfQueued 1s ease-in-out infinite; }
+@keyframes tfQueued { 50% { box-shadow:0 0 0 2px var(--c), 0 0 4px transparent; } }
+.tf-ic { font-size:26px; line-height:1.1; }
+.tf-card b { font-size:12.5px; white-space:nowrap; }
+.tf-arrow { font-size:12.5px; font-weight:700; color:var(--c); padding:1px 7px; border-radius:8px; background:color-mix(in srgb, var(--c) 15%, transparent); white-space:nowrap; }
+.tf-n { font-size:11px; color:var(--ink-dim); }
+.tf-key { position:absolute; left:7px; top:4px; font-size:10px; color:var(--ink-faint); }
+@media (hover:none) { .tf-key { display:none; } }
+.tf-hint { min-height:3.4em; }
+.tf .ob-banner { top:14%; font-size:clamp(28px, 5vw, 40px); }
+.tf-warn { color:#ffcf80; margin-top:3px; }
+.tf-good { color:#9dff8a; margin-top:3px; }
+.sp-tools .tf-tag { white-space:nowrap; }
+.sp-tools .tf-tag[style] { font-weight:700; }
+.tf-ax i { font-style:normal; }
+.tf-short { display:none; }
+@media (max-width:640px) { .tf-long { display:none; } .tf-short { display:inline; } }
+@media (max-width:520px) { .tf-card { width:86px; padding:6px 4px; } .tf-ic { font-size:22px; } .tf-card b { font-size:11.5px; } .tf-arrow { font-size:11.5px; padding:1px 5px; } .tf-t { min-width:68px; } .tf-ax { padding:5px 8px 8px; } .tf-ax > span { font-size:11px; } }
 /* Conversations, Fallout style: face close-up, the line across the top, replies in a terminal frame. */
 .ft { position:fixed; inset:0; z-index:45; display:flex; flex-direction:column; align-items:center; background:#000; color:var(--ft); font-family:'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; animation:spFade .25s ease; user-select:none; -webkit-user-select:none; touch-action:manipulation; transition:opacity .2s; }
 .ft-amber { --ft:#ffb642; --ft-dim:rgba(255,182,66,.5); --ft-bg:rgba(255,182,66,.16); --ft-glow:rgba(255,182,66,.55); }
@@ -118,6 +164,8 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .inv-stats { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:14px; }
 .inv-stats span { color:var(--ft-dim); }
 .inv-stats b { font-weight:400; text-align:right; }
+.inv-stats .ok { color:#8dffa8; text-shadow:0 0 6px rgba(141,255,168,.5); }
+.inv-ready { font-style:normal; font-size:11px; padding:1px 6px; border:1px solid #8dffa8; color:#8dffa8; letter-spacing:.08em; animation:crBlink 1.2s ease-in-out infinite; }
 .inv-desc { font-size:14px; line-height:1.35; opacity:.9; }
 @media (max-width:560px) { .inv-main { grid-template-columns:1fr; } .inv-list { max-height:30dvh; min-height:90px; } .inv-pic { height:90px; } .inv-tab { font-size:13px; } }
 /* Looting, Fallout style */
@@ -160,6 +208,8 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sc-life em { font-style:normal; margin-left:7px; font-size:11px; font-weight:700; color:#3ee6c4; }
 .sc-find { font-size:12.5px; font-weight:600; color:#ffd166; }
 .sc-find.bad { color:#ff9a8a; }
+.lc-row { display:flex; gap:8px; align-items:center; font-size:13.5px; font-weight:600; padding:3px 6px; border-radius:8px; background:rgba(255,255,255,.05); }
+.lc-ic { width:22px; text-align:center; flex:0 0 auto; }
 .sc-row { display:grid; grid-template-columns:minmax(0,1fr) auto 10px auto auto 18px; gap:7px; align-items:center; font-size:12.5px; }
 .sc-row b { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
 .sc-t { color:#ffd166; letter-spacing:-1px; }

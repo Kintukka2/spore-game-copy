@@ -618,6 +618,7 @@ export class SystemView {
       const pp = this.planetPos(p.idx);
       if (pp.x < b.x0 - p.size * 2 || pp.x > b.x1 + p.size * 2 || pp.y < b.y0 - p.size * 2 || pp.y > b.y1 + p.size * 2) continue;
       this.drawPlanetAt(g, p, pp.x, pp.y, z);
+      this.drawDefences(g, p.idx, pp.x, pp.y);
     }
     // Beacons
     if (this.beacons.length) {
@@ -996,21 +997,65 @@ export class SystemView {
     }
   }
 
+  /** Every inhabited world keeps defence platforms in orbit, one per city plus one (up to 4). At war they are live
+   * turrets (combat crafts drawn with the same art); otherwise they idle, sweeping the sky. */
+  private drawDefences(g: CanvasRenderingContext2D, idx: number, px: number, py: number) {
+    const w = this.st.w;
+    const ps = w.peekPS(this.star, idx);
+    if (!ps.owner || ps.destroyed || ps.cities <= 0) return;
+    if (this.combat.crafts.some((c) => c.kind === 'turret' && c.planet === idx && c.alive)) return;
+    const col = ps.owner === 'player' ? '#3ee6c4' : ps.owner === 'hollow' ? '#ff3b4a' : w.emap.get(ps.owner)?.color ?? '#ffb347';
+    const n = Math.min(4, 1 + ps.cities);
+    const R = this.planetSize(idx) + 10;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU + this.t * 0.05;
+      this.drawPlatform(g, px + Math.cos(a) * R, py + Math.sin(a) * R, a + Math.sin(this.t * 0.6 + i * 2) * 0.9, col, 0);
+    }
+  }
+
+  /** An orbital defence platform: a hexagonal hull, two solar wings, and a gun that turns toward its target. */
+  private drawPlatform(g: CanvasRenderingContext2D, x: number, y: number, aim: number, col: string, flash: number) {
+    g.save();
+    g.translate(x, y);
+    // Solar wings, fixed across the orbit.
+    g.fillStyle = '#2c4a7a';
+    g.strokeStyle = '#7fb2ff';
+    g.lineWidth = 1;
+    g.fillRect(-21, -4, 8, 8); g.strokeRect(-21, -4, 8, 8);
+    g.fillRect(13, -4, 8, 8); g.strokeRect(13, -4, 8, 8);
+    g.strokeStyle = '#6b7385';
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(-13, 0); g.lineTo(-9, 0); g.moveTo(9, 0); g.lineTo(13, 0); g.stroke();
+    // Hull
+    g.fillStyle = '#3a3f4a';
+    g.strokeStyle = col;
+    g.lineWidth = 2;
+    g.beginPath();
+    for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU + Math.PI / 6; const hx = Math.cos(a) * 10, hy = Math.sin(a) * 10; if (k) g.lineTo(hx, hy); else g.moveTo(hx, hy); }
+    g.closePath(); g.fill(); g.stroke();
+    // Gun
+    g.rotate(aim);
+    g.fillStyle = '#5b6170';
+    g.fillRect(3, -3, 15, 6);
+    g.fillStyle = col;
+    g.fillRect(15, -2, 4, 4);
+    g.fillStyle = '#8a93a6';
+    g.beginPath(); g.arc(0, 0, 5, 0, TAU); g.fill();
+    if (flash > 0) {
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = flash;
+      g.fillStyle = '#ffd8a0';
+      g.beginPath(); g.arc(20, 0, 7, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    }
+    g.restore();
+  }
+
   private drawCraft(g: CanvasRenderingContext2D, c: Craft, z: number) {
     const frozen = c.frozen > 0 || this.combat.stasis > 0 && c.team === 1;
     if (c.kind === 'turret') {
-      const col = c.shotColor;
-      g.save();
-      g.translate(c.x, c.y);
-      g.fillStyle = '#3a3f4a';
-      g.strokeStyle = col;
-      g.lineWidth = 2;
-      g.beginPath(); g.arc(0, 0, 11, 0, TAU); g.fill(); g.stroke();
-      g.rotate(c.angle);
-      g.fillStyle = col;
-      g.fillRect(4, -3, 14, 6);
-      if (c.flash > 0) { g.globalAlpha = c.flash; g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 11, 0, TAU); g.fill(); }
-      g.restore();
+      this.drawPlatform(g, c.x, c.y, c.angle, c.shotColor, c.flash);
       return;
     }
     if (!c.design) return;

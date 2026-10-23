@@ -11,6 +11,8 @@ import type { SpaceStage } from '../stage';
 import { money } from './common';
 import { openTalk, talkNote, type Line, type Reply, type Speaker } from './talk';
 import { LINES, merchant, openTrader } from './traderView';
+import { TOOL_MAP } from '../data';
+import { COMPONENTS, RECIPES, type CompId } from '../salvage';
 
 const pickOf = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
@@ -143,4 +145,41 @@ export async function distressTalk(st: SpaceStage, ev: GEvent, ambush: () => voi
       } },
     ],
   });
+}
+
+// ------------------------------------------------------------------ engineering
+/** Your chief engineer calls in: every component for a blueprint is aboard. */
+export async function engineerTalk(st: SpaceStage, toolId: string) {
+  const w = st.w, gs = st.game.state;
+  const t = TOOL_MAP[toolId];
+  if (!t) return;
+  const r = new RNG((gs?.seed ?? 1) ^ 0xe9e);
+  const name = `Chief Engineer ${speciesName(r).split(/\s/)[0]}`;
+  const design = gs?.designs.creature ?? w.empires[0].creature;
+  const parts = Object.entries(RECIPES[toolId] ?? {}).map(([c, n]) => `${n} ${COMPONENTS[c as CompId].name}`).join(', ');
+  const home = w.star(w.gal.homeStar).name;
+  let course = false;
+  const end = (say: string): Line => ({ say, replies: [{ tag: 'Leave', text: 'Over and out.', leave: true }] });
+  const first: Line = {
+    say: `Captain! Engineering here. Good news: we have every component for the ${t.name}. That is ${parts}. Bring the ship into ${home} or any of our colonies, and we will have it fitted before you can finish your tea.`,
+    mood: 'happy',
+    replies: [
+      { tag: 'Set course', text: 'Plot a course to the nearest shop.', go: () => { course = true; return end('Course laid in. See you in the dock, Captain.'); } },
+      { text: 'What will it do for us?', go: () => ({ ...first, say: `${t.desc} Trust me, Captain, you will feel the difference.` }) },
+      { tag: 'Leave', text: 'Good work. I will be there soon.', leave: true },
+    ],
+  };
+  audio.sfx('bell', { pitch: 1.3 });
+  await openTalk({ name, sub: 'Your engineering crew', design, color: '#3ee6c4', voice: { sfx: 'tap', pitch: 1.5 } }, first);
+  if (course) {
+    // Nearest system with a shop: one of yours, or an ally's.
+    let best: number | null = null, bd = Infinity;
+    for (const s of w.gal.stars) {
+      if (!w.atDock(s.id)) continue;
+      const d = w.gal.dist(s.id, w.s.loc);
+      if (d < bd) { bd = d; best = s.id; }
+    }
+    if (best !== null && best !== w.s.loc) { st.showGalaxy(best); st.selectStar(best); }
+    else if (best === w.s.loc) st.ui.toast('You are already at a shop: open 🧰 to build it.', '🔧');
+  }
 }

@@ -154,8 +154,9 @@ export function complete(w: World, m: Mission) {
   const e = w.emap.get(m.giver);
   if (e) addMod(e, 'missions', 'You completed our missions', 18, { max: e.arch === 'hollow' ? 50 : 100, decay: 0.4 });
   audio.sfx('success');
-  const extra = m.bonus ? salvageLine(giveSalvage(w, m.bonus)) : '';
-  w.hooks?.toast(`Mission complete: ${m.title}${m.reward ? ' · +§' + fmt(m.reward) : ''}${extra ? ` · ${extra}` : ''}`, '✅', 'good');
+  const extra = m.bonus ? giveSalvage(w, m.bonus) : [];
+  if (extra.length && w.hooks?.loot) w.hooks.loot(`Mission complete: ${m.title}`, [...(m.reward ? [{ icon: '💰', text: `+§${fmt(m.reward)}` }] : []), ...extra], '✅');
+  else w.hooks?.toast(`Mission complete: ${m.title}${m.reward ? ' · +§' + fmt(m.reward) : ''}${extra.length ? ` · ${salvageLine(extra)}` : ''}`, '✅', 'good');
   w.hooks?.missionDone(m);
 }
 

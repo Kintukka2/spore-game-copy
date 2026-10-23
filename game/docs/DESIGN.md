@@ -308,6 +308,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 1. **Galaxy map:** pan, pinch, tap a star → info card (owner, planets, spice) → **Travel**. Travel range is limited by the drive level; longer jumps need multiple hops (show the range ring). Travelling costs energy.
    - Energy only recharges at a friendly dock: your homeworld and colony systems, or an ally's systems (`World.atDock`). The energy bar shows ▲ while it charges. Elsewhere, Energy Packs ⚡ top it up, and hops without energy strain the hull. A one-time hint explains this when energy drops below 30% away from a dock.
 2. **System view:** the star with orbiting planets; your ship flies around (joystick, or tap to move). Tap a planet → planet panel.
+   - Every settled world (not destroyed, with at least one city) is ringed by orbital defence platforms: one more than its cities, up to 4. They are drawn as hexagonal hulls with solar wings and a swivelling gun, in the owner's colour (teal for yours, red for the Hollow). In combat the live turret craft use the same platform art.
 3. **Planet panel:** a 2D close-up of the planet sphere with its stats (T-score 0–3, atmosphere and temperature sliders, spice colour and amount, cities and owners). The available actions depend on context:
    - Scan, Colonize (Colony Pack), Terraform (atmosphere and temperature tools), Plant (flora) and Abduct/Place animals (to fill the ecosystem)
    - Collect spice, Trade (if owned by an empire), Attack (if at war: destroy turrets, then the city), Abduct, Use superpower
@@ -347,7 +348,38 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 
 **Terraforming**
 - Each planet has atmosphere and temperature from 0..1 (the T-zone).
-- Tools nudge them: Atmosphere Generator/Drainer, Heat Ray/Freeze Ray, Ice and Meteor.
+- Tools nudge them. Pods use one charge and move a value by 11%:
+  - 🌧️ Storm Pod: air +11%.
+  - 🏜️ Drought Pod: air −11%.
+  - ☄️ Meteor Call: heat +11%.
+  - 🧊 Ice Comet: heat −11%.
+- The ship's unique tools cost ⚡8 and move a value by 5%:
+  - 🌀 Cloud Engine (+) and Cloud Siphon (−) for air.
+  - 🔥 Heat Lance and ❄️ Frost Lance for heat.
+- **Terraforming view** (`ui/terraformView.ts`): clicking the Terraform tab (or 🌍 Terraform in the Overview) opens a full-screen view of the world. The space stage pauses while it is open.
+  - Layout:
+    - Along the top: the T-score with stars and Stable / ⚠ Unstable / Paradise, plus an Atmosphere bar and a Temperature bar. Each bar shows the T1–T3 bands as nested green zones and a marker for the world.
+    - Top right: the climate chart, with atmosphere across and temperature up.
+    - Middle: the planet, big and spinning. Drag to turn it.
+    - Bottom: one card per tool.
+  - **Arrows:**
+    - Each card shows its push on the chart (→ Air +11%, ← Air −11%, ↑ Heat +11%, ↓ Heat −11%), its count or ⚡ cost, and its key (1–9).
+    - Hovering or focusing a card draws a dashed arrow on the chart to where the dot would land, labelled with the T change (T1→T2), green for better and red for worse.
+    - The chart keeps a dotted trail of where the world has been.
+  - **Animations.** Each tool plays out on the globe, and the change lands at impact:
+    - Storm Pod: a capsule streaks in and bursts into a wheeling cyclone, with rain across the face, lightning cracks with thunder, and fresh cloud banks.
+    - Drought Pod: a capsule detonates in a shockwave that rings round the world. A dust storm billows, and the sky boils off the limb into space.
+    - Meteor Call: five meteors with fiery tails strike in turn, with screen shake. Each leaves a crater whose molten core cools from white-hot to red, while heat haze rises.
+    - Ice Comet: a comet arrives with its tail streaming away from the sun. Its impact flash sends a frost wave across the world, frost patches spread, polar caps creep down and snow falls.
+    - Cloud Engine: your ship (your own design) flies in, holds station and vents vapour plumes onto the world. Cloud Siphon draws the haze off the limb up a pale funnel into the ship.
+    - Heat Lance and Frost Lance: the ship burns, or freezes, a glowing line across the crust with a wobbling beam.
+    - 🌱 Genesis Seed (asks first): a glowing seed drops in. A green wave spreads, and flowers bloom across the world.
+  - The globe is drawn from the shown climate, which eases toward the real one over a second or two, so the planet visibly turns as the dot moves: barren rock greens over, ice caps grow and the halo thickens.
+    - Crossing a T ring flashes a banner (🌍 T2 world! with stars and sparkles, or ⚠ Down to T1).
+    - The line under the cards then sums up the change, for example "Atmosphere 22% → 33% · T0 → T1", and warns when the world is unstable.
+  - A tool picked while another plays is queued: the card pulses and fires next. Esc or ✕ closes the view.
+  - The view renders its planet from a finer 256-wide texture. Textures now blend coastlines, crater rims and ice cracks over a sliver of height, so they stay smooth up close.
+  - The Terraform tab keeps the chart, an **Open the terraforming view** button and one button per tool, each with its arrow. Hovering a button previews it on the chart, and clicking it opens the view and fires that tool.
 - **T-score:** the distance from the ideal centre maps to T0..T3. A planet's ecosystem needs plants and animals to match its T-score; let players place them through simple slots.
 - A higher T-score allows more colony buildings and more spice.
 - Raising a planet to T3 gives `terraformer`.
@@ -387,6 +419,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - ☣️ **Outbreak containment** (`ui/outbreak.ts`): an eco-disaster's planet panel (Overview banner, Life tab, or a tap on the globe) offers **Contain the outbreak**, a full-screen minigame. It shows just the world, big and spinning (drag to turn it, with inertia), its infection spots, the clock, spots left and spots purged.
   - Spots age from green through yellow to red, then **spread**: a new spot appears nearby, at most 12. They spread every 12 / 9 / 7 s on easy / normal / hard.
   - Spots on the far side show as blips on the rim at their height, brighter as they come round.
+  - Spots ride with the ground as the world turns, in the same direction as the texture. The planet panel's markers do too.
   - Big pulsing ◀ ▶ arrows (beside the world, or under it on narrow screens) count the hidden spots on each side. Tapping one spins the world so the nearest hidden spot faces you.
   - When nothing is in view but spots remain behind, a hand swipes across the world with "Swipe to spin · N on the far side".
   - Purges within 1.6 s of each other chain a combo worth §200 per step.
@@ -453,7 +486,13 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
     - Rare: 💠 Quantum Core, 🔮 Warp Crystal.
   - In the shop, an advanced part shows chips: 📐 blueprint, then each component as have/need, green when met. The button reads 📐 Blueprint, 🔩 Parts, or 🔧 §price once you can build it. 📐 and 🔩 open a popup listing what is missing and where it comes from.
   - The cargo hold lists your components and blueprints, with recipe progress. Blueprints for parts you already built are hidden.
-- **Cargo hold** (`ui/inventory.ts`): a Fallout-style inventory, opened from the 📦 HUD chip or the Ship sheet's Cargo tab.
+    - Each component line reads have/need, with a ✓ in green once met.
+    - A blueprint with every component aboard gets a blinking green READY badge in the list, and its description says where to build it.
+    - Shop recipe chips gain the same ✓.
+  - **Engineering call** (`engineerTalk` in `ui/encounters.ts`): the moment salvage completes a blueprint's recipe, your Chief Engineer, one of your own species, calls in a Fallout-style conversation. It happens once per blueprint.
+    - The engineer reports: "we have every component for the Cargo Bay III. That is 3 Alloy Plating, 1 Grav Coil."
+    - **[Set course]** plots a course to the nearest shop (yours or an ally's). "What will it do for us?" describes the part, and [Leave] closes the call.
+- **Cargo hold** (`ui/inventory.ts`): a Fallout-style inventory, opened from the 📦 HUD chip or the Ship sheet's Cargo tab. Clicking or tapping outside the frame closes it.
   - Tabs: Spice, Specimens, Aid (consumables), Parts (components) and Blueprints, each with a count.
   - The item list sits on the left. On the right is the highlighted item's picture (the specimen itself, a glowing spice orb, or a big icon), its name, its stats (value, kind, rarity, recipe progress) and a description.
   - Actions are labelled with keys: [E] Use/Open (repair and energy packs, crates), [X] Jettison 1 or Set free, [Z] Jettison all, [L] Xeno-Lab (at home) and [Tab] Close. ←/→ switch tabs and ↑/↓ move through the list.
@@ -466,6 +505,9 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
     - wandering traders
     - empire missions: 15% of offers add a rare bonus (a blueprint, a finished part or components). The pitch names it, and it is paid on completion.
   - Wrecks and missions can also hand over finished tools: the next level of an upgrade, a unique, or a stack of consumables.
+- **Loot card** (`showLoot` in `ui/scanCard.ts`): whenever several things arrive at once, a card shows a title and one row per item (icon and text) instead of one long toast.
+  - This covers relics, mission bonuses, wreck salvage, a trader deal and the finds from a crashed-ship or ruin scan.
+  - It stays up a little longer for each extra item, and a tap dismisses it.
 
 **Endgame**
 1. A mission chain: "Contact the Hollow" (at rank 4 or so) → "Reach the core".

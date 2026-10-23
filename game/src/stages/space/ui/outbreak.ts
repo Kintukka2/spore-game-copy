@@ -25,7 +25,7 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
   // Per-spot age (s) toward spreading, and time since it appeared (for the sprout pop).
   const ages = Array.from({ length: marks.length / 2 }, () => Math.random() * spreadT * 0.4);
   const born = ages.map(() => 9);
-  const sprite = new SphereSprite(384);
+  const sprite = new SphereSprite(384, 256);
   const cv = h('canvas', { class: 'ob-cv', 'aria-label': pl.name }) as HTMLCanvasElement;
   const timeEl = h('b'), leftEl = h('b'), doneEl = h('b');
   const banner = h('div', { class: 'ob-banner' });
@@ -62,7 +62,8 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
   };
   const project = (lon: number, lat: number) => {
     const { cx, cy, r } = geom();
-    const a = lon + rot * TAU;
+    // Texture longitude slides left as `rot` grows (see SphereSprite), so the spots ride with the ground.
+    const a = lon - rot * TAU;
     const x = Math.cos(lat) * Math.sin(a), z = Math.cos(lat) * Math.cos(a), y = Math.sin(lat);
     return { x: cx + x * r, y: cy + y * r, z, side: x };
   };
@@ -136,7 +137,7 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
       if (p.z > bz) { bz = p.z; best = i; }
     }
     if (best < 0) return;
-    target = ((-marks[best] / TAU) % 1 + 1) % 1;
+    target = ((marks[best] / TAU) % 1 + 1) % 1;
     spin = 0;
     audio.sfx('whoosh', { pitch: 1.3, vol: 0.5 });
   };

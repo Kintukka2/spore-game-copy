@@ -158,8 +158,17 @@ export function previewSalvage(s: Salvage): { icon: string; text: string; desc: 
   return out;
 }
 
+/** Blueprints for parts you do not have yet, with every component in stock. */
+export function readyBlueprints(w: World): string[] {
+  return (w.s.blueprints ?? []).filter((id) => {
+    const t = TOOL_MAP[id];
+    return t && (t.kind === 'consumable' || !owned(w, t)) && !craftState(w, t).missing.length;
+  });
+}
+
 /** Hand over salvage. Returns one line per item, for reports. */
 export function giveSalvage(w: World, s: Salvage): { icon: string; text: string }[] {
+  const ready = new Set(readyBlueprints(w));
   const out = previewSalvage(s).map(({ icon, text }) => ({ icon, text }));
   if (s.bp && !hasBlueprint(w, s.bp)) (w.s.blueprints ??= []).push(s.bp);
   for (const [c, n] of Object.entries(s.comps ?? {}) as [CompId, number][]) {
@@ -167,6 +176,12 @@ export function giveSalvage(w: World, s: Salvage): { icon: string; text: string 
   }
   if (s.tool) grantTool(w, TOOL_MAP[s.tool], s.toolN ?? 1);
   if (out.length) w.hooks?.changed();
+  // Engineering calls in once each blueprint has everything it needs.
+  for (const id of readyBlueprints(w)) {
+    if (ready.has(id) || w.s.flags['bpReady:' + id]) continue;
+    w.s.flags['bpReady:' + id] = true;
+    w.hooks?.blueprintReady?.(id);
+  }
   return out;
 }
 

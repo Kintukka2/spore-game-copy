@@ -28,6 +28,10 @@ export interface WorldHooks {
   rankUp(rank: number): void;
   missionDone(m: Mission): void;
   changed(): void;
+  /** Several items at once: shown as one itemised card. */
+  loot?(title: string, items: { icon: string; text: string }[], icon?: string): void;
+  /** You now hold a blueprint and every component it lists. */
+  blueprintReady?(toolId: string): void;
 }
 
 const CARGO_CAP = [0, 20, 35, 60, 99];

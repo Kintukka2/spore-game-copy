@@ -3,7 +3,8 @@
 import { h } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { resolve as resolveEvent } from '../events';
-import { giveSalvage, previewSalvage, rollSalvage, salvageLine } from '../salvage';
+import { giveSalvage, previewSalvage, rollSalvage } from '../salvage';
+import { showLoot } from './scanCard';
 import type { GEvent } from '../types';
 import type { SpaceStage } from '../stage';
 
@@ -73,7 +74,7 @@ export async function openWreck(st: SpaceStage, ev: GEvent) {
   const got = giveSalvage(w, loot);
   resolveEvent(w, ev);
   w.counter('wrecks');
-  st.ui.toast(`Salvaged the ${name}: §${scrap.toLocaleString('en-US')}${got.length ? `, ${salvageLine(got)}` : ''}.`, '🛰️', 'gold');
+  showLoot(w, `Salvaged the ${name}`, [{ icon: '💰', text: `§${scrap.toLocaleString('en-US')} in scrap` }, ...got], '🛰️');
   st.game.hint('blueprints', 'Advanced parts need a 📐 blueprint and the components it lists, on top of rank. Find them in wrecks, ruins and relics, buy them from traders, or earn them from empire missions.', '📐');
   st.hud.layoutAbilities();
 }

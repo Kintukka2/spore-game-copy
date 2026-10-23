@@ -300,6 +300,29 @@ export function annexSystem(w: World, star: number, how: 'bought' | 'captured' |
   w.hooks?.changed();
 }
 
+/** A city on an enemy world is destroyed (from orbit or on the surface). The last one to fall hands you the world.
+ * Returns 'fell', 'captured', or null if there was nothing of theirs to destroy. */
+export function razeCity(w: World, star: number, idx: number): 'fell' | 'captured' | null {
+  const ps = w.ps(star, idx);
+  if (!ps.owner || ps.owner === 'player' || ps.cities <= 0) return null;
+  const e = w.emap.get(ps.owner);
+  ps.cities -= 1;
+  ps.cityHp = 450;
+  if (ps.def !== undefined) ps.def = Math.max(0, ps.def - 300);
+  if (e) addMod(e, 'cities', 'You destroyed our cities', -30, { min: -100, decay: 0.3 });
+  w.counter('cities-razed');
+  if (ps.cities > 0) return 'fell';
+  const owner = ps.owner;
+  ps.owner = 'player';
+  ps.cities = 1;
+  ps.def = undefined; ps.cityHp = undefined;
+  ps.bld = { factory: 0, leisure: 0, turret: 0 };
+  const rest = w.gal.planets(star).some((p) => { const q = w.peekPS(star, p.idx); return q.owner === owner && !q.destroyed; });
+  if (!rest) annexSystem(w, star, 'captured');
+  else w.counter('colonies');
+  return 'captured';
+}
+
 /** Value of a system for an economic takeover. */
 export function systemPrice(w: World, star: number): number {
   let best = 0;

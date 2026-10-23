@@ -1,16 +1,16 @@
-// Bottom sheets: ship & tool shop, cargo, badges, perks, missions and the empires list.
+// Bottom sheets: ship & tool shop, badges, perks, missions and the empires list. The cargo hold is inventory.ts.
 // Talking to empires lives in diplomacy.ts.
-import { button, h, progressBar, ui } from '../../../engine/ui';
+import { button, h, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { ABILITIES } from '../../../game/cards';
-import { BADGES, RANKS, SPICE, SPICE_COLORS, TOOL_CATS, TOOL_MAP, TOOLS, type ToolCat, type ToolDef } from '../data';
+import { BADGES, RANKS, TOOL_CATS, TOOLS, type ToolCat, type ToolDef } from '../data';
 import { archName, relation } from '../empires';
 import { abandon } from '../missions';
-import { COMP_IDS, COMPONENTS, consumeRecipe, craftState, needsBlueprint, owned, previewSalvage, RECIPES, type CompId } from '../salvage';
+import { COMPONENTS, consumeRecipe, craftState, needsBlueprint, owned, previewSalvage, RECIPES, type CompId } from '../salvage';
 import { EVENT_INFO } from '../events';
-import { openCrate } from './crateOpen';
+import { openInventory } from './inventory';
 import type { SpaceStage } from '../stage';
-import { dietIcon, fmtTime, money, sheet, specimenThumb, stanceChip, tabStrip } from './common';
+import { fmtTime, money, sheet, stanceChip, tabStrip } from './common';
 
 // ------------------------------------------------------------------ ship sheet
 function shopContext(st: SpaceStage): { kind: 'own' | 'ally' | null; label: string } {
@@ -113,12 +113,17 @@ function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally') {
 }
 
 export function openShip(st: SpaceStage, tab = 'shop') {
+  if (tab === 'cargo') { openInventory(st); return; }
   const w = st.w;
   const sh = sheet('Ship & Tools');
   let cur = tab;
   let cat: ToolCat = 'standard';
   const render = () => {
-    tabStrip(sh.tabs, [{ id: 'shop', label: '🧰 Shop' }, { id: 'cargo', label: '📦 Cargo' }, { id: 'badges', label: '🎖️ Badges' }, { id: 'perks', label: '✨ Ship & perks' }], cur, (id) => { cur = id; render(); });
+    tabStrip(sh.tabs, [{ id: 'shop', label: '🧰 Shop' }, { id: 'cargo', label: '📦 Cargo' }, { id: 'badges', label: '🎖️ Badges' }, { id: 'perks', label: '✨ Ship & perks' }], cur, (id) => {
+      // The cargo hold has its own inventory screen.
+      if (id === 'cargo') { sh.close(); openInventory(st); return; }
+      cur = id; render();
+    });
     const B = sh.body;
     B.innerHTML = '';
     if (cur === 'shop') {
@@ -148,51 +153,6 @@ export function openShip(st: SpaceStage, tab = 'shop') {
         B.append(h('div', { class: 'sp-item' + (locked ? ' locked' : '') }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, t.name), t.desc, own.note ? h('div', { class: 'sp-mini' }, own.note) : null, needsBlueprint(t) && !own.owned ? recipeChips(st, t) : null), btn));
       }
       if (cat === 'terraform' && w.count('genesis') > 0) B.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, '🌱'), h('div', { class: 'sp-txt' }, h('b', null, `Genesis Seed ×${w.count('genesis')}`), 'Ori\'s gift. Use it from any planet\'s Overview.')));
-    } else if (cur === 'cargo') {
-      const cap = progressBar('gold');
-      cap.set(w.cargoUsed / w.cargoCap, `Hold ${w.cargoUsed} / ${w.cargoCap}`);
-      B.append(cap.el);
-      B.append(h('div', { class: 'sp-section' }, 'Spice'));
-      let anySpice = false;
-      for (const c of SPICE_COLORS) {
-        if (!w.s.spice[c]) continue;
-        anySpice = true;
-        B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('span', { class: 'sp-dot', style: `background:${SPICE[c].hex};width:16px;height:16px` }), h('div', { class: 'sp-txt' }, h('b', null, `${SPICE[c].name} ×${w.s.spice[c]}`), `Worth from ${money(SPICE[c].base)} each`),
-          button('Jettison 1', () => { w.s.spice[c]--; audio.sfx('remove'); render(); }, { cls: 'small ghost' })));
-      }
-      if (!anySpice) B.append(h('div', { class: 'sp-mini' }, 'No spice aboard. Colonies store spice; visit their systems to collect it. Sell it at other empires.'));
-      B.append(h('div', { class: 'sp-section' }, `Specimens (${w.s.specimens.length})`));
-      w.s.specimens.forEach((sp, i) => {
-        B.append(h('div', { class: 'sp-item', style: 'padding:6px' }, specimenThumb(w, sp, 64, 44), h('div', { class: 'sp-txt' }, h('b', null, sp.name), sp.hybrid ? '🧬 Hybrid' : `${dietIcon(sp.diet)} ${sp.diet}`),
-          button('Set free', () => { w.s.specimens.splice(i, 1); audio.sfx('remove'); render(); }, { cls: 'small ghost', title: 'Let it go (frees a cargo slot)' })));
-      });
-      B.append(h('div', { class: 'sp-mini' }, w.s.specimens.length
-        ? 'Exhibit specimens for tourism income, splice two into a hybrid, or release them into ecosystem slots on terraformed worlds.'
-        : 'Beam up creatures from living worlds (planet → Life). New species pay research grants; the Xeno-Lab shows what else they are good for.'));
-      if (w.s.loc === w.gal.homeStar) B.append(button('🧬 Open the Xeno-Lab', () => { sh.close(); st.openLab(); }, { cls: 'small block' }));
-      else B.append(h('div', { class: 'sp-mini' }, `🧬 Your Xeno-Lab is on ${w.star(w.gal.homeStar).name}: exhibit and splice specimens there.`));
-      B.append(h('div', { class: 'sp-section' }, 'Blueprints & components'));
-      const comps = h('div', { class: 'sp-recipe' });
-      for (const c of COMP_IDS) {
-        const n = w.s.comps?.[c] ?? 0;
-        comps.append(h('span', { class: 'sp-rc' + (n ? ' ok' : ''), title: `${COMPONENTS[c].name} (${COMPONENTS[c].rarity})` }, `${COMPONENTS[c].icon} ${COMPONENTS[c].name} ×${n}`));
-      }
-      B.append(comps);
-      // Blueprints for parts you have already built are spent.
-      const bps = (w.s.blueprints ?? []).map((id) => TOOL_MAP[id]).filter((t) => !!t && (t.kind === 'consumable' || !owned(w, t)));
-      for (const t of bps) {
-        const cs = craftState(w, t);
-        B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('div', { class: 'sp-ic' }, '📐'), h('div', { class: 'sp-txt' }, h('b', null, `${t.icon} ${t.name}`), cs.missing.length ? 'Collect the components, then build it at a shop.' : 'Ready: build it at a shop.', recipeChips(st, t))));
-      }
-      if (!bps.length) B.append(h('div', { class: 'sp-mini' }, 'No blueprints yet. Advanced parts need one: look in 🛰️ derelict wrecks, ruins and ancient signals, or buy one from a wandering trader.'));
-      B.append(h('div', { class: 'sp-section' }, 'Consumables'));
-      const cons = TOOLS.filter((t) => t.kind === 'consumable' && w.count(t.id) > 0);
-      for (const t of cons) {
-        const use = t.id === 'repair' ? button('Use', () => { st.useRepair(); render(); }, { cls: 'small primary' }) : t.id === 'recharge' ? button('Use', () => { st.useEnergyPack(); render(); }, { cls: 'small primary' })
-          : t.id === 'crate' ? button('Open', () => openCrate(st, render), { cls: 'small gold' }) : null;
-        B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, `${t.name} ×${w.count(t.id)}`)), use));
-      }
-      if (!cons.length) B.append(h('div', { class: 'sp-mini' }, 'None.'));
     } else if (cur === 'badges') {
       const rk = w.rank();
       const pts = w.badgePoints();

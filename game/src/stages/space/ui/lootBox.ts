@@ -21,15 +21,17 @@ export function openLootBox(title: string, sub: string, items: LootItem[]): Prom
     const root = h('div', { class: 'ft ft-amber ft-loot' }, h('div', { class: 'ft-scan' }), box);
     document.body.append(root);
     let sel = 0, closing = false;
+    const rows = items.map((it, i) => {
+      const row = h('div', { class: 'lb-row' }, h('span', { class: 'lb-ic' }, it.icon), h('span', null, it.text));
+      row.addEventListener('pointerenter', () => { sel = i; show(); });
+      row.addEventListener('click', () => { sel = i; show(); });
+      list.append(row);
+      return row;
+    });
+    if (!items.length) list.append(h('div', { class: 'lb-row' }, 'Empty. Someone got here first.'));
+    /** Move the highlight in place, so the rows under the pointer stay put. */
     const show = () => {
-      list.innerHTML = '';
-      items.forEach((it, i) => {
-        const row = h('div', { class: 'lb-row' + (i === sel ? ' on' : '') }, h('span', { class: 'lb-ic' }, it.icon), h('span', null, it.text));
-        row.addEventListener('pointerenter', () => { sel = i; show(); });
-        row.addEventListener('click', () => { sel = i; show(); });
-        list.append(row);
-      });
-      if (!items.length) list.append(h('div', { class: 'lb-row' }, 'Empty. Someone got here first.'));
+      rows.forEach((r, i) => r.classList.toggle('on', i === sel));
       desc.textContent = items[sel]?.desc ?? '';
     };
     const close = () => {

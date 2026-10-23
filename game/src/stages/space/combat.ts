@@ -4,7 +4,7 @@ import { TAU, clamp, wrapAngle } from '../../engine/math';
 import { audio } from '../../engine/audio';
 import { generateShip } from '../../design/generate';
 import type { Design } from '../../design/types';
-import { aggression, annexSystem, addMod, strength } from './empires';
+import { aggression, addMod, razeCity, strength } from './empires';
 import { onPiratesCleared } from './missions';
 import { resolve as resolveEvent } from './events';
 import type { SpaceStage } from './stage';
@@ -300,21 +300,10 @@ export class Combat {
     if (turrets.length) { this.damage(turrets[0], dmg * 0.9); return; }
     ps.cityHp = (ps.cityHp ?? 450) - dmg;
     if (ps.cityHp > 0) return;
-    ps.cities -= 1;
-    ps.cityHp = 450;
     this.st.fx.explosion(pp.x, pp.y, 1.6, '#ff7a3a');
     this.st.fx.screenFlash('#ffb070', 0.35);
-    if (e) addMod(e, 'cities', 'You destroyed our cities', -30, { min: -100, decay: 0.3 });
-    if (ps.cities > 0) { this.st.ui.toast(`A city on ${pl.name} falls. ${ps.cities} left.`, '🔥'); return; }
+    if (razeCity(w, star, idx) === 'fell') { this.st.ui.toast(`A city on ${pl.name} falls. ${ps.cities} left.`, '🔥'); return; }
     // Captured!
-    const owner = ps.owner;
-    ps.owner = 'player';
-    ps.cities = 1;
-    ps.def = undefined; ps.cityHp = undefined;
-    ps.bld = { factory: 0, leisure: 0, turret: 0 };
-    const rest = w.gal.planets(star).some((p) => { const q = w.peekPS(star, p.idx); return q.owner === owner && !q.destroyed; });
-    if (!rest) annexSystem(w, star, 'captured');
-    else w.counter('colonies');
     this.planetTarget = null;
     this.st.ui.toast(`${pl.name} is yours!`, '🏳️', 'gold');
     audio.sfx('levelup');

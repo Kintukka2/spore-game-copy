@@ -313,7 +313,14 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
    - Collect spice, Trade (if owned by an empire), Attack (if at war: destroy turrets, then the city), Abduct, Use superpower
 4. **Landing** (`surface/`): 🛬 Land on any rocky world that is not destroyed or sealed by the Hollow. The surface is the Civilization-stage map, with colours, seas, ice, mountains and trees matched to the planet's style: terran, lava, ice, toxic or barren. Your homeworld is the very map you united, with all its cities.
    - The ship hovers over the map. Drag to steer, or tap to fly somewhere.
-   - Owned worlds show their cities.
+   - Owned worlds show their cities. Each city has 2 turrets on its rim (3 for large cities): squat towers in the city's colour with swivelling barrels.
+   - **War on the surface:** landing on a world of an empire you are at war with (and have not charmed) is dangerous.
+     - Its turrets fire on your ship within 430 units. Bolts fly toward where the ship is heading, so moving dodges them. Each hit costs 2.5% / 3.5% / 5% of your max hull (easy / normal / hard).
+     - A hull bar shows while you fight. At 0 hull you limp to orbit, where the usual destruction rules apply.
+     - Tap a city, or use **🎯 Attack {city}** near it, to lay siege: the ship holds off and its laser (your laser DPS) cuts down the turrets first, then the city hall.
+     - Turret HP is 120 / 160 / 200. City HP is 450 / 600 / 750, ×1.3 for large cities.
+     - A destroyed turret pays §3,000. A fallen city pays §12,000 in plunder and is left as burning, charred ruins.
+     - A fallen city counts as razed (`razeCity`, shared with orbital bombing): -30 relations. The last city to fall hands you the world.
    - Herds of animals and patches of flora live on land. A 📡 life scan (radius about a quarter of the planet, 6 s cooldown) marks them on the minimap and points arrows toward them, new species first.
    - **Species tray** (top left): one icon per species living there, plants first, then animals. Each is a dark silhouette until a group of it is spotted on screen or by a scan; then it shows in colour with NEW (not yet catalogued) or ✓ (in the Xenopedia), dimmed once none are left. Tap a revealed icon to fly to its nearest group. It goes compact on rich worlds (more than 8 species).
    - Herds bolt from a fast-moving ship. Hover over a creature (or tap it) and the tractor beam lifts it aboard in about 1.5 s; fly off too soon and it slips away. Flying over flora gathers seed pods.
@@ -326,7 +333,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
    - Mined rocks re-form at about one a minute. The star card lists the belt; tapping the star explains what a protoplanetary disk is.
 7. **Exploration marks:** visited systems carry a teal check on the galaxy map (gold once every planet is scanned or settled). Planet labels in the system view carry a check when explored or a "?" when not. The galaxy HUD counts systems explored and fully surveyed.
 
-**Xeno-Lab (specimens)** (`xenolab.ts`, `ui/xenoLab.ts`): a building on your homeworld. A 🧬 Xeno-Lab button (with a count of the specimens aboard) appears beside the Galaxy button while you are in your home system, and the homeworld's planet panel has one too. It opens only at home, so specimens are exhibited and spliced there and not from anywhere in the galaxy.
+**Xeno-Lab (specimens)** (`xenolab.ts`, `ui/xenoLab.ts`): a building on your homeworld. A 🧬 Xeno-Lab button (with a count of the specimens aboard) appears beside the Galaxy button while you are in your home system, and the homeworld's planet panel has one too. Landed on the homeworld, the Xeno-Lab stands in place of one city site: a glass lab dome, two greenhouse domes, and a fenced paddock where up to 6 of your Menagerie animals roam. Fly over it for **🧬 Enter the Xeno-Lab**, or tap the 🧬 button on the surface HUD. It opens only at home, so specimens are exhibited and spliced there and not from anywhere in the galaxy.
 - **Xenopedia:** the first sample of each species is catalogued for a research grant (§2,500 animal, §1,000 plant, §4,000 hybrid). It counts toward the *Xenobiologist* badge. The Life tab tags species not yet catalogued as NEW.
 - **Menagerie:** at home, exhibit specimens in the homeworld zoo, up to 24, one per species. Each pays §150/min in tourism; hybrids pay triple.
 - **Gene Splicer:** fuse two cargo animals for §6,000. The hybrid keeps parent A's skeleton with blended girth, and takes each organ group (mouths, eyes, limbs, weapons, frills) from one parent. It opens in the creature editor to be named and tweaked. Hybrids count as omnivores, so they fit any animal ecosystem slot.
@@ -364,7 +371,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - ✨ **Rare sighting** (a landable world with animals, 5:30): a one-off, recoloured cousin of a native (Golden, Starlit, Prism, Ghost or Ember …). It roams alone, bolts from your ship within 230 units at 128 speed, and must be chased down. It earns a §10,000 Xenopedia grant, a §8,000 bonus, and triple Menagerie crowds.
 - 🛍️ **Wandering trader** (any nearby world, 5:00): **Visit the trader** starts a conversation with the merchant (who they are, where the goods come from, what is in the crate). **[Barter]** opens the barter screen (`ui/traderView.ts`), Fallout style, and leaving it returns to the conversation.
   - The merchant's face fills the space behind an amber terminal frame, and their quips are typed across the top.
-  - Two columns: **Your goods** (what they buy from you, with your credits) and **their wares** (with your hold). Tap or press Enter to mark items into the deal. The highlighted item's description shows below, then the totals ("You pay · You get · Net"), shown in red if you cannot cover them. Then [A] Accept, [R] Reset, [C] Open crate, [Tab] Leave.
+  - Two columns: **Your goods** (what they buy from you, with your credits) and **their wares** (with your hold). Tap or press Enter to mark items into the deal. Hovering only moves the highlight; it never rebuilds the rows, so mouse clicks always land. The highlighted item's description shows below, then the totals ("You pay · You get · Net"), shown in red if you cannot cover them. Then [A] Accept, [R] Reset, [C] Open crate, [Tab] Leave.
   - Accepting sells first, so your sales pay for your buys. Items you cannot take (no room, already owned) are greyed out.
   - The wares, each a one-off:
     - a consumable tool bundle at half price (up to one rank ahead of yours)
@@ -445,7 +452,11 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
     - Uncommon: 🧲 Grav Coil, 🔷 Focus Lens, 🔥 Plasma Injector, 🧪 Bio-gel.
     - Rare: 💠 Quantum Core, 🔮 Warp Crystal.
   - In the shop, an advanced part shows chips: 📐 blueprint, then each component as have/need, green when met. The button reads 📐 Blueprint, 🔩 Parts, or 🔧 §price once you can build it. 📐 and 🔩 open a popup listing what is missing and where it comes from.
-  - Cargo lists your components and blueprints, each with its recipe progress. Blueprints for parts you already built are hidden.
+  - The cargo hold lists your components and blueprints, with recipe progress. Blueprints for parts you already built are hidden.
+- **Cargo hold** (`ui/inventory.ts`): a Fallout-style inventory, opened from the 📦 HUD chip or the Ship sheet's Cargo tab.
+  - Tabs: Spice, Specimens, Aid (consumables), Parts (components) and Blueprints, each with a count.
+  - The item list sits on the left. On the right is the highlighted item's picture (the specimen itself, a glowing spice orb, or a big icon), its name, its stats (value, kind, rarity, recipe progress) and a description.
+  - Actions are labelled with keys: [E] Use/Open (repair and energy packs, crates), [X] Jettison 1 or Set free, [Z] Jettison all, [L] Xeno-Lab (at home) and [Tab] Close. ←/→ switch tabs and ↑/↓ move through the list.
   - Sources:
     - 🛰️ derelict wrecks
     - crashed-ship planets you scan (2 components)

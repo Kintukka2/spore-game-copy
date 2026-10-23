@@ -8,6 +8,8 @@ import type { World } from './world';
 
 export type CompId = 'alloy' | 'fusion' | 'coil' | 'lens' | 'plasma' | 'biogel' | 'core' | 'crystal';
 export type Rarity = 'common' | 'uncommon' | 'rare';
+/** Component rarity colours: silver, green, blue. */
+export const RARITY_COLOR: Record<Rarity, string> = { common: '#dfe4ee', uncommon: '#62e07c', rare: '#5ab0ff' };
 
 export const COMPONENTS: Record<CompId, { name: string; icon: string; rarity: Rarity; desc: string }> = {
   alloy: { name: 'Alloy Plating', icon: '🔩', rarity: 'common', desc: 'Dense hull plate, still warm from someone else\'s ship.' },

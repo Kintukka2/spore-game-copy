@@ -388,6 +388,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 **Colonies and spice**
 - A colony produces spice per minute (by planet richness, its colour rarity and the number of buildings). Spice is collected by visiting or automatically into storage.
 - Sell spice at empires. Prices vary per empire, per spice colour, and by **supply and demand**.
+  - Selling asks first. "Sell 5 × Verdance?" quotes the total (about §X, with the average each, since every sale lowers the price); [Keep it] backs out.
   - Each sale lowers that spice's demand (×0.955) and each purchase lowers it too (×0.97), so selling pays less and buying costs more. Demand drifts back toward normal over a few minutes (about 10% of the gap a minute), never past it.
   - The Trade tab's prices tick live. A spice still recovering shows "↗ recovering", so the change is plainly the clock and not the tab being reopened.
 - **Threats:**
@@ -484,6 +485,32 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Elsewhere the Shop tab shows a "🔒 No shop in this system" banner with a "Set course" button to the nearest shop. Prices show as 🔒 §price, and tapping one explains where to buy and offers the same course.
   - Toasts show above open sheets, so feedback from inside a sheet is never hidden.
 - **Blueprints and components** (`salvage.ts`): advanced parts need more than rank and credits. You also need the part's 📐 blueprint and the components its recipe lists, which building it uses up.
+  - Component rarities are colour-coded wherever the text names them ("uncommon component" in loot, the cargo hold's Rarity line, trader deals): silver for common, green for uncommon, blue for rare (`RARITY_COLOR`, `rarityText`).
+- **Hangar** (`ui/hangar.ts`): every ship part, and anything built from a blueprint, is fitted in the hangar rather than bought outright.
+  - The hangar opens from the shop's 🛠️ / 🔧 price button, once you have the money (and the blueprint and components). Plain consumables are still bought instantly. The space stage pauses while it is open.
+  - **The bay:**
+    - Your own ship hovers on a docking pad between two yellow robot welding arms, floor-mounted with two-bone IK, under ceiling lamps.
+    - A hazard-striped bay door looks out on space, with a "BAY 04 · REFIT IN PROGRESS" sign above it.
+    - The floor has perspective lines.
+  - **The blueprint** is pinned up beside the ship (above it on narrow screens), drawn as white lines on blueprint paper. It holds:
+    - a schematic for the kind of part (drive nozzle, cargo crate, cell bank, hull plates, laser barrel, missile, emitter rings, a fabrication cage), with a dimension line and a sweeping scan line;
+    - SPEC, which is the new part's effect;
+    - WAS, the part it replaces (or the stock fitting);
+    - COST;
+    - a checklist of the components, ticking ☑ as each is welded in.
+  - **Sockets** are glowing hex slots on the hull, one per component unit.
+    - Where they sit depends on the part: drives at the stern, weapons at the nose, cargo and cells amidships, plating along the hull.
+    - A plain upgrade has a single module crate to fit.
+    - Consumables (Bio Shield, Embassy) are fabricated in an energy cradle in front of the faded ship instead.
+  - **Fitting parts:**
+    - Drag a component chip from the tray onto the ship, and it snaps into the nearest free socket for it. You can also tap a chip, or use ⚙️ Auto-install.
+    - The part arcs into its socket with a clunk. The arm with less work queued swings over and welds it in, with sparks that bounce on the floor, and the socket turns green.
+  - **Build · §price** unlocks once every socket is done. Paying:
+    - takes the money and uses up the components;
+    - makes the whole bay go to work, with both arms welding everywhere, electric arcs crawling over the hull and the ship flashing;
+    - gives the part a test run: a long blue test burn for drives, a beam for lasers, missiles launched off the nose, a shockwave ring, a deflector bubble, fireworks for the beacon, or rings for cargo, cells and plating;
+    - ends with "🚀 Star Drive V installed!" and the part's effect, then ✓ Done returns to the shop.
+  - Leaving before you pay costs nothing.
   - Advanced parts: Star Drive IV–V, Cargo Bay III–IV, Energy Cell III–IV, Hull Plating III–IV, Rift Key, Sunspear Laser, Seeker and Starfall Missiles, Nova Ring, Deflector, Thermal Lance, Bio Shield and Embassy. For Bio Shield and Embassy, the components are needed per item.
   - Components:
     - Common: 🔩 Alloy Plating, ⚛️ Fusion Cell.

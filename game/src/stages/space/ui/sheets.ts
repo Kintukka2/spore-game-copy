@@ -9,6 +9,7 @@ import { abandon } from '../missions';
 import { COMPONENTS, consumeRecipe, craftState, needsBlueprint, owned, previewSalvage, RECIPES, type CompId } from '../salvage';
 import { EVENT_INFO } from '../events';
 import { openInventory } from './inventory';
+import { openHangar } from './hangar';
 import type { SpaceStage } from '../stage';
 import { fmtTime, money, sheet, stanceChip, tabStrip } from './common';
 
@@ -84,6 +85,9 @@ async function needParts(st: SpaceStage, t: ToolDef) {
   });
 }
 
+/** Ship parts, and anything built from a blueprint, are assembled in the hangar rather than bought outright. */
+const inHangar = (t: ToolDef) => t.kind !== 'consumable' || needsBlueprint(t);
+
 function ownedState(st: SpaceStage, t: ToolDef): { owned: boolean; note: string } {
   const w = st.w;
   if (t.kind === 'upgrade') {
@@ -95,7 +99,7 @@ function ownedState(st: SpaceStage, t: ToolDef): { owned: boolean; note: string 
   return { owned: n >= (t.max ?? 99), note: `You have ${n}${t.id === 'seeds' ? ' pods' : ''}` };
 }
 
-function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally') {
+function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally', quiet = false) {
   const w = st.w;
   const price = w.toolPrice(t, seller);
   if (w.s.money < price) { st.ui.toast('Not enough money.', '💸'); audio.sfx('error'); return false; }
@@ -114,7 +118,7 @@ function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally') {
   w.counter('toolsBought');
   audio.sfx('coin');
   audio.sfx('success', { vol: 0.5 });
-  st.ui.toast(`${needsBlueprint(t) ? 'Built' : 'Bought'}: ${t.name}`, t.icon, 'good');
+  if (!quiet) st.ui.toast(`${needsBlueprint(t) ? 'Built' : 'Bought'}: ${t.name}`, t.icon, 'good');
   st.hud.layoutAbilities();
   return true;
 }
@@ -156,7 +160,13 @@ export function openShip(st: SpaceStage, tab = 'shop') {
           : craft && !craft.bp ? button('📐 Blueprint', () => { void needParts(st, t); }, { cls: 'small ghost', title: 'Needs a blueprint' })
           : craft && craft.missing.length ? button('🔩 Parts', () => { void needParts(st, t); }, { cls: 'small ghost', title: 'Needs components' })
           : !ctx.kind ? button(`🔒 ${money(price)}`, () => { audio.sfx('error'); void whereToBuy(st, sh, t); }, { cls: 'small ghost', title: 'Buy at your homeworld, a colony or an ally' })
-          : button(craft ? `🔧 ${money(price)}` : money(price), () => { if (buyTool(st, t, ctx.kind!)) render(); }, { cls: 'small ' + (w.s.money >= price ? 'gold' : ''), title: craft ? 'Build it' : undefined });
+          : button(craft ? `🔧 ${money(price)}` : inHangar(t) ? `🛠️ ${money(price)}` : money(price), () => {
+            // Ship parts (and anything built from a blueprint) are fitted in the hangar.
+            if (!inHangar(t)) { if (buyTool(st, t, ctx.kind!)) render(); return; }
+            if (w.s.money < price) { st.ui.toast('Not enough money.', '💸'); audio.sfx('error'); return; }
+            if (craft && (!craft.bp || craft.missing.length)) { void needParts(st, t); return; }
+            openHangar(st, t, price, () => buyTool(st, t, ctx.kind!, true), () => render());
+          }, { cls: 'small ' + (w.s.money >= price ? 'gold' : ''), title: inHangar(t) ? 'Build it in the hangar' : undefined });
         B.append(h('div', { class: 'sp-item' + (locked ? ' locked' : '') }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, t.name), t.desc, own.note ? h('div', { class: 'sp-mini' }, own.note) : null, needsBlueprint(t) && !own.owned ? recipeChips(st, t) : null), btn));
       }
       if (cat === 'terraform' && w.count('genesis') > 0) B.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, '🌱'), h('div', { class: 'sp-txt' }, h('b', null, `Genesis Seed ×${w.count('genesis')}`), 'Ori\'s gift. Use it from any planet\'s Overview.')));

@@ -36,6 +36,48 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .md { background:#05030a radial-gradient(ellipse at 50% 50%, #2a1530, #05030a 72%); }
 .md .ob-stat { border-color:rgba(255,154,74,.4); }
 .md-cv { cursor:crosshair; }
+/* Hangar: the ship on the docking pad, its blueprint pinned beside it, the parts along the bottom. */
+.yard { background:#05070d; }
+.yard .sp-focus-head h2 { flex:0 1 auto; }
+.yard .ob-banner { top:14%; font-size:clamp(26px, 4.5vw, 40px); }
+.yard-dock { flex:1; font-size:12px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.yard-main { flex:1; min-height:0; display:flex; gap:10px; padding:4px 12px 0; }
+.yard-main .ob-stage { border-radius:14px; overflow:hidden; border:1px solid rgba(120,150,200,.15); }
+.yard-bp { flex:0 0 232px; display:flex; flex-direction:column; gap:7px; padding:10px; border-radius:10px; color:#e6f0ff; font-family:'Share Tech Mono', ui-monospace, monospace; font-size:12.5px; background-color:#0f3a6e; background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.07) 0 1px, transparent 1px 16px), repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 1px, transparent 1px 16px); box-shadow:inset 0 0 30px rgba(0,0,0,.35), 0 6px 18px rgba(0,0,0,.5); border:2px solid rgba(220,236,255,.5); overflow-y:auto; }
+.yard-bp-h { display:flex; flex-direction:column; border-bottom:1px solid rgba(220,236,255,.5); padding-bottom:4px; }
+.yard-bp-h b { font-size:11px; letter-spacing:.1em; opacity:.85; font-weight:400; }
+.yard-bp-h span { font-size:15px; letter-spacing:.06em; }
+.yard-schem { width:100%; height:120px; }
+.yard-spec div { line-height:1.35; }
+.yard-spec i { font-style:normal; opacity:.6; }
+.yard-parts { display:flex; flex-direction:column; gap:2px; border-top:1px dashed rgba(220,236,255,.4); padding-top:6px; }
+.yard-line { opacity:.85; }
+.yard-line.ok { color:#9dff8a; opacity:1; }
+.yard-bar { display:flex; gap:10px; align-items:center; padding:8px 12px 0; }
+.yard-tray { flex:1; display:flex; gap:8px; overflow-x:auto; scrollbar-width:thin; padding:3px; }
+.yard-tray.spent { opacity:.5; pointer-events:none; }
+.yard-chip { flex:0 0 auto; display:flex; align-items:center; gap:7px; padding:8px 12px; border-radius:12px; background:rgba(8,16,30,.9); border:1.5px solid var(--c); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; transition:transform .12s, opacity .2s, box-shadow .15s; }
+.yard-chip:hover:not(.spent), .yard-chip:focus-visible { transform:translateY(-2px); box-shadow:0 0 14px color-mix(in srgb, var(--c) 45%, transparent); outline:none; }
+.yard-chip:active { cursor:grabbing; }
+.yard-chip.spent { opacity:.4; cursor:default; }
+.yard-ic { font-size:22px; }
+.yard-chip b { font-size:13px; white-space:nowrap; color:var(--c); }
+.yard-n { font-size:12px; color:var(--ink-dim); }
+.yard-acts { display:flex; gap:8px; flex:0 0 auto; }
+.yard-pay { min-width:170px; }
+.yard-ghost { position:fixed; z-index:70; transform:translate(-50%,-50%); font-size:34px; pointer-events:none; filter:drop-shadow(0 0 10px var(--c)); }
+@media (max-width:760px) {
+  .yard-main { flex-direction:column; padding:4px 10px 0; }
+  .yard-bp { flex:0 0 auto; flex-direction:row; flex-wrap:wrap; align-items:flex-start; gap:6px 10px; font-size:11.5px; max-height:32vh; }
+  .yard-bp-h { flex:1 1 100%; flex-direction:row; justify-content:space-between; align-items:baseline; }
+  .yard-schem { width:108px; height:72px; flex:0 0 108px; }
+  .yard-spec { flex:1 1 150px; }
+  .yard-parts { flex:1 1 100%; flex-direction:row; flex-wrap:wrap; gap:2px 12px; }
+  .yard-bar { flex-wrap:wrap; }
+  .yard-acts { flex:1 1 100%; }
+  .yard-acts .btn { flex:1; }
+  .yard-dock { display:none; }
+}
 /* Terraforming view: the world large, its climate at the top, the tools along the bottom. */
 .tf { background:#02040c radial-gradient(ellipse at 50% 42%, #10223a, #02040c 72%); }
 .tf .ob-stat { border-color:rgba(124,196,255,.3); }
@@ -168,6 +210,7 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .inv-stats span { color:var(--ft-dim); }
 .inv-stats b { font-weight:400; text-align:right; }
 .inv-stats .ok { color:#8dffa8; text-shadow:0 0 6px rgba(141,255,168,.5); }
+.rar { text-shadow:0 0 7px currentColor; font-weight:600; }
 .inv-ask { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; padding:14px; background:rgba(0,0,0,.72); animation:spFade .15s ease; }
 .inv-ask-box { max-width:440px; padding:16px 14px 10px; background:#000; border:2px solid var(--ft); box-shadow:0 0 22px var(--ft-bg), inset 0 0 18px var(--ft-bg); }
 .inv-ask-box p { margin:0 4px 12px; font-size:16px; line-height:1.4; text-shadow:0 0 8px var(--ft-glow); }

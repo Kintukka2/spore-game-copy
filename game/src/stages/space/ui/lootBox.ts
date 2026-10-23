@@ -5,6 +5,7 @@ import { audio } from '../../../engine/audio';
 import { resolve as resolveEvent } from '../events';
 import { giveSalvage, previewSalvage, rollSalvage } from '../salvage';
 import { showLoot } from './scanCard';
+import { rarityText } from './common';
 import type { GEvent } from '../types';
 import type { SpaceStage } from '../stage';
 
@@ -33,7 +34,7 @@ export function openLootBox(title: string, sub: string, items: LootItem[]): Prom
     /** Move the highlight in place, so the rows under the pointer stay put. */
     const show = () => {
       rows.forEach((r, i) => r.classList.toggle('on', i === sel));
-      desc.textContent = items[sel]?.desc ?? '';
+      desc.replaceChildren(...rarityText(items[sel]?.desc ?? ''));
     };
     const close = () => {
       if (closing) return;

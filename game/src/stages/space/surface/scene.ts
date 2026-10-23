@@ -285,7 +285,7 @@ export class SurfaceScene implements Scene {
       this.chase = null;
       audio.sfx('tap');
     });
-    this.elScan = button('📡', () => this.scan(false), { cls: 'icon sf-scan', title: 'Life scan' });
+    this.elScan = button('📡', () => this.scan(false), { cls: 'icon sf-scan', title: 'Life scan (⚡1)' });
     this.elCtx = button('', () => this.act(), { cls: 'primary sf-ctx' });
     this.elCtx.style.display = 'none';
     this.elLab = button('🧬', () => this.st.openLab(), { cls: 'icon sf-lab', title: 'Xeno-Lab' });
@@ -387,6 +387,8 @@ export class SurfaceScene implements Scene {
   private scan(free: boolean) {
     if (!this.T || this.left) return;
     if (this.scanCd > 0 && !free) { audio.sfx('error'); return; }
+    // The landing sweep is free; each scan you call for costs energy.
+    if (!free && !this.w.spendScan()) return;
     this.scanCd = 6;
     this.ping = 0;
     this.reveal = 10;

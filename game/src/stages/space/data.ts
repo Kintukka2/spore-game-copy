@@ -48,6 +48,8 @@ export const SPICE: Record<SpiceColor, { name: string; hex: string; base: number
 // ------------------------------------------------------------------ Terraforming
 /** Radii on the atmosphere/temperature chart: inside 0.1 = T3, 0.2 = T2, 0.3 = T1. */
 export const T_RING = [0.3, 0.2, 0.1];
+/** Energy per world scanned (planet scans, quick scans, sweeps and surface life scans). */
+export const SCAN_ENERGY = 1;
 export function tScoreOf(atm: number, temp: number): number {
   const d = Math.hypot(atm - 0.5, temp - 0.5);
   return d < T_RING[2] ? 3 : d < T_RING[1] ? 2 : d < T_RING[0] ? 1 : 0;

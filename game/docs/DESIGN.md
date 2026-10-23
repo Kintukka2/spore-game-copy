@@ -328,6 +328,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
    - Abduction happens only on the surface now. The Life tab lists the species and offers a Land button. Landing also counts as exploring the planet.
 5. **Scanning** (`scan.ts`, `ui/scanCard.ts`): 🔍 Scan in the planet panel, or **quick scan** from anywhere in the system view: right-click a planet (or press and hold it on touch, or press Q for the nearest one). Right-click or hold the star to **sweep** every world at once. A beam, rings and a sweep line play over the planet.
    - The **scan report** card (3.6 s; a sweep 5.2 s; tap to dismiss) shows: T-score with air and heat words, owner, chips for spice (colour and richness), "Can colonise" and "Landable", plant and animal species counts with how many are undiscovered (not in the Xenopedia), wrecks, ruins and any event there. A sweep shows one line per world.
+   - Every scan costs ⚡1 energy per world: a planet-panel scan, a quick scan, a sweep (⚡1 for each world it covers) and a 📡 surface life scan. The automatic sweep when you land is free. Without the energy, a toast says what it takes and where to recharge.
    - The first scan of a world you don't own pays for survey data: §400 for a gas giant, §500 for a lifeless rock, §600 + §250 per species for a living world, plus the old wreck (§15,000) and ruin (§8,000 + 2 tools) salvage. Re-scans just show the report.
 6. **Protoplanetary disks** (proto stars): a newborn star still wrapped in the dust and gas its planets will form from, so it has no planets. Its belt holds up to 14 asteroids. Tap one and the ship moves within reach; the laser cuts it (about 3 to 5 s at laser level 1, using a little energy).
    - Ore (58%) sells for about §1,500 to §3,500. Ice (18%) gives a 🧊 Ice Comet charge, magma (15%) a ☄️ Meteor Call charge (+§500 each, or §2,500 if you are full). Crystals (9%) hold 2 spice of a random colour (§5,000 if the hold is full).
@@ -387,6 +388,8 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 **Colonies and spice**
 - A colony produces spice per minute (by planet richness, its colour rarity and the number of buildings). Spice is collected by visiting or automatically into storage.
 - Sell spice at empires. Prices vary per empire, per spice colour, and by **supply and demand**.
+  - Each sale lowers that spice's demand (×0.955) and each purchase lowers it too (×0.97), so selling pays less and buying costs more. Demand drifts back toward normal over a few minutes (about 10% of the gap a minute), never past it.
+  - The Trade tab's prices tick live. A spice still recovering shows "↗ recovering", so the change is plainly the clock and not the tab being reopened.
 - **Threats:**
   - Pirate raids: an event that is "your colony is under attack" with a timer. Fly there and fight, or lose spice.
   - Eco-disasters: a timer; fix it or lose species.
@@ -452,6 +455,8 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - **Embassy** (in their system, with one in the hold): they ask what you have in mind, then [Embassy] builds it. The **Goodwill Beacon** is also offered in their system.
   - **Questions**: about their people, how they feel (the strongest good and bad modifiers, also listed as notes), what they trade in (what they make and what they pay best for), which of their zoos buy which creatures, and rumours (the nearest live event, or uncatalogued life near their home).
   - [War] with a confirm, and [Leave].
+    - The confirm is the "Is that a threat?" line with a red ⚠ WARNING box. The box spells out the cost: your alliance ends, your trade route closes, relations drop by 50, their warships and colony turrets open fire, and making peace later costs about the peace price.
+    - "No. Just a bad joke." comes first and starts selected, so Enter or Esc backs out. Clicks are ignored for 0.7 s after the warning appears, so a double-click on [War] cannot declare it.
 - **Tribute**: pay, refuse (they may declare war), or **[Bluff]**. The bluff's odds are 50%, ±6% per system you hold more or fewer than they do, -15% against warlords, kept between 10% and 85%. A failed bluff counts as a refusal and costs -5 more.
 - **System sale**: [§price] Deal, or Not now. A free handover is [Accept]. The empire offers once, when the takeover bar fills (`EmpireSave.offered`). After that, ask from the planet's Trade tab ("🏳️ Ask to buy this system").
 
@@ -485,6 +490,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
     - Uncommon: 🧲 Grav Coil, 🔷 Focus Lens, 🔥 Plasma Injector, 🧪 Bio-gel.
     - Rare: 💠 Quantum Core, 🔮 Warp Crystal.
   - In the shop, an advanced part shows chips: 📐 blueprint, then each component as have/need, green when met. The button reads 📐 Blueprint, 🔩 Parts, or 🔧 §price once you can build it. 📐 and 🔩 open a popup listing what is missing and where it comes from.
+  - **The recipe is on the blueprint.** Until you hold a part's blueprint, its components stay unknown: the shop shows "📐 No blueprint · ❔ Components unknown", the popup says the blueprint lists them, and a blueprint offered as loot only says to take it to learn what it calls for. A component in the hold names only the blueprints you hold that use it.
   - The cargo hold lists your components and blueprints, with recipe progress. Blueprints for parts you already built are hidden.
     - Each component line reads have/need, with a ✓ in green once met.
     - A blueprint with every component aboard gets a blinking green READY badge in the list, and its description says where to build it.
@@ -496,6 +502,9 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Tabs: Spice, Specimens, Aid (consumables), Parts (components) and Blueprints, each with a count.
   - The item list sits on the left. On the right is the highlighted item's picture (the specimen itself, a glowing spice orb, or a big icon), its name, its stats (value, kind, rarity, recipe progress) and a description.
   - Actions are labelled with keys: [E] Use/Open (repair and energy packs, crates), [X] Jettison 1 or Set free, [Z] Jettison all, [L] Xeno-Lab (at home) and [Tab] Close. ←/→ switch tabs and ↑/↓ move through the list.
+  - Clicking an item you can use (a repair or energy pack, or a crate) asks to use it.
+    - Every use, opening a crate, Jettison all and Set free first asks in a terminal box inside the hold, for example "Use 1 × ⚡ Energy Pack? Restores 60% of your energy."
+    - [E], Enter or Y confirms; Esc, N or a click outside the box cancels.
   - Sources:
     - 🛰️ derelict wrecks
     - crashed-ship planets you scan (2 components)

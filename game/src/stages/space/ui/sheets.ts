@@ -48,11 +48,16 @@ async function whereToBuy(st: SpaceStage, sh: { close(): void }, t?: ToolDef) {
   if (r === 'go' && shop !== null) { sh.close(); st.showGalaxy(shop); st.selectStar(shop); }
 }
 
-/** Chips for a recipe: the blueprint, then each component with how many you have. */
+/** Chips for a recipe: the blueprint, then each component with how many you have. The components stay
+ *  unknown until you hold the blueprint: it is the blueprint that lists them. */
 function recipeChips(st: SpaceStage, t: ToolDef): HTMLElement {
   const w = st.w;
   const cs = craftState(w, t);
   const row = h('div', { class: 'sp-recipe' }, h('span', { class: 'sp-rc' + (cs.bp ? ' ok' : '') }, `📐 ${cs.bp ? 'Blueprint' : 'No blueprint'}`));
+  if (!cs.bp) {
+    row.append(h('span', { class: 'sp-rc unknown', title: 'The blueprint lists the components' }, '❔ Components unknown'));
+    return row;
+  }
   for (const [c, need] of Object.entries(RECIPES[t.id] ?? {}) as [CompId, number][]) {
     const have = w.s.comps?.[c] ?? 0;
     row.append(h('span', { class: 'sp-rc' + (have >= need ? ' ok' : ''), title: COMPONENTS[c].name }, `${COMPONENTS[c].icon} ${Math.min(have, need)}/${need}${have >= need ? ' ✓' : ''}`));
@@ -68,9 +73,11 @@ async function needParts(st: SpaceStage, t: ToolDef) {
   await ui.modal({
     title: cs.bp ? `🔩 ${t.name} needs components` : `📐 ${t.name} needs a blueprint`,
     body: [
-      h('p', null, `${t.icon} ${t.name} is advanced tech. On top of rank and credits, you need its blueprint and these components:`),
+      cs.bp
+        ? h('p', null, `${t.icon} ${t.name} is advanced tech. On top of rank and credits, its blueprint calls for these components:`)
+        : h('p', null, `${t.icon} ${t.name} is advanced tech. On top of rank and credits, you need its blueprint. Which components it takes is written on the blueprint, so you will only know once you have one.`),
       recipeChips(st, t),
-      cs.missing.length ? h('p', { class: 'dim' }, `Still missing: ${cs.missing.map((m) => `${m.need - m.have} × ${COMPONENTS[m.c].icon} ${COMPONENTS[m.c].name}`).join(', ')}.`) : null,
+      cs.bp && cs.missing.length ? h('p', { class: 'dim' }, `Still missing: ${cs.missing.map((m) => `${m.need - m.have} × ${COMPONENTS[m.c].icon} ${COMPONENTS[m.c].name}`).join(', ')}.`) : null,
       h('p', { class: 'dim' }, 'Blueprints and components turn up in 🛰️ derelict wrecks, crashed ships and ruins you scan, ancient signals, mystery crates and wandering traders. Empires sometimes add them to mission rewards.'),
     ],
     buttons: [{ id: 'ok', label: 'Got it', primary: true }],

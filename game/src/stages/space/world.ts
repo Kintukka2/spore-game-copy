@@ -3,13 +3,14 @@
 import type { Game } from '../../game/game';
 import { RNG } from '../../engine/rng';
 import { clamp } from '../../engine/math';
+import { audio } from '../../engine/audio';
 import { abilitiesFor, ARCHETYPES, type ArchetypeDef } from '../../game/cards';
 import { computeStats } from '../../design/registry';
 import { generateCreature } from '../../design/generate';
 import { speciesName } from '../../game/names';
 import type { Design, Stats } from '../../design/types';
 import { Galaxy } from './galaxy';
-import { BADGES, DRIVE_RANGE, ECO_ROW, PERK_DISCOUNT, RANKS, SPICE_COLORS, TOOL_MAP, TOOLS, tScoreOf, type ToolDef } from './data';
+import { BADGES, DRIVE_RANGE, ECO_ROW, PERK_DISCOUNT, RANKS, SCAN_ENERGY, SPICE_COLORS, TOOL_MAP, TOOLS, tScoreOf, type ToolDef } from './data';
 import type { Empire, GEvent, Mission, Planet, PlanetState, SpaceSave, Specimen, Star } from './types';
 import { createEmpires, empireTick, relation } from './empires';
 import { colonyTick, ecoDriftTick, routeTick } from './economy';
@@ -351,6 +352,18 @@ export class World {
     for (const [perk, cats] of Object.entries(PERK_DISCOUNT)) if (this.perks.has(perk) && cats.includes(t.cat)) p *= 0.8;
     if (seller === 'ally') p *= 0.9;
     return Math.round(p / 100) * 100;
+  }
+
+  /** Pay for `n` scans (⚡1 each). Says why not when the cells run dry. */
+  spendScan(n = 1): boolean {
+    const cost = SCAN_ENERGY * n;
+    if (this.s.energy < cost) {
+      this.hooks?.toast(`Not enough energy to scan: it takes ⚡${cost}${n > 1 ? ` for ${n} worlds` : ''}. Recharge at a friendly dock or use an Energy Pack.`, '⚡', 'bad');
+      audio.sfx('error');
+      return false;
+    }
+    this.s.energy -= cost;
+    return true;
   }
 
   addMoney(n: number) {

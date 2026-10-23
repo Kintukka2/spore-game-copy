@@ -495,10 +495,15 @@ function tree(st: SpaceStage, e: Empire) {
   };
 
   // ---------------------------------------------------------------- war
+  /** Declaring war asks first, and spells out what it costs. */
   const warAsk = (): Line => ({
     say: hollow ? 'Clarify. Hostility?' : 'Is that a threat?',
     mood: 'angry',
+    warn: hollow
+      ? 'Declare war on the Hollow? Their machines will hunt your ship and strike your colonies.'
+      : `Declare war on ${e.name}? ${[e.allied ? 'Your alliance ends' : '', e.route !== null ? 'your trade route closes' : '', 'relations drop by 50'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}. Their warships will hunt you and their colony turrets fire on sight. Making peace later costs about ${money(peacePrice(w, e))}.`,
     replies: [
+      { text: 'No. Just a bad joke.', leave: true, go: () => hub(hollow ? 'Humour: not detected.' : 'Hmph. Watch your words.', 'angry') },
       { tag: 'Declare war', text: hollow ? 'Yes.' : 'It\'s a promise.', go: () => {
         declareWar(w, e);
         w.counter('wars');
@@ -507,7 +512,6 @@ function tree(st: SpaceStage, e: Empire) {
         talkNote(`War with ${e.name}! They will attack your colonies and defend their space.`, 'bad');
         return { say: hollow ? HOLLOW.war : voice!.war, mood: 'angry', replies: [{ tag: 'Leave', text: 'We\'ll see.', leave: true }] };
       } },
-      { text: 'No. Just a bad joke.', leave: true, go: () => hub(hollow ? 'Humour: not detected.' : 'Hmph. Watch your words.', 'angry') },
     ],
   });
 

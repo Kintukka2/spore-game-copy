@@ -9,6 +9,7 @@ import type { Design } from '../../../design/types';
 import type { Empire, Specimen } from '../types';
 import { relation, stanceInfo } from '../empires';
 import type { World } from '../world';
+import { RARITY_COLOR, type Rarity } from '../salvage';
 
 export interface Sheet {
   wrap: HTMLElement;
@@ -64,6 +65,19 @@ export function tabStrip(el: HTMLElement, tabs: { id: string; label: string; bad
 export function fmtTime(s: number): string {
   s = Math.max(0, Math.ceil(s));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Text with its "common / uncommon / rare component" phrases tinted in their rarity's colour. */
+export function rarityText(text: string): (string | HTMLElement)[] {
+  const out: (string | HTMLElement)[] = [];
+  const re = /\b(common|uncommon|rare)( components?)\b/gi;
+  let last = 0;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    out.push(text.slice(last, m.index), h('span', { class: 'rar', style: `color:${RARITY_COLOR[m[1].toLowerCase() as Rarity]}` }, m[0]));
+    last = m.index + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
 }
 
 export function money(n: number): string {

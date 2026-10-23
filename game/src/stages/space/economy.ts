@@ -169,6 +169,18 @@ export function canTrade(w: World, e: Empire): string | null {
   return null;
 }
 
+/** What selling `n` of a spice would pay right now, each sale nudging the price down as `sell` does. */
+export function sellQuote(w: World, e: Empire, c: SpiceColor, n: number): number {
+  const d0 = e.demand[c];
+  let total = 0;
+  for (let i = 0; i < Math.min(n, w.s.spice[c]); i++) {
+    total += sellPrice(w, e, c);
+    e.demand[c] = Math.max(0.25, e.demand[c] * 0.955);
+  }
+  e.demand[c] = d0;
+  return total;
+}
+
 export function sell(w: World, e: Empire, c: SpiceColor, n: number, star: number): number {
   let earned = 0;
   for (let i = 0; i < n && w.s.spice[c] > 0; i++) {

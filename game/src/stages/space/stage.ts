@@ -198,7 +198,7 @@ export class SpaceStage implements Scene, WorldHooks {
   // ------------------------------------------------------------------ loop
   update(dt: number) {
     if (!this.ready || this.cinematic) return;
-    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf')) { this.hud.update(dt); return; }
+    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf, .yard')) { this.hud.update(dt); return; }
     this.w.inWarp = this.mode === 'warp';
     this.w.update(dt);
     this.fx.update(dt);

@@ -9,7 +9,7 @@ import { speciesName } from '../../../game/names';
 import { takeDeal, traderDeals, type Deal } from '../events';
 import type { GEvent } from '../types';
 import type { SpaceStage } from '../stage';
-import { fmtTime, money } from './common';
+import { fmtTime, money, rarityText } from './common';
 import { openCrate } from './crateOpen';
 import { faceScene } from './talk';
 import { showLoot } from './scanCard';
@@ -161,7 +161,7 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       rowEls.forEach((els, c) => els.forEach((el, k) => el.classList.toggle('on', c === side && k === row)));
       const { deals, mine, theirs } = lists();
       const cur = deals[[mine, theirs][side][row]];
-      desc.textContent = cur ? `${cur.desc}${cur.block ? `  [${cur.block}]` : ''}` : '';
+      desc.replaceChildren(...rarityText(cur ? `${cur.desc}${cur.block ? `  [${cur.block}]` : ''}` : ''));
     };
     const render = () => {
       const { deals, mine, theirs } = lists();

@@ -3,10 +3,10 @@
 import { h } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { SPICE, SPICE_COLORS, TOOL_MAP, TOOLS, type SpiceColor } from '../data';
-import { COMP_IDS, COMPONENTS, craftState, hasBlueprint, owned, RECIPES, type CompId } from '../salvage';
+import { COMP_IDS, COMPONENTS, craftState, hasBlueprint, owned, RARITY_COLOR, RECIPES, type CompId } from '../salvage';
 import { inXenopedia } from '../xenolab';
 import type { SpaceStage } from '../stage';
-import { dietIcon, money, paintSpecimen } from './common';
+import { dietIcon, money, paintSpecimen, rarityText } from './common';
 import { openCrate } from './crateOpen';
 
 type Tab = 'spice' | 'specimens' | 'aid' | 'parts' | 'plans';
@@ -21,8 +21,8 @@ interface Item {
   icon: string;
   name: string;
   qty?: number;
-  /** Detail lines: label, value, and whether that requirement is met (shown with a tick). */
-  stats: [string, string, boolean?][];
+  /** Detail lines: label, value, whether that requirement is met (shown with a tick), and a colour for the value. */
+  stats: [string, string, boolean?, string?][];
   /** A tag on the list row, e.g. READY. */
   tag?: string;
   desc: string;
@@ -99,7 +99,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
         const uses = Object.entries(RECIPES).filter(([id, r]) => r[c] && hasBlueprint(w, id) && !owned(w, TOOL_MAP[id])).map(([id]) => TOOL_MAP[id].name);
         return {
           icon: COMPONENTS[c].icon, name: COMPONENTS[c].name, qty: w.s.comps![c],
-          stats: [['Rarity', COMPONENTS[c].rarity], ['Your blueprints', uses.length ? `${uses.length} use it` : 'none use it']] as [string, string][],
+          stats: [['Rarity', `${COMPONENTS[c].rarity} component`, false, RARITY_COLOR[COMPONENTS[c].rarity]], ['Your blueprints', uses.length ? `${uses.length} use it` : 'none use it']] as [string, string, boolean, string?][],
           desc: `${COMPONENTS[c].desc} ${uses.length ? `Needed for: ${uses.slice(0, 5).join(', ')}${uses.length > 5 ? '…' : ''}.` : 'None of your blueprints call for it. Find more blueprints to learn what it builds.'}`,
           actions: [],
         };
@@ -140,8 +140,8 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     } else pic.append(h('span', { class: 'inv-big' }, it.icon));
     nameEl.textContent = it.name + (it.qty !== undefined && it.qty > 1 ? ` (${it.qty})` : '');
     statsEl.innerHTML = '';
-    for (const [k, v, ok] of it.stats) statsEl.append(h('span', { class: ok ? 'ok' : '' }, k), h('b', { class: ok ? 'ok' : '' }, v));
-    descEl.textContent = it.desc;
+    for (const [k, v, ok, col] of it.stats) statsEl.append(h('span', { class: ok ? 'ok' : '' }, k), h('b', { class: ok ? 'ok' : col ? 'rar' : '', style: col ? `color:${col}` : undefined }, v));
+    descEl.replaceChildren(...rarityText(it.desc));
     renderKeys();
   };
   const renderKeys = () => {

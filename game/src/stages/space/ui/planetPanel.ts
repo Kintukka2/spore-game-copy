@@ -7,7 +7,7 @@ import { SCAN_ENERGY, SPICE, SPICE_COLORS, tScoreOf, type SpiceColor } from '../
 import { drawPlanet, SphereSprite, styleFor, type PlanetLook } from '../art/planetArt';
 import { blit, glow } from '../art/sprites';
 import {
-  BUILDINGS, build, buy, buyPrice, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony,
+  BUILDINGS, build, buy, buyPrice, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony, sellQuote,
   genesis, happiness, isHomeworld, maxCities, production, sell, sellPrice, slotKind, slots, storageCap, used, type BuildingId,
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
@@ -732,8 +732,14 @@ export class PlanetPanel {
     this.st.game.hint('zoo-market', 'Some alien colonies buy specimens, but each zoo wants one kind: plants, herbivores, carnivores, omnivores, or hybrids and rare creatures. Each sale fills them up for a few minutes.', b.icon);
   }
 
-  private doSell(e: Empire, c: SpiceColor, n: number) {
+  private async doSell(e: Empire, c: SpiceColor, n: number) {
     const w = this.w;
+    n = Math.min(n, w.s.spice[c]);
+    if (n <= 0) return;
+    const quote = sellQuote(w, e, c, n);
+    const ok = await ui.confirm(`Sell ${n} × ${SPICE[c].name}?`,
+      `${e.name} will pay ${n > 1 ? 'about ' : ''}${money(quote)}${n > 1 ? ` (${money(Math.round(quote / n))} each on average: every one sold lowers the price a little)` : ''}.`, `Sell for ${money(quote)}`, 'Keep it');
+    if (!ok || !this.el.isConnected) return;
     const got = sell(w, e, c, n, this.star);
     if (got > 0) {
       this.st.ui.toast(`Sold for ${money(got)}`, '💰', 'good');

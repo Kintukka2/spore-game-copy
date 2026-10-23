@@ -1,9 +1,10 @@
-// Xeno-Lab tab of the ship sheet: specimens aboard, the Gene Splicer, the Menagerie and the Xenopedia.
+// The Xeno-Lab: a building on your homeworld (opened from the HUD while you are home, or from the homeworld's
+// planet panel). Specimens aboard, the Gene Splicer, the Menagerie and the Xenopedia.
 import { button, h } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import type { SpaceStage } from '../stage';
 import { canExhibitHere, crowd, exhibit, GRANT, retire, SPLICE_COST, syncCatalog, ZOO_CAP, ZOO_RATE, zooRate } from '../xenolab';
-import { dietIcon, money, specimenThumb } from './common';
+import { dietIcon, money, sheet, specimenThumb } from './common';
 
 const XENO_SHOWN = 48;
 
@@ -67,8 +68,8 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
   // Menagerie
   B.append(h('div', { class: 'sp-section' }, `🏛️ Menagerie · ${money(zooRate(w))}/min`));
   B.append(h('div', { class: 'sp-mini' }, here
-    ? 'You are in your own space: exhibit specimens from the list above. Tap an exhibit to take it back aboard.'
-    : `Exhibit specimens while in your home system (${w.star(w.gal.homeStar).name}) or any colony system. Each pays ${money(ZOO_RATE)}/min, hybrids ${money(ZOO_RATE * 3)}/min.`));
+    ? `Exhibit specimens from the list above: each pays ${money(ZOO_RATE)}/min, hybrids and rares ${money(ZOO_RATE * 3)}/min. Tap an exhibit to take it back aboard.`
+    : `The Menagerie is on ${w.star(w.gal.homeStar).name}. Come home to exhibit specimens.`));
   if (zoo.length) {
     const grid = h('div', { class: 'xl-grid' });
     zoo.forEach((z, i) => {
@@ -96,4 +97,18 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
   }
   B.append(h('div', { class: 'sp-section' }, 'Also'));
   B.append(h('div', { class: 'sp-mini' }, '🌿 Release specimens into the ecosystem slots of terraformed worlds (open a planet → Life → tap an empty slot). A complete row locks in that T-score.'));
+}
+
+/** Open the Xeno-Lab. It is a building on your homeworld, so it only opens while you are in your home system. */
+export function openLab(st: SpaceStage) {
+  const w = st.w;
+  if (w.s.loc !== w.gal.homeStar || w.inWarp) {
+    st.ui.toast(`The Xeno-Lab is on your homeworld. Fly home to ${w.star(w.gal.homeStar).name} to use it.`, '🧬');
+    audio.sfx('error');
+    return;
+  }
+  const sh = sheet('🧬 Xeno-Lab');
+  const pick: number[] = [];
+  const render = () => { sh.body.innerHTML = ''; renderLab(st, sh.body, pick, render); };
+  render();
 }

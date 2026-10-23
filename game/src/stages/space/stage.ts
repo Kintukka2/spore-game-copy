@@ -24,8 +24,11 @@ import { StarCard } from './ui/starCard';
 import { PlanetPanel } from './ui/planetPanel';
 import { anySheetOpen, closeAllSheets } from './ui/common';
 import { openEmpires, openMissions, openShip } from './ui/sheets';
+import { openLab } from './ui/xenoLab';
+import { COMP_IDS, RECIPES } from './salvage';
 import { firstContactTalk, hailTalk, takeoverTalk, tributeTalk } from './ui/diplomacy';
 import { distressTalk } from './ui/encounters';
+import { openWreck } from './ui/lootBox';
 import { annexSystem, breakLaw, meet } from './empires';
 import { checkMainMissions, onArrive, tutorialEvent } from './missions';
 import { collectSystem } from './economy';
@@ -165,7 +168,7 @@ export class SpaceStage implements Scene, WorldHooks {
     w.s.specimens.push(hy);
     const grant = catalogue(w, hy);
     this.ui.toast(`${hy.name} is born! Hybrids fit any animal slot and draw triple crowds at the Menagerie.` + (grant ? ` Xenopedia grant §${grant.toLocaleString('en-US')}.` : ''), '🧬', 'good');
-    openShip(this, 'lab');
+    this.openLab();
   }
 
   /** Re-open the ship editor (from the ship sheet at your homeworld). */
@@ -481,6 +484,8 @@ export class SpaceStage implements Scene, WorldHooks {
 
   // ------------------------------------------------------------------ sheets
   openShip(tab = 'shop') { openShip(this, tab); }
+  /** The Xeno-Lab on your homeworld (only while you are home). */
+  openLab() { openLab(this); }
   openMissions() { openMissions(this); }
   openEmpires() { openEmpires(this); }
   /** Hail an empire: a face-to-face conversation. */
@@ -502,6 +507,8 @@ export class SpaceStage implements Scene, WorldHooks {
   takeoverOffer(e: Empire, star: number, price: number) { this.dialog(() => takeoverTalk(this, e, star, price)); }
   /** You reached a distress beacon: the stranded crew (or the pirates faking it) hail you. */
   distress(ev: GEvent, ambush: () => void) { this.dialog(() => distressTalk(this, ev, ambush)); }
+  /** You reached a derelict wreck: open it up and take what is inside. */
+  salvageWreck(ev: GEvent) { this.dialog(() => openWreck(this, ev)); }
   eventStarted(ev: GEvent) {
     const pl = this.w.planet(ev.star, ev.planet);
     const sys = this.w.star(ev.star).name;
@@ -516,12 +523,13 @@ export class SpaceStage implements Scene, WorldHooks {
       rare: `Rare sighting! ${article(ev.sp?.name ?? 'strange', true)} ${ev.sp?.name ?? 'strange creature'} roams ${pl.name} (${sys}). Land and catch it before it migrates.`,
       trader: `A wandering trader has set up shop at ${pl.name} (${sys}).`,
       refugees: `A refugee fleet asks to settle on your colony ${pl.name}.`,
+      wreck: `A derelict ship drifts near ${pl.name} (${sys}). Salvage it for components, and maybe a blueprint.`,
     };
     const info = EVENT_INFO[ev.kind];
     this.ui.toast(msg[ev.kind] + ' Tap the alert to go there.', info.good ? info.icon : ev.kind === 'eco' ? '☣️' : '🚨', info.good ? 'gold' : 'bad');
     if (ev.star === this.w.s.loc) this.sv.setupEvent(ev, false);
     this.game.hint('alerts', 'Alerts appear under your mission. Tap one to set course. Get there before the timer runs out.', '🚨');
-    if (info.good) this.game.hint('opportunity', 'Gold alerts are opportunities: rescues, relics, rare creatures, traders and refugees. They pay well, but they do not wait.', '✨');
+    if (info.good) this.game.hint('opportunity', 'Gold alerts are opportunities: rescues, wrecks, relics, rare creatures, traders and refugees. They pay well, but they do not wait.', '✨');
   }
   eventEnded() { this.hud.refresh(true); }
   rankUp(rank: number) {
@@ -767,7 +775,12 @@ export class SpaceStage implements Scene, WorldHooks {
         startEvent(w, { id: w.nid(), kind: 'raid', star: col[0], planet: col[1], until: w.s.t + 150 });
         break;
       }
-      case 'meteor': case 'distress': case 'relic': case 'rare': case 'trader': case 'refugees':
+      case 'salvage':
+        for (const c of COMP_IDS) (w.s.comps ??= {})[c] = (w.s.comps[c] ?? 0) + 5;
+        w.s.blueprints = Object.keys(RECIPES);
+        this.ui.toast('Every blueprint, and 5 of each component.', '🐞');
+        break;
+      case 'meteor': case 'distress': case 'relic': case 'rare': case 'trader': case 'refugees': case 'wreck':
         w.s.flags.tutDone = true;
         if (!randomEvent(w, what)) this.ui.toast(`No world nearby suits a ${EVENT_INFO[what].label.toLowerCase()}.`, '🐞');
         break;

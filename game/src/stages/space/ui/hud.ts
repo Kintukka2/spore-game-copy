@@ -24,6 +24,9 @@ export class SpaceHud {
   private trackDesc: HTMLElement;
   private alerts: HTMLElement;
   private viewBtn: HTMLButtonElement;
+  /** The Xeno-Lab on your homeworld: shown only while you are home. */
+  private labBtn: HTMLButtonElement;
+  private labBadge = h('i', { class: 'sp-labn' });
   private viewLabel: HTMLElement;
   private exploreEl: HTMLElement;
   private ctx: HTMLElement;
@@ -66,7 +69,9 @@ export class SpaceHud {
     this.viewLabel = h('span', { class: 'sp-vl' }, 'Galaxy');
     this.viewBtn = button([h('span', null, '🌌'), this.viewLabel], () => st.toggleView(), { cls: 'sp-viewbtn', title: 'Galaxy map' });
     this.exploreEl = h('div', { class: 'sp-explored', title: 'Systems you have visited / fully surveyed' });
-    const bl = h('div', { class: 'sp-bl' }, this.exploreEl, this.viewBtn);
+    this.labBtn = button([h('span', null, '🧬'), h('span', { class: 'sp-vl' }, 'Xeno-Lab'), this.labBadge], () => st.openLab(), { cls: 'sp-viewbtn sp-labbtn', title: 'Xeno-Lab (homeworld)' });
+    this.labBtn.style.display = 'none';
+    const bl = h('div', { class: 'sp-bl' }, this.exploreEl, h('div', { class: 'sp-blrow' }, this.viewBtn, this.labBtn));
     // Contextual planet button
     this.ctxBtn = button('🪐', () => st.ctxAction(), { cls: 'primary' });
     this.ctx = h('div', { class: 'sp-ctx' }, this.ctxBtn);
@@ -202,6 +207,13 @@ export class SpaceHud {
         chip.addEventListener('click', () => st.gotoEvent(ev));
         this.alerts.append(chip);
       }
+    });
+    // The Xeno-Lab building: its button appears in the home system.
+    const home = s.loc === w.gal.homeStar && st.mode !== 'warp';
+    this.set('lab', `${home}/${s.specimens.length}`, () => {
+      this.labBtn.style.display = home ? '' : 'none';
+      this.labBadge.textContent = s.specimens.length ? String(s.specimens.length) : '';
+      this.labBadge.style.display = s.specimens.length ? '' : 'none';
     });
     // View toggle
     this.set('mode', st.mode, () => {

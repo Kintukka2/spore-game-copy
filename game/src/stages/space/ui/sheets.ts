@@ -3,14 +3,14 @@
 import { button, h, progressBar, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { ABILITIES } from '../../../game/cards';
-import { BADGES, RANKS, SPICE, SPICE_COLORS, TOOL_CATS, TOOLS, type ToolCat, type ToolDef } from '../data';
+import { BADGES, RANKS, SPICE, SPICE_COLORS, TOOL_CATS, TOOL_MAP, TOOLS, type ToolCat, type ToolDef } from '../data';
 import { archName, relation } from '../empires';
 import { abandon } from '../missions';
+import { COMP_IDS, COMPONENTS, consumeRecipe, craftState, needsBlueprint, owned, previewSalvage, RECIPES, type CompId } from '../salvage';
 import { EVENT_INFO } from '../events';
 import { openCrate } from './crateOpen';
 import type { SpaceStage } from '../stage';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, stanceChip, tabStrip } from './common';
-import { renderLab } from './xenoLab';
 
 // ------------------------------------------------------------------ ship sheet
 function shopContext(st: SpaceStage): { kind: 'own' | 'ally' | null; label: string } {
@@ -20,6 +20,61 @@ function shopContext(st: SpaceStage): { kind: 'own' | 'ally' | null; label: stri
   const e = w.empireOf(w.s.loc);
   if (e?.allied) return { kind: 'ally', label: `Allied shop of ${e.name}: 10% off.` };
   return { kind: null, label: 'Shops are at your homeworld, your colonies and allied empires. Browse here, buy there.' };
+}
+
+/** The closest system with a shop: one of yours, or an ally's. */
+function nearestShop(st: SpaceStage): number | null {
+  const w = st.w;
+  let best: number | null = null, bd = Infinity;
+  for (const s of w.gal.stars) {
+    const o = w.ownerOf(s.id);
+    if (o !== 'player' && !w.empireOf(s.id)?.allied) continue;
+    const d = w.gal.dist(s.id, w.s.loc);
+    if (d < bd) { bd = d; best = s.id; }
+  }
+  return best;
+}
+
+/** Tell the player plainly where they can buy, and offer to take them there. */
+async function whereToBuy(st: SpaceStage, sh: { close(): void }, t?: ToolDef) {
+  const w = st.w;
+  const shop = nearestShop(st);
+  const r = await ui.modal({
+    title: '🔒 No shop in this system',
+    body: [h('p', null, `${t ? `${t.icon} ${t.name} can only be bought` : 'Tools can only be bought'} at your homeworld, one of your colonies, or an allied empire's world.`),
+      shop !== null ? h('p', { class: 'dim' }, `Nearest shop: ${w.star(shop).name}${shop === w.gal.homeStar ? ' (home)' : ''}.`) : null],
+    buttons: shop !== null ? [{ id: 'ok', label: 'OK' }, { id: 'go', label: `🧭 Set course to ${w.star(shop).name}`, primary: true }] : [{ id: 'ok', label: 'OK', primary: true }],
+  });
+  if (r === 'go' && shop !== null) { sh.close(); st.showGalaxy(shop); st.selectStar(shop); }
+}
+
+/** Chips for a recipe: the blueprint, then each component with how many you have. */
+function recipeChips(st: SpaceStage, t: ToolDef): HTMLElement {
+  const w = st.w;
+  const cs = craftState(w, t);
+  const row = h('div', { class: 'sp-recipe' }, h('span', { class: 'sp-rc' + (cs.bp ? ' ok' : '') }, `📐 ${cs.bp ? 'Blueprint' : 'No blueprint'}`));
+  for (const [c, need] of Object.entries(RECIPES[t.id] ?? {}) as [CompId, number][]) {
+    const have = w.s.comps?.[c] ?? 0;
+    row.append(h('span', { class: 'sp-rc' + (have >= need ? ' ok' : ''), title: COMPONENTS[c].name }, `${COMPONENTS[c].icon} ${Math.min(have, need)}/${need}`));
+  }
+  return row;
+}
+
+/** Explain what an advanced part still needs, and where those things come from. */
+async function needParts(st: SpaceStage, t: ToolDef) {
+  const w = st.w;
+  const cs = craftState(w, t);
+  audio.sfx('error');
+  await ui.modal({
+    title: cs.bp ? `🔩 ${t.name} needs components` : `📐 ${t.name} needs a blueprint`,
+    body: [
+      h('p', null, `${t.icon} ${t.name} is advanced tech. On top of rank and credits, you need its blueprint and these components:`),
+      recipeChips(st, t),
+      cs.missing.length ? h('p', { class: 'dim' }, `Still missing: ${cs.missing.map((m) => `${m.need - m.have} × ${COMPONENTS[m.c].icon} ${COMPONENTS[m.c].name}`).join(', ')}.`) : null,
+      h('p', { class: 'dim' }, 'Blueprints and components turn up in 🛰️ derelict wrecks, crashed ships and ruins you scan, ancient signals, mystery crates and wandering traders. Empires sometimes add them to mission rewards.'),
+    ],
+    buttons: [{ id: 'ok', label: 'Got it', primary: true }],
+  });
 }
 
 function ownedState(st: SpaceStage, t: ToolDef): { owned: boolean; note: string } {
@@ -37,6 +92,11 @@ function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally') {
   const w = st.w;
   const price = w.toolPrice(t, seller);
   if (w.s.money < price) { st.ui.toast('Not enough money.', '💸'); audio.sfx('error'); return false; }
+  if (needsBlueprint(t)) {
+    const cs = craftState(w, t);
+    if (!cs.bp || cs.missing.length) { void needParts(st, t); return false; }
+    consumeRecipe(w, t);
+  }
   const oldHp = w.maxHp, oldEn = w.maxEnergy;
   w.addMoney(-price);
   if (t.kind === 'consumable') w.give(t.id, t.id === 'seeds' ? 3 : 1);
@@ -47,7 +107,7 @@ function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally') {
   w.counter('toolsBought');
   audio.sfx('coin');
   audio.sfx('success', { vol: 0.5 });
-  st.ui.toast(`Bought: ${t.name}`, t.icon, 'good');
+  st.ui.toast(`${needsBlueprint(t) ? 'Built' : 'Bought'}: ${t.name}`, t.icon, 'good');
   st.hud.layoutAbilities();
   return true;
 }
@@ -57,14 +117,19 @@ export function openShip(st: SpaceStage, tab = 'shop') {
   const sh = sheet('Ship & Tools');
   let cur = tab;
   let cat: ToolCat = 'standard';
-  const labPick: number[] = [];
   const render = () => {
-    tabStrip(sh.tabs, [{ id: 'shop', label: '🧰 Shop' }, { id: 'cargo', label: '📦 Cargo' }, { id: 'lab', label: '🧬 Xeno-Lab', badge: w.s.specimens.length }, { id: 'badges', label: '🎖️ Badges' }, { id: 'perks', label: '✨ Ship & perks' }], cur, (id) => { cur = id; labPick.length = 0; render(); });
+    tabStrip(sh.tabs, [{ id: 'shop', label: '🧰 Shop' }, { id: 'cargo', label: '📦 Cargo' }, { id: 'badges', label: '🎖️ Badges' }, { id: 'perks', label: '✨ Ship & perks' }], cur, (id) => { cur = id; render(); });
     const B = sh.body;
     B.innerHTML = '';
     if (cur === 'shop') {
       const ctx = shopContext(st);
-      B.append(h('div', { class: 'sp-mini' }, ctx.label));
+      if (ctx.kind) B.append(h('div', { class: 'sp-mini' }, ctx.label));
+      else {
+        const shop = nearestShop(st);
+        B.append(h('div', { class: 'sp-lock' }, h('b', null, '🔒 No shop in this system'),
+          h('span', null, 'You can browse, but tools are only sold at your homeworld, your colonies and allied empires.'),
+          shop !== null ? button(`🧭 Set course to ${w.star(shop).name}`, () => { sh.close(); st.showGalaxy(shop); st.selectStar(shop); }, { cls: 'small gold' }) : null));
+      }
       const cats = h('div', { class: 'sp-tabs', style: 'padding:0' });
       tabStrip(cats, TOOL_CATS.map((c) => ({ id: c.id, label: `${c.icon} ${c.label}` })), cat, (id) => { cat = id as ToolCat; render(); });
       B.append(cats);
@@ -73,10 +138,14 @@ export function openShip(st: SpaceStage, tab = 'shop') {
         const locked = rank < t.rank;
         const own = ownedState(st, t);
         const price = w.toolPrice(t, ctx.kind ?? 'own');
+        const craft = needsBlueprint(t) && !own.owned ? craftState(w, t) : null;
         const btn = locked ? button(`🔒 ${RANKS[Math.min(t.rank, RANKS.length - 1)].name}`, () => { st.ui.toast(`Reach the rank of ${RANKS[t.rank].name} to unlock this.`, '🔒'); }, { cls: 'small' })
           : own.owned ? button('Owned', () => {}, { cls: 'small', disabled: true })
-          : button(money(price), () => { if (!ctx.kind) { st.ui.toast(ctx.label, '🧰'); audio.sfx('error'); return; } if (buyTool(st, t, ctx.kind)) render(); }, { cls: 'small ' + (ctx.kind && w.s.money >= price ? 'gold' : ''), disabled: !ctx.kind && false });
-        B.append(h('div', { class: 'sp-item' + (locked ? ' locked' : '') }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, t.name), t.desc, own.note ? h('div', { class: 'sp-mini' }, own.note) : null), btn));
+          : craft && !craft.bp ? button('📐 Blueprint', () => { void needParts(st, t); }, { cls: 'small ghost', title: 'Needs a blueprint' })
+          : craft && craft.missing.length ? button('🔩 Parts', () => { void needParts(st, t); }, { cls: 'small ghost', title: 'Needs components' })
+          : !ctx.kind ? button(`🔒 ${money(price)}`, () => { audio.sfx('error'); void whereToBuy(st, sh, t); }, { cls: 'small ghost', title: 'Buy at your homeworld, a colony or an ally' })
+          : button(craft ? `🔧 ${money(price)}` : money(price), () => { if (buyTool(st, t, ctx.kind!)) render(); }, { cls: 'small ' + (w.s.money >= price ? 'gold' : ''), title: craft ? 'Build it' : undefined });
+        B.append(h('div', { class: 'sp-item' + (locked ? ' locked' : '') }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, t.name), t.desc, own.note ? h('div', { class: 'sp-mini' }, own.note) : null, needsBlueprint(t) && !own.owned ? recipeChips(st, t) : null), btn));
       }
       if (cat === 'terraform' && w.count('genesis') > 0) B.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, '🌱'), h('div', { class: 'sp-txt' }, h('b', null, `Genesis Seed ×${w.count('genesis')}`), 'Ori\'s gift. Use it from any planet\'s Overview.')));
     } else if (cur === 'cargo') {
@@ -100,7 +169,22 @@ export function openShip(st: SpaceStage, tab = 'shop') {
       B.append(h('div', { class: 'sp-mini' }, w.s.specimens.length
         ? 'Exhibit specimens for tourism income, splice two into a hybrid, or release them into ecosystem slots on terraformed worlds.'
         : 'Beam up creatures from living worlds (planet → Life). New species pay research grants; the Xeno-Lab shows what else they are good for.'));
-      B.append(button('🧬 Open the Xeno-Lab', () => { cur = 'lab'; render(); }, { cls: 'small block' }));
+      if (w.s.loc === w.gal.homeStar) B.append(button('🧬 Open the Xeno-Lab', () => { sh.close(); st.openLab(); }, { cls: 'small block' }));
+      else B.append(h('div', { class: 'sp-mini' }, `🧬 Your Xeno-Lab is on ${w.star(w.gal.homeStar).name}: exhibit and splice specimens there.`));
+      B.append(h('div', { class: 'sp-section' }, 'Blueprints & components'));
+      const comps = h('div', { class: 'sp-recipe' });
+      for (const c of COMP_IDS) {
+        const n = w.s.comps?.[c] ?? 0;
+        comps.append(h('span', { class: 'sp-rc' + (n ? ' ok' : ''), title: `${COMPONENTS[c].name} (${COMPONENTS[c].rarity})` }, `${COMPONENTS[c].icon} ${COMPONENTS[c].name} ×${n}`));
+      }
+      B.append(comps);
+      // Blueprints for parts you have already built are spent.
+      const bps = (w.s.blueprints ?? []).map((id) => TOOL_MAP[id]).filter((t) => !!t && (t.kind === 'consumable' || !owned(w, t)));
+      for (const t of bps) {
+        const cs = craftState(w, t);
+        B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('div', { class: 'sp-ic' }, '📐'), h('div', { class: 'sp-txt' }, h('b', null, `${t.icon} ${t.name}`), cs.missing.length ? 'Collect the components, then build it at a shop.' : 'Ready: build it at a shop.', recipeChips(st, t))));
+      }
+      if (!bps.length) B.append(h('div', { class: 'sp-mini' }, 'No blueprints yet. Advanced parts need one: look in 🛰️ derelict wrecks, ruins and ancient signals, or buy one from a wandering trader.'));
       B.append(h('div', { class: 'sp-section' }, 'Consumables'));
       const cons = TOOLS.filter((t) => t.kind === 'consumable' && w.count(t.id) > 0);
       for (const t of cons) {
@@ -109,8 +193,6 @@ export function openShip(st: SpaceStage, tab = 'shop') {
         B.append(h('div', { class: 'sp-item', style: 'padding:8px' }, h('div', { class: 'sp-ic' }, t.icon), h('div', { class: 'sp-txt' }, h('b', null, `${t.name} ×${w.count(t.id)}`)), use));
       }
       if (!cons.length) B.append(h('div', { class: 'sp-mini' }, 'None.'));
-    } else if (cur === 'lab') {
-      renderLab(st, B, labPick, render);
     } else if (cur === 'badges') {
       const rk = w.rank();
       const pts = w.badgePoints();
@@ -169,7 +251,7 @@ export function openMissions(st: SpaceStage) {
         if (!m.main) acts.append(button('Abandon', async () => { if (await ui.confirm('Abandon mission?', 'The empire that asked will be disappointed.', 'Abandon', 'Keep')) { abandon(w, m); render(); } }, { cls: 'small ghost' }));
         B.append(h('div', { class: 'sp-offer', style: m.main ? '' : 'border-color:var(--line);background:rgba(255,255,255,.04)' },
           h('b', null, (m.main ? '⭐ ' : '') + m.title), h('div', null, m.desc),
-          h('div', { class: 'sp-mini' }, `${giver}${m.reward ? ' · reward ' + money(m.reward) : ''}${m.deadline ? ' · ⏱ ' + fmtTime(m.deadline - w.s.t) : ''}`), acts));
+          h('div', { class: 'sp-mini' }, `${giver}${m.reward ? ' · reward ' + money(m.reward) : ''}${m.bonus ? ' + ' + previewSalvage(m.bonus).map((b) => `${b.icon} ${b.text}`).join(', ') : ''}${m.deadline ? ' · ⏱ ' + fmtTime(m.deadline - w.s.t) : ''}`), acts));
       }
     } else {
       if (!w.s.events.length) B.append(h('p', { class: 'dim' }, 'All quiet across your worlds.'));

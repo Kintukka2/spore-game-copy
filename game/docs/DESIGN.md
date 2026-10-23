@@ -326,9 +326,9 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
    - Mined rocks re-form at about one a minute. The star card lists the belt; tapping the star explains what a protoplanetary disk is.
 7. **Exploration marks:** visited systems carry a teal check on the galaxy map (gold once every planet is scanned or settled). Planet labels in the system view carry a check when explored or a "?" when not. The galaxy HUD counts systems explored and fully surveyed.
 
-**Xeno-Lab (specimens)** (`xenolab.ts`, Ship → 🧬 Xeno-Lab)
+**Xeno-Lab (specimens)** (`xenolab.ts`, `ui/xenoLab.ts`): a building on your homeworld. A 🧬 Xeno-Lab button (with a count of the specimens aboard) appears beside the Galaxy button while you are in your home system, and the homeworld's planet panel has one too. It opens only at home, so specimens are exhibited and spliced there and not from anywhere in the galaxy.
 - **Xenopedia:** the first sample of each species is catalogued for a research grant (§2,500 animal, §1,000 plant, §4,000 hybrid). It counts toward the *Xenobiologist* badge. The Life tab tags species not yet catalogued as NEW.
-- **Menagerie:** while in a home or colony system, exhibit specimens at the homeworld zoo, up to 24, one per species. Each pays §150/min in tourism; hybrids pay triple.
+- **Menagerie:** at home, exhibit specimens in the homeworld zoo, up to 24, one per species. Each pays §150/min in tourism; hybrids pay triple.
 - **Gene Splicer:** fuse two cargo animals for §6,000. The hybrid keeps parent A's skeleton with blended girth, and takes each organ group (mouths, eyes, limbs, weapons, frills) from one parent. It opens in the creature editor to be named and tweaked. Hybrids count as omnivores, so they fit any animal ecosystem slot.
 - Specimens still fill ecosystem slots on terraformed worlds.
 - **Alien zoos:** about half of the empire colonies run a zoo that buys one kind of specimen from your hold. The kind is fixed per world: 🌿 Botanical garden (plants), 🐄 Grazing park (herbivores), 🦖 Predator arena (carnivores), 🐗 Petting zoo (omnivores) or 🧬 Curio collector (hybrids and rare creatures). Hybrids and rares also sell to the zoo matching their diet.
@@ -360,11 +360,22 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - When the last rock is gone, ore salvage pays §15,000 minus §3,000 per impact (minimum §3,000). The event's timer waits while the gun is manned. If you never show up, the store empties and two buildings go. An orbital turret sometimes breaks the storm up alone.
 - 🆘 **Distress call** (any nearby world, 3:30): a stranded freighter drifts near the planet with an SOS beacon. Fly to it and the captain hails you (a conversation, see below; in empire space it is one of theirs). **Tow them out** for §9,000 to §15,000 and, in empire space, +12 relations ("You rescued our stranded crew"). **[Barter]** for §5,000 more, at -6 relations. Or leave them (-8).
   - 30% of calls are pirate bait: the "captain" drops the act mid-sentence. **[Fight]** and three raiders de-cloak (beating them pays their loot), or pay them §8,000 to go away.
-- 🗿 **Ancient signal** (a landable world you do not own, 7:00): land, sweep with life scans (the relic is buried far from where you touch down) and beam up the glowing monolith (2.2 s). Collectors pay §22,000 to §38,000, plus 2 terraform pods or packs.
+- 🗿 **Ancient signal** (a landable world you do not own, 7:00): land, sweep with life scans (the relic is buried far from where you touch down) and beam up the glowing monolith (2.2 s). Collectors pay §22,000 to §38,000, plus 2 terraform pods or packs, 1–2 components (leaning rare) and a 55% chance of a blueprint.
 - ✨ **Rare sighting** (a landable world with animals, 5:30): a one-off, recoloured cousin of a native (Golden, Starlit, Prism, Ghost or Ember …). It roams alone, bolts from your ship within 230 units at 128 speed, and must be chased down. It earns a §10,000 Xenopedia grant, a §8,000 bonus, and triple Menagerie crowds.
-- 🛍️ **Wandering trader** (any nearby world, 5:00): **Visit the trader** starts a conversation with the merchant (who they are, where the goods come from, what is in the crate). **[Barter]** opens their stall (`ui/traderView.ts`). It shows the alien merchant (a generated creature with a name and title, animated) under a striped awning. They talk to you in a typed-out speech bubble, greeting you and reacting to each purchase, to an empty purse and to selling out. Their wares are three one-off cards: a consumable tool bundle at half price (up to one rank ahead of yours), a buyer for your most valuable spice at 2.4× its base price, and a §15,000 **mystery crate**.
-- 📦 **Mystery crates** (`crate.ts`, `ui/crateOpen.ts`) go to your hold (up to 9) and are opened from Ship → Cargo or at the stall. Opening takes over the screen: the crate drops in and rattles harder and harder while light leaks from its seam (tap to skip), then bursts in a white flash. The lid flies off, rays spin, and the prize rises out in its rarity's colour with a card to Collect.
-  - Prizes: Legendary (6%) is a rare creature in a stasis pod, shown as the creature itself (needs a free hold slot). Rare (about 32%) is §30k–50k in credits. Common (30%) is 3 terraform pods. Epic (20%) is a colony gadget (silo, bio shield or orbital turret). Junk (12%) is packing peanuts.
+- 🛍️ **Wandering trader** (any nearby world, 5:00): **Visit the trader** starts a conversation with the merchant (who they are, where the goods come from, what is in the crate). **[Barter]** opens the barter screen (`ui/traderView.ts`), Fallout style, and leaving it returns to the conversation.
+  - The merchant's face fills the space behind an amber terminal frame, and their quips are typed across the top.
+  - Two columns: **Your goods** (what they buy from you, with your credits) and **their wares** (with your hold). Tap or press Enter to mark items into the deal. The highlighted item's description shows below, then the totals ("You pay · You get · Net"), shown in red if you cannot cover them. Then [A] Accept, [R] Reset, [C] Open crate, [Tab] Leave.
+  - Accepting sells first, so your sales pay for your buys. Items you cannot take (no room, already owned) are greyed out.
+  - The wares, each a one-off:
+    - a consumable tool bundle at half price (up to one rank ahead of yours)
+    - a buyer for your most valuable spice at 2.4× its base price
+    - a §15,000 **mystery crate**
+    - and, when stocked: a **blueprint** (60%, a quarter of the part's price), a bundle of 2–3 **components**, and a **finished part** (50%; 75% of its price, or 110% for advanced parts, which then need no blueprint or components).
+- 🛰️ **Derelict wreck** (any nearby world, 5:00): a dead hulk tumbles near the planet, shedding debris, under a dashed cyan ring labelled "🛰️ Salvage".
+  - Fly to it and a Fallout-style loot screen opens (`ui/lootBox.ts`): the wreck's name, a list of what is aboard with a description of the highlighted item, and [E] Take all.
+  - Inside: §3,000–8,000 in scrap and 2–4 components. There is also a 30% chance of a blueprint, or a 15% chance of a finished part or a stack of consumables.
+- 📦 **Mystery crates** (`crate.ts`, `ui/crateOpen.ts`) go to your hold (up to 9) and are opened from Ship → Cargo or at the barter screen. Opening takes over the screen: the crate drops in and rattles harder and harder while light leaks from its seam (tap to skip), then bursts in a white flash. The lid flies off, rays spin, and the prize rises out in its rarity's colour with a card to Collect.
+  - Prizes: Legendary (6%) is a rare creature in a stasis pod, shown as the creature itself (needs a free hold slot). Rare (about 32%) is §30k–50k in credits. Common (30%) is 3 terraform pods. Salvage (12%) is a blueprint (epic) or a bundle of components (common). Epic (12%) is a colony gadget (silo, bio shield or orbital turret). Junk (8%) is packing peanuts.
 - 🚀 **Refugee fleet** (a colony with room for another city, 4:20): **Hear their plea** to talk to their elder. Take them in for a free city (or §12,000 if the colony filled up meanwhile), ask what they offer and where they come from, or turn them away.
 - ☣️ **Outbreak containment** (`ui/outbreak.ts`): an eco-disaster's planet panel (Overview banner, Life tab, or a tap on the globe) offers **Contain the outbreak**, a full-screen minigame. It shows just the world, big and spinning (drag to turn it, with inertia), its infection spots, the clock, spots left and spots purged.
   - Spots age from green through yellow to red, then **spread**: a new spot appears nearby, at most 12. They spread every 12 / 9 / 7 s on easy / normal / hard.
@@ -402,7 +413,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - **Questions**: about their people, how they feel (the strongest good and bad modifiers, also listed as notes), what they trade in (what they make and what they pay best for), which of their zoos buy which creatures, and rumours (the nearest live event, or uncatalogued life near their home).
   - [War] with a confirm, and [Leave].
 - **Tribute**: pay, refuse (they may declare war), or **[Bluff]**. The bluff's odds are 50%, ±6% per system you hold more or fewer than they do, -15% against warlords, kept between 10% and 85%. A failed bluff counts as a refusal and costs -5 more.
-- **System sale**: [§price] Deal, or Not now. A free handover is [Accept].
+- **System sale**: [§price] Deal, or Not now. A free handover is [Accept]. The empire offers once, when the takeover bar fills (`EmpireSave.offered`). After that, ask from the planet's Trade tab ("🏳️ Ask to buy this system").
 
 **Diplomacy**
 - A relationship meter per empire: **Allied / Friendly / Neutral / Wary / Hostile / War**.
@@ -425,6 +436,25 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 **Progression**
 - A **badges and ranks** system: counters for exploring, trading, colonizing, fighting and terraforming. Ranks unlock tools to buy (better weapons, drives 1–5, more cargo, terraform tools, Colony Pack upgrades).
 - The tool shop is at your homeworld and colonies (and allied empires).
+  - Elsewhere the Shop tab shows a "🔒 No shop in this system" banner with a "Set course" button to the nearest shop. Prices show as 🔒 §price, and tapping one explains where to buy and offers the same course.
+  - Toasts show above open sheets, so feedback from inside a sheet is never hidden.
+- **Blueprints and components** (`salvage.ts`): advanced parts need more than rank and credits. You also need the part's 📐 blueprint and the components its recipe lists, which building it uses up.
+  - Advanced parts: Star Drive IV–V, Cargo Bay III–IV, Energy Cell III–IV, Hull Plating III–IV, Rift Key, Sunspear Laser, Seeker and Starfall Missiles, Nova Ring, Deflector, Thermal Lance, Bio Shield and Embassy. For Bio Shield and Embassy, the components are needed per item.
+  - Components:
+    - Common: 🔩 Alloy Plating, ⚛️ Fusion Cell.
+    - Uncommon: 🧲 Grav Coil, 🔷 Focus Lens, 🔥 Plasma Injector, 🧪 Bio-gel.
+    - Rare: 💠 Quantum Core, 🔮 Warp Crystal.
+  - In the shop, an advanced part shows chips: 📐 blueprint, then each component as have/need, green when met. The button reads 📐 Blueprint, 🔩 Parts, or 🔧 §price once you can build it. 📐 and 🔩 open a popup listing what is missing and where it comes from.
+  - Cargo lists your components and blueprints, each with its recipe progress. Blueprints for parts you already built are hidden.
+  - Sources:
+    - 🛰️ derelict wrecks
+    - crashed-ship planets you scan (2 components)
+    - ruins you scan (25% blueprint, else a component)
+    - ancient signals
+    - mystery crates
+    - wandering traders
+    - empire missions: 15% of offers add a rare bonus (a blueprint, a finished part or components). The pitch names it, and it is paid on completion.
+  - Wrecks and missions can also hand over finished tools: the next level of an upgrade, a unique, or a stack of consumables.
 
 **Endgame**
 1. A mission chain: "Contact the Hollow" (at rank 4 or so) → "Reach the core".

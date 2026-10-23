@@ -129,6 +129,8 @@ export interface EmpireSave {
   mult: Record<SpiceColor, number>;
   lastBeacon?: number;
   tributeAsked?: number;
+  /** Systems they already offered to sell you unprompted (the Trade tab can still ask again). */
+  offered?: Record<string, boolean>;
 }
 
 export interface Empire extends EmpireSave {
@@ -168,9 +170,11 @@ export interface Mission {
   main?: boolean;
   /** You already haggled over this offer's reward. */
   haggled?: boolean;
+  /** A rare extra reward: a blueprint, components or a finished tool (see salvage.ts). */
+  bonus?: import('./salvage').Salvage;
 }
 
-export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow' | 'meteor' | 'distress' | 'relic' | 'rare' | 'trader' | 'refugees';
+export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow' | 'meteor' | 'distress' | 'relic' | 'rare' | 'trader' | 'refugees' | 'wreck';
 
 export interface GEvent {
   id: number;
@@ -191,6 +195,8 @@ export interface GEvent {
   /** Wandering trader: deals still on offer, and the roll for its wares. */
   deals?: number[];
   seed?: number;
+  /** Wandering trader: the blueprint, components and finished part rolled for its stall. */
+  stock?: { bp?: string; comp?: string; compN?: number; gear?: string };
 }
 
 export interface SpaceSave {
@@ -205,6 +211,9 @@ export interface SpaceSave {
   tools: Record<string, number>;
   spice: Record<SpiceColor, number>;
   specimens: Specimen[];
+  /** Blueprints found or bought (tool ids), and components in stock (see salvage.ts). */
+  blueprints?: string[];
+  comps?: Record<string, number>;
   owners: Record<string, string | null>;
   planets: Record<string, PlanetState>;
   visited: number[];

@@ -5,6 +5,7 @@ import { fmt } from '../../engine/math';
 import { HOLLOW_RANK, SPICE, SPICE_COLORS, type SpiceColor } from './data';
 import type { Empire, Mission } from './types';
 import { addMod, strength } from './empires';
+import { giveSalvage, rollSalvage, salvageLine } from './salvage';
 import type { World } from './world';
 
 // ------------------------------------------------------------------ onboarding
@@ -112,6 +113,11 @@ export function offerFor(w: World, e: Empire): Mission {
     }
   }
   if (!m) m = { id: 0, kind: 'explore', giver: e.id, title: 'Chart the frontier', desc: 'Visit any system you have never been to.', reward: 12000 * mult, deadline: 0 };
+  // Now and then they throw in something rare: a blueprint, components or a finished part.
+  if (r() < 0.15) {
+    const bonus = rollSalvage(w, 'mission');
+    if (bonus.bp || bonus.tool || bonus.comps) m.bonus = bonus;
+  }
   w.s.offers[e.id] = m;
   return m;
 }
@@ -148,7 +154,8 @@ export function complete(w: World, m: Mission) {
   const e = w.emap.get(m.giver);
   if (e) addMod(e, 'missions', 'You completed our missions', 18, { max: e.arch === 'hollow' ? 50 : 100, decay: 0.4 });
   audio.sfx('success');
-  w.hooks?.toast(`Mission complete: ${m.title}${m.reward ? ' · +§' + fmt(m.reward) : ''}`, '✅', 'good');
+  const extra = m.bonus ? salvageLine(giveSalvage(w, m.bonus)) : '';
+  w.hooks?.toast(`Mission complete: ${m.title}${m.reward ? ' · +§' + fmt(m.reward) : ''}${extra ? ` · ${extra}` : ''}`, '✅', 'good');
   w.hooks?.missionDone(m);
 }
 

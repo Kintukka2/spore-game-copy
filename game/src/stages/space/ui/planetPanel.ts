@@ -2,13 +2,13 @@
 // actions in tabs: Overview, Terraform, Life (ecosystem + abduction), Colony, Trade.
 import { button, h, progressBar, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
-import { TAU, clamp } from '../../../engine/math';
-import { SPICE, SPICE_COLORS, T_RING, tScoreOf, type SpiceColor } from '../data';
+import { TAU } from '../../../engine/math';
+import { SPICE, SPICE_COLORS, tScoreOf, type SpiceColor } from '../data';
 import { drawPlanet, SphereSprite, styleFor, type PlanetLook } from '../art/planetArt';
 import { blit, glow } from '../art/sprites';
 import {
   BUILDINGS, build, buy, buyPrice, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony,
-  genesis, happiness, isHomeworld, maxCities, production, sell, sellPrice, slotKind, slots, storageCap, terraform, used, type BuildingId, type TerraTool,
+  genesis, happiness, isHomeworld, maxCities, production, sell, sellPrice, slotKind, slots, storageCap, used, type BuildingId,
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
 import { deliver, deliverables, tutorialEvent } from '../missions';
@@ -22,6 +22,7 @@ import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './comm
 import { showScan } from './scanCard';
 import { openOutbreak } from './outbreak';
 import { greetTrader, refugeeTalk } from './encounters';
+import { drawClimate, openTerraform, TERRA_TOOLS, terraState, terraTag, terraTarget, type TerraDef } from './terraformView';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
 
@@ -39,6 +40,8 @@ export class PlanetPanel {
   private chart: HTMLCanvasElement | null = null;
   private dynamic: (() => void)[] = [];
   private bursts: { t: number; color: string }[] = [];
+  /** The terraform tool under the pointer, previewed on the chart. */
+  private preview: TerraDef | null = null;
   readonly pl: Planet;
 
   constructor(private st: SpaceStage, readonly star: number, readonly idx: number) {
@@ -174,7 +177,7 @@ export class PlanetPanel {
   private dragging = false;
 
   private markPos(lon: number, lat: number, cx: number, cy: number, r: number) {
-    const a = lon + this.rot * TAU;
+    const a = lon - this.rot * TAU;
     const x = Math.cos(lat) * Math.sin(a), z = Math.cos(lat) * Math.cos(a), y = Math.sin(lat);
     return { x: cx + x * r, y: cy + y * r, vis: z > 0.1 };
   }
@@ -211,7 +214,7 @@ export class PlanetPanel {
     if (e && e.arch !== 'hollow') tabs.push({ id: 'trade', label: '💱 Trade' });
     if (this.pl.kind === 'gas') tabs.splice(1, 2);
     if (!tabs.some((t) => t.id === this.tab)) this.tab = 'overview';
-    tabStrip(this.tabsEl, tabs, this.tab, (id) => { this.tab = id as Tab; this.render(); });
+    tabStrip(this.tabsEl, tabs, this.tab, (id) => { this.tab = id as Tab; this.render(); if (id === 'terra') this.terraView(); });
     this.dynamic = [];
     this.chart = null;
     this.body.innerHTML = '';
@@ -320,7 +323,7 @@ export class PlanetPanel {
     if (pl.kind !== 'gas') {
       const cc = canColonize(w, this.star, this.idx);
       if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
-      acts.append(button('🌍 Terraform', () => { this.tab = 'terra'; this.render(); }));
+      acts.append(button('🌍 Terraform', () => { this.tab = 'terra'; this.render(); this.terraView(); }));
       if (!landingBlock(pl, ps, !!w.star(this.star).hollow)) acts.append(button(pl.life ? '🛬 Land & find life' : '🛬 Land', () => this.land(), { cls: pl.life ? 'primary' : '' }));
     }
     if (e && e.arch !== 'hollow') acts.append(button('💱 Trade', () => { this.tab = 'trade'; this.render(); }));
@@ -399,12 +402,24 @@ export class PlanetPanel {
   }
 
   // ------------------------------------------------------------------ terraform
+  private canTerraform(): boolean {
+    return this.pl.kind !== 'gas' && !isHomeworld(this.w, this.star, this.idx) && !this.ps.destroyed;
+  }
+
+  /** The focused terraforming view; `fire` starts it with that tool. */
+  private terraView(fire?: TerraDef['id']) {
+    if (!this.canTerraform()) return;
+    audio.sfx('tap');
+    openTerraform(this.st, this.star, this.idx, () => { this.preview = null; if (this.el.isConnected) this.render(); }, fire);
+  }
+
   private terra() {
     const w = this.w;
     const B = this.body;
     const ps = this.ps;
     if (isHomeworld(w, this.star, this.idx)) { B.append(h('p', { class: 'dim' }, 'Your homeworld is already perfect. Try another planet.')); return; }
     if (ps.destroyed) { B.append(h('p', { class: 'dim' }, 'Nothing left to shape.')); return; }
+    B.append(button('🌍 Open the terraforming view', () => this.terraView(), { cls: 'primary sp-wide' }));
     this.chart = h('canvas', { class: 'sp-chart' }) as HTMLCanvasElement;
     B.append(this.chart);
     const status = h('div', { class: 'tc', style: 'font-size:14px;color:var(--ink-dim)' });
@@ -416,28 +431,17 @@ export class PlanetPanel {
     upd();
     this.dynamic.push(upd);
     B.append(status);
+    // Each tool shows the way it moves the dot; hovering one previews it on the chart.
     const tools = h('div', { class: 'sp-tools' });
-    const use = (tool: TerraTool, color: string, sfx: Parameters<typeof audio.sfx>[0]) => {
-      const before = tScoreOf(ps.atm, ps.temp);
-      const err = terraform(w, this.star, this.idx, tool);
-      if (err) { this.st.ui.toast(err, '🌍'); audio.sfx('error'); return; }
-      this.bursts.push({ t: 0, color });
-      audio.sfx(sfx);
-      const after = tScoreOf(this.ps.atm, this.ps.temp);
-      if (after > before) this.st.ui.toast(`${this.pl.name} is now T${after}!`, '🌍', 'good');
-      this.st.game.hint('terra-eco', 'Higher T-scores need life: fill the matching ecosystem row in the Life tab to make it stable.', '🌿');
-      this.render();
-    };
-    const pod = (id: string, label: string, tool: TerraTool, color: string, sfx: Parameters<typeof audio.sfx>[0]) =>
-      button(`${label} (${w.count(id)})`, () => use(tool, color, sfx), { disabled: w.count(id) <= 0 });
-    tools.append(
-      pod('stormpod', '🌧️ Storm Pod +air', 'stormpod', '#9fd8ff', 'splash'),
-      pod('droughtpod', '🏜️ Drought Pod −air', 'droughtpod', '#ffcf80', 'whoosh'),
-      pod('meteor', '☄️ Meteor Call +heat', 'meteor', '#ff8a4c', 'explode'),
-      pod('icecomet', '🧊 Ice Comet −heat', 'icecomet', '#cfe8ff', 'splash'),
-    );
-    if (w.has('cloudengine')) tools.append(button('🌀 Cloud Engine + (⚡8)', () => use('atm+', '#9fd8ff', 'whoosh')), button('🌀 Cloud Engine − (⚡8)', () => use('atm-', '#ffcf80', 'whoosh')));
-    if (w.has('thermlance')) tools.append(button('🌡️ Heat Lance (⚡8)', () => use('temp+', '#ff8a4c', 'zap')), button('🌡️ Frost Lance (⚡8)', () => use('temp-', '#cfe8ff', 'zap')));
+    for (const d of TERRA_TOOLS) {
+      if (d.id === 'genesis') continue;
+      const s = terraState(w, d);
+      if (!s.show) continue;
+      const b = button([h('span', { class: 'tf-tag' }, `${d.icon} ${d.name}`), ' ', h('span', { class: 'tf-tag', style: `color:${d.color}` }, terraTag(d)), ` ${s.n}`], () => this.terraView(d.id), { disabled: !s.ok, title: d.blurb });
+      b.addEventListener('pointerenter', () => { this.preview = d; this.drawChart(); });
+      b.addEventListener('pointerleave', () => { if (this.preview === d) { this.preview = null; this.drawChart(); } });
+      tools.append(b);
+    }
     B.append(tools);
     const anyTool = ['stormpod', 'droughtpod', 'meteor', 'icecomet'].some((id) => w.count(id) > 0) || w.has('cloudengine') || w.has('thermlance');
     if (!anyTool) B.append(h('div', { class: 'sp-mini tc' }, 'You have no terraforming tools. Buy pods at your tool shop (rank Captain).'));
@@ -448,43 +452,8 @@ export class PlanetPanel {
   private drawChart() {
     const c = this.chart;
     if (!c || !c.isConnected) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const S = c.clientWidth || 220;
-    if (c.width !== Math.round(S * dpr)) { c.width = Math.round(S * dpr); c.height = Math.round(S * dpr); }
-    const g = c.getContext('2d')!;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, S, S);
-    const pad = 18, A = S - pad * 2;
-    const X = (v: number) => pad + v * A, Y = (v: number) => pad + (1 - v) * A;
-    g.fillStyle = 'rgba(255,255,255,0.04)';
-    g.fillRect(pad, pad, A, A);
-    const cols = ['rgba(255,209,102,0.12)', 'rgba(124,220,140,0.18)', 'rgba(76,217,123,0.32)'];
-    for (let i = 0; i < 3; i++) {
-      g.fillStyle = cols[i];
-      g.beginPath(); g.arc(X(0.5), Y(0.5), T_RING[i] * A, 0, TAU); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.25)';
-      g.lineWidth = 1;
-      g.stroke();
-      g.fillStyle = 'rgba(255,255,255,0.6)';
-      g.font = '600 10px Fredoka, system-ui';
-      g.textAlign = 'center';
-      g.fillText(`T${i + 1}`, X(0.5), Y(0.5) - T_RING[i] * A + 11);
-    }
-    g.fillStyle = 'rgba(200,220,240,0.7)';
-    g.font = '600 11px Fredoka, system-ui';
-    g.textAlign = 'center';
-    g.fillText('Atmosphere →', S / 2, S - 3);
-    g.save(); g.translate(10, S / 2); g.rotate(-Math.PI / 2); g.fillText('Temperature →', 0, 0); g.restore();
-    const ps = this.ps;
-    const x = X(ps.atm), y = Y(ps.temp);
-    const pul = 1 + Math.sin(this.t * 5) * 0.15;
-    g.fillStyle = 'rgba(255,255,255,0.25)';
-    g.beginPath(); g.arc(x, y, 12 * pul, 0, TAU); g.fill();
-    g.fillStyle = '#ffffff';
-    g.strokeStyle = '#3ee6c4';
-    g.lineWidth = 3;
-    g.beginPath(); g.arc(x, y, 7, 0, TAU); g.fill(); g.stroke();
-    void clamp;
+    const ps = this.ps, d = this.preview;
+    drawClimate(c, ps.atm, ps.temp, this.t, { arrow: d ? { ...terraTarget(d, ps.atm, ps.temp), color: d.color } : null });
   }
 
   // ------------------------------------------------------------------ life

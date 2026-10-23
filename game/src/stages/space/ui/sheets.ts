@@ -55,7 +55,7 @@ function recipeChips(st: SpaceStage, t: ToolDef): HTMLElement {
   const row = h('div', { class: 'sp-recipe' }, h('span', { class: 'sp-rc' + (cs.bp ? ' ok' : '') }, `📐 ${cs.bp ? 'Blueprint' : 'No blueprint'}`));
   for (const [c, need] of Object.entries(RECIPES[t.id] ?? {}) as [CompId, number][]) {
     const have = w.s.comps?.[c] ?? 0;
-    row.append(h('span', { class: 'sp-rc' + (have >= need ? ' ok' : ''), title: COMPONENTS[c].name }, `${COMPONENTS[c].icon} ${Math.min(have, need)}/${need}`));
+    row.append(h('span', { class: 'sp-rc' + (have >= need ? ' ok' : ''), title: COMPONENTS[c].name }, `${COMPONENTS[c].icon} ${Math.min(have, need)}/${need}${have >= need ? ' ✓' : ''}`));
   }
   return row;
 }

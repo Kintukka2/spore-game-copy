@@ -20,8 +20,10 @@ interface Item {
   icon: string;
   name: string;
   qty?: number;
-  /** Detail lines, label then value. */
-  stats: [string, string][];
+  /** Detail lines: label, value, and whether that requirement is met (shown with a tick). */
+  stats: [string, string, boolean?][];
+  /** A tag on the list row, e.g. READY. */
+  tag?: string;
   desc: string;
   /** Draw a picture instead of the big icon. */
   paint?: (c: HTMLCanvasElement) => void;
@@ -104,9 +106,9 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
       const cs = craftState(w, t);
       const rec = Object.entries(RECIPES[t.id] ?? {}) as [CompId, number][];
       return {
-        icon: '📐', name: t.name,
-        stats: rec.map(([c, n]) => [`${COMPONENTS[c].icon} ${COMPONENTS[c].name}`, `${Math.min(n, w.s.comps?.[c] ?? 0)} / ${n}`] as [string, string]),
-        desc: `${t.desc} ${cs.missing.length ? 'Collect the components, then build it at a shop.' : 'You have everything: build it at your homeworld, a colony or an ally\'s shop.'}`,
+        icon: '📐', name: t.name, tag: cs.missing.length ? undefined : 'READY',
+        stats: rec.map(([c, n]) => { const have = w.s.comps?.[c] ?? 0; return [`${COMPONENTS[c].icon} ${COMPONENTS[c].name}`, `${Math.min(n, have)} / ${n}${have >= n ? ' ✓' : ''}`, have >= n] as [string, string, boolean]; }),
+        desc: `${t.desc} ${cs.missing.length ? 'Collect the components, then build it at a shop.' : 'All components ready! Build it at your homeworld, a colony or an ally\'s shop.'}`,
         actions: [],
       };
     });
@@ -135,7 +137,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     } else pic.append(h('span', { class: 'inv-big' }, it.icon));
     nameEl.textContent = it.name + (it.qty !== undefined && it.qty > 1 ? ` (${it.qty})` : '');
     statsEl.innerHTML = '';
-    for (const [k, v] of it.stats) statsEl.append(h('span', null, k), h('b', null, v));
+    for (const [k, v, ok] of it.stats) statsEl.append(h('span', { class: ok ? 'ok' : '' }, k), h('b', { class: ok ? 'ok' : '' }, v));
     descEl.textContent = it.desc;
     renderKeys();
   };
@@ -163,7 +165,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     sel = Math.min(sel, Math.max(0, list.length - 1));
     listEl.innerHTML = '';
     rows = list.map((it, i) => {
-      const r = h('div', { class: 'bt-row inv-row' }, h('span', { class: 'bt-mark' }), h('span', { class: 'bt-ic' }, it.icon), h('span', { class: 'bt-name' }, it.name), h('span', { class: 'bt-val' }, it.qty !== undefined ? `×${it.qty}` : ''));
+      const r = h('div', { class: 'bt-row inv-row' }, h('span', { class: 'bt-mark' }), h('span', { class: 'bt-ic' }, it.icon), h('span', { class: 'bt-name' }, it.name), h('span', { class: 'bt-val' }, it.tag ? h('i', { class: 'inv-ready' }, it.tag) : it.qty !== undefined ? `×${it.qty}` : ''));
       r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { sel = i; detail(); } });
       r.addEventListener('click', () => { sel = i; detail(); });
       listEl.append(r);
@@ -200,6 +202,8 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     e.preventDefault();
   };
   window.addEventListener('keydown', onKey, true);
+  // A click outside the frame closes the hold.
+  root.addEventListener('pointerdown', (e) => { if (e.target === root) close(); });
   audio.sfx('click', { pitch: 0.7 });
   render();
 }

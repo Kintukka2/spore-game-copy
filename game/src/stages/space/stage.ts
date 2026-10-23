@@ -27,7 +27,8 @@ import { openEmpires, openMissions, openShip } from './ui/sheets';
 import { openLab } from './ui/xenoLab';
 import { COMP_IDS, RECIPES } from './salvage';
 import { firstContactTalk, hailTalk, takeoverTalk, tributeTalk } from './ui/diplomacy';
-import { distressTalk } from './ui/encounters';
+import { distressTalk, engineerTalk } from './ui/encounters';
+import { showLoot } from './ui/scanCard';
 import { openWreck } from './ui/lootBox';
 import { annexSystem, breakLaw, meet } from './empires';
 import { checkMainMissions, onArrive, tutorialEvent } from './missions';
@@ -197,7 +198,7 @@ export class SpaceStage implements Scene, WorldHooks {
   // ------------------------------------------------------------------ loop
   update(dt: number) {
     if (!this.ready || this.cinematic) return;
-    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft')) { this.hud.update(dt); return; }
+    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf')) { this.hud.update(dt); return; }
     this.w.inWarp = this.mode === 'warp';
     this.w.update(dt);
     this.fx.update(dt);
@@ -502,6 +503,9 @@ export class SpaceStage implements Scene, WorldHooks {
   toast(msg: string, icon?: string, kind?: 'info' | 'good' | 'bad' | 'gold') { this.ui.toast(msg, icon, kind); }
   ownerChanged() { this.w.dirtyTerritory = true; }
   changed() { /* HUD polls at 10 Hz */ }
+  loot(title: string, items: { icon: string; text: string }[], icon?: string) { showLoot(this.w, title, items, icon); }
+  /** Your chief engineer calls: everything is in for a blueprint. */
+  blueprintReady(id: string) { this.dialog(() => engineerTalk(this, id)); }
   firstContact(e: Empire) { this.dialog(() => firstContactTalk(this, e)); }
   tribute(e: Empire, amount: number) { this.dialog(() => tributeTalk(this, e, amount)); }
   takeoverOffer(e: Empire, star: number, price: number) { this.dialog(() => takeoverTalk(this, e, star, price)); }

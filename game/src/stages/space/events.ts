@@ -236,8 +236,10 @@ export function resolve(w: World, ev: GEvent) {
       const gift = gifts[Math.floor(Math.random() * gifts.length)];
       w.give(gift, 2);
       w.counter('relics');
-      const extra = salvageLine(giveSalvage(w, rollSalvage(w, 'relic')));
-      w.hooks?.toast(`Ancient relic recovered from ${pl.name}! Collectors pay ${pay(22000 + Math.floor(Math.random() * 16000))}, and it held 2 × ${TOOL_MAP[gift].icon} ${TOOL_MAP[gift].name}${extra ? `, plus ${extra}` : ''}.`, '🗿', 'gold');
+      const fee = pay(22000 + Math.floor(Math.random() * 16000));
+      const items = [{ icon: '💰', text: `${fee} from collectors` }, { icon: TOOL_MAP[gift].icon, text: `2 × ${TOOL_MAP[gift].name}` }, ...giveSalvage(w, rollSalvage(w, 'relic'))];
+      if (w.hooks?.loot) w.hooks.loot(`Relic recovered from ${pl.name}`, items, '🗿');
+      else w.hooks?.toast(`Ancient relic recovered from ${pl.name}! ${salvageLine(items)}.`, '🗿', 'gold');
       break;
     }
     case 'rare':

@@ -1,5 +1,5 @@
 // Planet scans: what lives on a world, and what a scan reveals and pays.
-import { giveSalvage, rollComps, rollSalvage, salvageLine } from './salvage';
+import { giveSalvage, rollComps, rollSalvage } from './salvage';
 import { TOOL_MAP, tScoreOf } from './data';
 import { onScan, tutorialEvent } from './missions';
 import type { Specimen } from './types';
@@ -45,14 +45,15 @@ export function scanPlanet(w: World, star: number, idx: number): ScanResult {
     pay = ps.destroyed || ps.owner === 'player' ? 0 : pl.kind === 'gas' ? 400 : life ? 600 + life * 250 : 500;
     if (pl.feature === 'wreck') {
       pay += 15000;
-      const parts = salvageLine(giveSalvage(w, { comps: rollComps(2, 0.2) }));
-      finds.push({ icon: '🛰️', text: `A crashed ship! Its data salvaged for §15,000, and its hull gave up ${parts}.` });
+      finds.push({ icon: '🛰️', text: 'A crashed ship! Its data salvaged for §15,000. From the hull:' });
+      for (const it of giveSalvage(w, { comps: rollComps(2, 0.2) })) finds.push(it);
     } else if (pl.feature === 'ruin') {
       const g = RUIN_GIFTS[Math.floor(Math.random() * RUIN_GIFTS.length)];
       w.give(g, 2);
       pay += 8000;
-      const extra = salvageLine(giveSalvage(w, rollSalvage(w, 'ruin')));
-      finds.push({ icon: '🏛️', text: `Ancient ruins held relics worth §8,000 and 2 × ${TOOL_MAP[g].icon} ${TOOL_MAP[g].name}${extra ? `, plus ${extra}` : ''}.` });
+      finds.push({ icon: '🏛️', text: 'Ancient ruins held relics worth §8,000, and:' });
+      finds.push({ icon: TOOL_MAP[g].icon, text: `2 × ${TOOL_MAP[g].name}` });
+      for (const it of giveSalvage(w, rollSalvage(w, 'ruin'))) finds.push(it);
     }
     if (pay) w.addMoney(pay);
   }

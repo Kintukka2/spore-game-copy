@@ -6,7 +6,7 @@ import { TAU, clamp } from '../../../engine/math';
 import { hexToRgb } from '../../../design/color';
 import { canvas } from './sprites';
 
-const TW = 128, TH = 64;
+const TW = 128;
 
 export type PlanetStyle = 'terran' | 'barren' | 'lava' | 'ice' | 'toxic' | 'gas' | 'hollow' | 'rubble';
 
@@ -56,17 +56,18 @@ export function hslRgb(h: number, s: number, l: number): RGB {
 
 const texCache = new Map<string, Uint8ClampedArray>();
 
-function texKey(l: PlanetLook) {
-  return `${l.seed}:${l.style}:${l.t}:${Math.round(l.atm * 10)}:${Math.round(l.temp * 10)}`;
+function texKey(l: PlanetLook, tw = TW) {
+  return `${l.seed}:${l.style}:${l.t}:${Math.round(l.atm * 10)}:${Math.round(l.temp * 10)}${tw === TW ? '' : '@' + tw}`;
 }
 
-/** RGBA texture (TW×TH, equirectangular) for a planet look. */
-export function texture(l: PlanetLook): Uint8ClampedArray {
-  const key = texKey(l);
+/** RGBA texture (tw×tw/2, equirectangular) for a planet look. Big close-ups ask for a finer one. */
+export function texture(l: PlanetLook, tw = TW): Uint8ClampedArray {
+  const th = tw / 2;
+  const key = texKey(l, tw);
   let tex = texCache.get(key);
   if (tex) return tex;
   if (texCache.size > 120) texCache.clear();
-  tex = new Uint8ClampedArray(TW * TH * 4);
+  tex = new Uint8ClampedArray(tw * th * 4);
   const N = makeNoise2D(l.seed);
   const N2 = makeNoise2D(l.seed ^ 0x9e37);
   const hue = l.hue;
@@ -78,19 +79,21 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
   const ice: RGB = [232, 242, 252];
   const seaLevel = [0, -0.12, 0.0, 0.06][l.t] ?? 0;
   const vegAmt = [0, 0.25, 0.6, 0.95][l.t] ?? 0;
-  for (let v = 0; v < TH; v++) {
-    const lat = (v / (TH - 1) - 0.5) * Math.PI;
+  for (let v = 0; v < th; v++) {
+    const lat = (v / (th - 1) - 0.5) * Math.PI;
     const la = Math.abs(lat) / (Math.PI / 2);
-    for (let u = 0; u < TW; u++) {
-      const lon = (u / TW) * TAU;
+    for (let u = 0; u < tw; u++) {
+      const lon = (u / tw) * TAU;
       const cx = Math.cos(lon), sy = Math.sin(lon);
       const e = N.fbm(cx * 1.2 + 3.1, sy * 1.2 + lat * 1.3, 5) * 0.75 + N2.fbm(cx * 2.4 - 7, lat * 2.4 + sy * 2.2, 3) * 0.35;
       let c: RGB;
       switch (l.style) {
         case 'terran': {
-          if (e < seaLevel) {
-            c = lerp3(seaDeep, seaShallow, clamp((e - seaLevel + 0.35) / 0.35, 0, 1));
-          } else {
+          // The shore blends over a sliver of height, so coastlines stay smooth instead of stair-stepped.
+          const shore = clamp((e - seaLevel) / 0.03 + 0.5, 0, 1);
+          const sea = shore < 1 ? lerp3(seaDeep, seaShallow, clamp((e - seaLevel + 0.35) / 0.35, 0, 1)) : seaDeep;
+          if (shore <= 0) c = sea;
+          else {
             const hgt = clamp((e - seaLevel) / 0.5, 0, 1);
             const moist = N2.fbm(cx * 1.6 + 11, sy * 1.6 - lat, 3) * 0.5 + 0.5;
             const warm = clamp(l.temp + (0.5 - la) * 0.3, 0, 1);
@@ -98,7 +101,7 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
             const vg = clamp(vegAmt * (moist * 1.4 - 0.1) - (warm > 0.7 ? (warm - 0.7) * 2 : 0), 0, 1);
             land = lerp3(land, lerp3(veg, vegLight, moist), vg);
             if (hgt > 0.75) land = lerp3(land, [220, 220, 225], (hgt - 0.75) * 2);
-            c = land;
+            c = shore < 1 ? lerp3(sea, land, shore) : land;
           }
           const capLat = 0.95 - (1 - l.temp) * 0.45;
           if (la > capLat + e * 0.08) c = lerp3(c, ice, clamp((la - capLat) * 8, 0, 1));
@@ -107,7 +110,8 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
         case 'barren': {
           const base = lerp3(hslRgb(30 + (hue % 30), 0.12, 0.3), hslRgb(30 + (hue % 30), 0.15, 0.6), clamp(e * 0.8 + 0.5, 0, 1));
           const crater = N2.noise(cx * 6 + sy * 2, lat * 7) ;
-          c = crater > 0.42 ? lerp3(base, [40, 36, 34], 0.5) : crater > 0.36 ? lerp3(base, [235, 228, 215], 0.35) : base;
+          c = lerp3(base, lerp3(base, [235, 228, 215], 0.35), clamp((crater - 0.36) / 0.02 + 0.5, 0, 1));
+          c = lerp3(c, lerp3(base, [40, 36, 34], 0.5), clamp((crater - 0.42) / 0.02 + 0.5, 0, 1));
           break;
         }
         case 'lava': {
@@ -119,7 +123,7 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
         case 'ice': {
           c = lerp3([168, 198, 228], [242, 248, 255], clamp(e + 0.55, 0, 1));
           const crack = 1 - Math.abs(N2.fbm(cx * 4, lat * 4 + sy * 4, 2));
-          if (crack > 0.93) c = lerp3(c, [90, 140, 200], 0.6);
+          if (crack > 0.9) c = lerp3(c, [90, 140, 200], 0.6 * clamp((crack - 0.92) / 0.02 + 0.5, 0, 1));
           break;
         }
         case 'toxic': {
@@ -137,7 +141,7 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
         }
         case 'hollow': {
           c = lerp3([44, 47, 56], [86, 92, 106], clamp(e + 0.5, 0, 1));
-          const gu = (u / TW) * 24, gv = (v / TH) * 12;
+          const gu = (u / tw) * 24, gv = (v / th) * 12;
           const line = Math.min(Math.abs(gu - Math.round(gu)), Math.abs(gv - Math.round(gv)));
           if (line < 0.07 && N2.noise(Math.round(gu) * 0.7, Math.round(gv) * 0.7 + lon) > -0.1) c = [255, 60, 74];
           break;
@@ -153,7 +157,7 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
         const amt = clamp((cl - 0.12) * 2.4, 0, 1) * clamp(l.atm * 1.3, 0, 0.85);
         if (amt > 0) c = lerp3(c, l.style === 'toxic' ? [220, 215, 140] : [250, 252, 255], amt);
       }
-      const i = (v * TW + u) * 4;
+      const i = (v * tw + u) * 4;
       tex[i] = c[0]; tex[i + 1] = c[1]; tex[i + 2] = c[2]; tex[i + 3] = 255;
     }
   }
@@ -163,10 +167,11 @@ export function texture(l: PlanetLook): Uint8ClampedArray {
 
 // ------------------------------------------------------------------ sphere projection
 interface Lut { S: number; idx: Int32Array; u: Float32Array; v: Float32Array; shade: Float32Array; n: number }
-const luts = new Map<number, Lut>();
+const luts = new Map<string, Lut>();
 
-function lut(S: number): Lut {
-  let L = luts.get(S);
+function lut(S: number, tw: number): Lut {
+  const th = tw / 2;
+  let L = luts.get(`${S}:${tw}`);
   if (L) return L;
   const idx = new Int32Array(S * S), u = new Float32Array(S * S), v = new Float32Array(S * S), shade = new Float32Array(S * S);
   let n = 0;
@@ -178,14 +183,14 @@ function lut(S: number): Lut {
     const nz = Math.sqrt(1 - d2);
     const lat = Math.asin(ny), lon = Math.atan2(nx, nz);
     idx[n] = (py * S + px) * 4;
-    u[n] = (lon / TAU) * TW;
-    v[n] = Math.min(TH - 1.001, Math.max(0, (lat / Math.PI + 0.5) * TH - 0.5));
+    u[n] = (lon / TAU) * tw;
+    v[n] = Math.min(th - 1.001, Math.max(0, (lat / Math.PI + 0.5) * th - 0.5));
     // Edge anti-aliasing via alpha, limb darkening via shade.
     shade[n] = 0.62 + 0.38 * Math.pow(nz, 0.6);
     n++;
   }
   L = { S, idx, u, v, shade, n };
-  luts.set(S, L);
+  luts.set(`${S}:${tw}`, L);
   return L;
 }
 
@@ -196,27 +201,29 @@ export class SphereSprite {
   private img: ImageData;
   private lastRot = -1;
   private lastKey = '';
-  constructor(readonly S: number) {
+  /** `tw` is the texture width: 128 by default, finer for big close-ups. */
+  constructor(readonly S: number, readonly tw = TW) {
     this.canvas = canvas(S, S);
     this.g = this.canvas.getContext('2d')!;
     this.img = this.g.createImageData(S, S);
   }
   /** Re-render if the look or rotation (0..1 turns) changed noticeably. */
   update(l: PlanetLook, rot: number, force = false) {
-    const key = texKey(l);
-    const rotPx = rot * TW;
-    if (!force && key === this.lastKey && Math.abs(rotPx - this.lastRot) < 0.35 * (TW / this.S) * 2) return;
+    const tw = this.tw;
+    const key = texKey(l, tw);
+    const rotPx = rot * tw;
+    if (!force && key === this.lastKey && Math.abs(rotPx - this.lastRot) < 0.35 * (tw / this.S) * 2) return;
     this.lastKey = key;
     this.lastRot = rotPx;
-    const tex = texture(l);
-    const L = lut(this.S);
+    const tex = texture(l, tw);
+    const L = lut(this.S, tw);
     const d = this.img.data;
     for (let k = 0; k < L.n; k++) {
-      let tu = (L.u[k] + rotPx) % TW;
-      if (tu < 0) tu += TW;
-      const u0 = tu | 0, fu = tu - u0, u1 = u0 + 1 === TW ? 0 : u0 + 1;
+      let tu = (L.u[k] + rotPx) % tw;
+      if (tu < 0) tu += tw;
+      const u0 = tu | 0, fu = tu - u0, u1 = u0 + 1 === tw ? 0 : u0 + 1;
       const vv = L.v[k], v0 = vv | 0, fv = vv - v0, v1 = v0 + 1;
-      const a = (v0 * TW + u0) * 4, b = (v0 * TW + u1) * 4, c = (v1 * TW + u0) * 4, e = (v1 * TW + u1) * 4;
+      const a = (v0 * tw + u0) * 4, b = (v0 * tw + u1) * 4, c = (v1 * tw + u0) * 4, e = (v1 * tw + u1) * 4;
       const s = L.shade[k];
       const o = L.idx[k];
       const w00 = (1 - fu) * (1 - fv) * s, w10 = fu * (1 - fv) * s, w01 = (1 - fu) * fv * s, w11 = fu * fv * s;

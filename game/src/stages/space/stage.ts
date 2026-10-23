@@ -563,6 +563,7 @@ export class SpaceStage implements Scene, WorldHooks {
 
   useEnergyPack() {
     const w = this.w;
+    if (w.s.energy >= w.maxEnergy - 0.5) { this.ui.toast('Your energy cells are already full.', '⚡'); return; }
     if (!w.use('recharge')) { audio.sfx('error'); return; }
     w.s.energy = Math.min(w.maxEnergy, w.s.energy + w.maxEnergy * 0.6);
     audio.sfx('heal');

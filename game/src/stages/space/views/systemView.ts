@@ -21,6 +21,9 @@ import { drawExploreBadge } from './badge';
 import { SPICE, SPICE_COLORS, TOOL_MAP } from '../data';
 import { shade } from '../../../design/color';
 
+/** Whether this browser applies `ctx.filter` (older Safari ignores it). */
+const CANVAS_FILTER = typeof (document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D | null)?.filter === 'string';
+
 interface Beacon { a: number; taken: boolean }
 interface FloatText { x: number; y: number; text: string; color: string; life: number }
 interface Traffic { design: Design; x: number; y: number; vx: number; vy: number; angle: number; to: number; engine: string; size: number }
@@ -954,6 +957,12 @@ export class SystemView {
       }
       return;
     }
+    // A world you have not explored yet sits greyed out and out of focus until you scan it or land.
+    const known = w.explored(this.star, p.idx);
+    if (!known) {
+      g.save();
+      if (CANVAS_FILTER) g.filter = `grayscale(1) brightness(0.6) blur(${(Math.max(1.2, p.size * z * 0.05) * (this.st.game.dpr || 1)).toFixed(1)}px)`;
+    }
     drawPlanet(g, sprite, l, x, y, p.size, {
       light, rings: p.rings, ringTilt: -0.3 + (p.seed % 10) / 25, lights: owner && owner !== 'hollow' ? ps.cities : 0,
       lightColor: owner === 'player' ? '#9ff5e2' : '#ffd88a', t: this.t, hollowPulse: owner === 'hollow',
@@ -968,6 +977,20 @@ export class SystemView {
       g.beginPath(); g.arc(mx, my, mr, 0, TAU); g.fill();
       g.fillStyle = 'rgba(0,0,10,0.55)';
       g.beginPath(); g.arc(mx - Math.cos(light) * mr * 0.4, my - Math.sin(light) * mr * 0.4, mr, 0, TAU); g.fill();
+    }
+    if (!known) {
+      g.restore();
+      // A veil of grey haze drifting over it (and all the greying, where canvas filters are missing).
+      g.fillStyle = `rgba(112,120,134,${CANVAS_FILTER ? 0.22 : 0.62})`;
+      g.beginPath(); g.arc(x, y, p.size * 1.02, 0, TAU); g.fill();
+      g.save();
+      g.beginPath(); g.arc(x, y, p.size * 1.02, 0, TAU); g.clip();
+      g.fillStyle = 'rgba(190,198,212,0.16)';
+      for (let i = 0; i < 3; i++) {
+        const k = ((this.t * 0.05 + i / 3 + p.seed * 0.001) % 1) * 2 - 1;
+        g.beginPath(); g.ellipse(x + k * p.size * 1.4, y + (i - 1) * p.size * 0.55, p.size * 0.9, p.size * 0.22, 0, 0, TAU); g.fill();
+      }
+      g.restore();
     }
     // Owner ring
     if (col) {

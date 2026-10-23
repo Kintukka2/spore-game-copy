@@ -555,7 +555,9 @@ export class SurfaceScene implements Scene {
       tg.lift = 0.01;
       for (const o of this.critters) if (o !== tg && o.site === tg.site) o.panic = 1.6;
     } else {
-      if (w.count('seeds') >= SEED_CAP) { this.st.ui.toast('Your seed vault is full.', '🌱'); audio.sfx('error'); return; }
+      // A plant comes aboard as a living sample in the hold, plus seed pods while the vault has room.
+      const holdFull = w.cargoUsed >= w.cargoCap, vaultFull = w.count('seeds') >= SEED_CAP;
+      if (holdFull && vaultFull) { this.st.ui.toast('Your cargo hold and seed vault are both full. Exhibit, sell or release some specimens first.', '📦', 'bad'); audio.sfx('error'); return; }
       this.beam = { site: tg, p: 0 };
     }
     audio.sfx('warp', { pitch: 1.6, vol: 0.5 });
@@ -609,10 +611,14 @@ export class SurfaceScene implements Scene {
       if (b.p < 1) return;
       this.beam = null;
       s.harvested = true;
-      w.give('seeds', 2);
+      const sample = abduct(w, this.star, this.idx, s.sp) === null;
+      const pods = Math.min(2, Math.max(0, SEED_CAP - w.count('seeds')));
+      if (pods) w.give('seeds', pods);
       this.gathered++;
       const grant = catalogue(w, s.sp);
-      this.st.ui.toast(`Gathered seeds of ${s.sp.name}. +2 seed pods.` + (grant ? ` New to the Xenopedia: ${money(grant)} grant.` : ''), '🌱', 'good');
+      const got = [sample ? `a living ${s.sp.name} sample for your hold` : '', pods ? `+${pods} seed pods` : ''].filter(Boolean).join(' and ');
+      const why = !sample ? ' (hold full: seeds only)' : !pods ? ' (seed vault full)' : '';
+      this.st.ui.toast(`Gathered ${got}${why}.` + (grant ? ` New to the Xenopedia: ${money(grant)} grant.` : ''), '🌱', 'good');
       audio.sfx('pop');
     }
     this.refreshHud();

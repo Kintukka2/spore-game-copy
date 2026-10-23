@@ -8,6 +8,7 @@ import { inXenopedia } from '../xenolab';
 import type { SpaceStage } from '../stage';
 import { dietIcon, money, paintSpecimen, rarityText } from './common';
 import { openCrate } from './crateOpen';
+import { terminalAsk } from './talk';
 
 type Tab = 'spice' | 'specimens' | 'aid' | 'parts' | 'plans';
 const TABS: { id: Tab; label: string }[] = [
@@ -152,24 +153,12 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
   };
   const act = (a: Action) => { a.run(); render(); };
   // Every use asks first, in the hold's own terminal style.
-  let asking: { a: Action; el: HTMLElement } | null = null;
-  const dismiss = () => { asking?.el.remove(); asking = null; };
-  const confirmAsk = () => { const a = asking?.a; dismiss(); if (a) act(a); };
+  let asking: ReturnType<typeof terminalAsk> | null = null;
+  const dismiss = () => { asking?.close(); asking = null; };
   const ask = (a: Action) => {
     dismiss();
     if (!a.ask) { act(a); return; }
-    const opt = (k: string, label: string, f: () => void, on = false) => {
-      const b = h('div', { class: 'ft-opt bt-key' + (on ? ' on' : ''), role: 'button' }, h('span', { class: 'ft-tag' }, `[${k}] `), label);
-      b.addEventListener('click', (e) => { e.stopPropagation(); f(); });
-      return b;
-    };
-    const el = h('div', { class: 'inv-ask', role: 'dialog', 'aria-modal': 'true' },
-      h('div', { class: 'inv-ask-box' }, h('p', null, a.ask),
-        h('div', { class: 'bt-keys' }, opt(a.key, `Yes, ${a.label.toLowerCase()}`, confirmAsk, true), opt('Esc', 'Cancel', () => { audio.sfx('click', { pitch: 0.8 }); dismiss(); }))));
-    el.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === el) dismiss(); });
-    box.append(el);
-    asking = { a, el };
-    audio.sfx('tap');
+    asking = terminalAsk(box, a.ask, { key: a.key, label: `Yes, ${a.label.toLowerCase()}` }, () => { asking = null; act(a); }, () => { asking = null; });
   };
   /** Clicking an item you can use asks to use it. */
   const primary = (it?: Item) => it?.actions.find((x) => x.key === 'E');
@@ -214,12 +203,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
     if (document.querySelector('.sp-crate, .sp-sheet-wrap')) return;
     e.stopPropagation();
     const k = e.key.toLowerCase();
-    if (asking) {
-      if (k === 'enter' || k === 'y' || k === asking.a.key.toLowerCase()) confirmAsk();
-      else if (k === 'escape' || k === 'tab' || k === 'n') { audio.sfx('click', { pitch: 0.8 }); dismiss(); }
-      e.preventDefault();
-      return;
-    }
+    if (asking?.open) { asking.key(k); e.preventDefault(); return; }
     const ti = TABS.findIndex((t) => t.id === tab);
     if (k === 'arrowdown' || k === 's') { sel = Math.min(list.length - 1, sel + 1); detail(); rows[sel]?.scrollIntoView({ block: 'nearest' }); }
     else if (k === 'arrowup' || k === 'w') { sel = Math.max(0, sel - 1); detail(); rows[sel]?.scrollIntoView({ block: 'nearest' }); }
@@ -235,7 +219,7 @@ export function openInventory(st: SpaceStage, start: Tab = 'spice') {
   };
   window.addEventListener('keydown', onKey, true);
   // A click outside the frame closes the hold.
-  root.addEventListener('pointerdown', (e) => { if (e.target !== root) return; if (asking) dismiss(); else close(); });
+  root.addEventListener('pointerdown', (e) => { if (e.target !== root) return; if (asking?.open) dismiss(); else close(); });
   audio.sfx('click', { pitch: 0.7 });
   render();
 }

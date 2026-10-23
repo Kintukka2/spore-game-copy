@@ -225,7 +225,7 @@ export function resolve(w: World, ev: GEvent) {
       const o = w.ownerOf(ev.star);
       const e = o && o !== 'player' && o !== 'hollow' ? w.emap.get(o) : null;
       const loot = pay(9000 + Math.floor(Math.random() * 6000));
-      if (e && !e.dead) {
+      if (e && !e.dead && !e.war) {
         addMod(e, 'rescue', 'You rescued our stranded crew', 12, { max: 36, decay: 0.4 });
         w.hooks?.toast(`You rescued a stranded ${e.name} crew near ${pl.name}. A grateful reward: ${loot}, and better relations.`, '🆘', 'good');
       } else w.hooks?.toast(`You rescued a stranded freighter crew near ${pl.name}. Their reward: ${loot}`, '🆘', 'good');

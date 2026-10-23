@@ -1,6 +1,7 @@
 // The Space HUD: money, health and energy, rank badge, mission tracker, alerts,
 // view toggle, contextual planet button, ability cluster and the debug panel.
 import { abilityButton, button, h, progressBar } from '../../../engine/ui';
+import { audio } from '../../../engine/audio';
 import { fmt } from '../../../engine/math';
 import { pauseMenu } from '../../common';
 import { RANKS } from '../data';
@@ -16,6 +17,11 @@ export class SpaceHud {
   private cargoEl: HTMLElement;
   private hpBar = progressBar('hp');
   private enBar = progressBar('energy');
+  /** Quick-use buttons at the end of each bar: a Repair Pack, an Energy Pack. */
+  private hpPlus: HTMLButtonElement;
+  private enPlus: HTMLButtonElement;
+  private hpN = h('i');
+  private enN = h('i');
   private rankBtn: HTMLButtonElement;
   private rankIcon: HTMLElement;
   private rankName: HTMLElement;
@@ -58,7 +64,14 @@ export class SpaceHud {
     const ship = button('🧰', () => st.openShip('shop'), { cls: 'icon', title: 'Ship and tool shop' });
     const emp = button('👽', () => st.openEmpires(), { cls: 'icon', title: 'Empires' });
     const row1 = h('div', { class: 'sp-row' }, pause, this.rankBtn, moneyBtn, missions, ship, emp);
-    const bars = h('div', { class: 'sp-bars' }, this.hpBar.el, this.enBar.el);
+    const plus = (cls: string, n: HTMLElement, use: () => void) => {
+      const b = h('button', { class: 'sp-plus ' + cls }, '+', n) as HTMLButtonElement;
+      b.addEventListener('click', (e) => { e.stopPropagation(); audio.unlock(); use(); this.refresh(true); });
+      return b;
+    };
+    this.hpPlus = plus('hp', this.hpN, () => st.useRepair());
+    this.enPlus = plus('en', this.enN, () => st.useEnergyPack());
+    const bars = h('div', { class: 'sp-bars' }, h('div', { class: 'sp-barw' }, this.hpBar.el, this.hpPlus), h('div', { class: 'sp-barw' }, this.enBar.el, this.enPlus));
     this.trackTitle = h('b', null, '');
     this.trackDesc = h('span', { class: 'sp-tdesc' }, '');
     this.track = h('div', { class: 'sp-track', role: 'button', title: 'Missions' }, h('span', null, '📜'), this.trackTitle, this.trackDesc);
@@ -176,6 +189,15 @@ export class SpaceHud {
     // Energy only recharges at a friendly dock; the bar says when it is charging.
     const charging = w.atDock() && !w.inCombat && s.energy < me - 0.5;
     this.set('en', `${Math.round(s.energy)}/${me}/${charging}`, () => this.enBar.set(s.energy / me, `⚡ ${Math.round(s.energy)} / ${me}${charging ? ' ▲' : ''}`));
+    const packs = (btn: HTMLButtonElement, n: HTMLElement, id: string, full: boolean, what: string, name: string) => this.set(id, `${w.count(id)}/${full}`, () => {
+      const c = w.count(id);
+      n.textContent = c ? String(c) : '';
+      btn.disabled = !c || full;
+      btn.title = !c ? `No ${name}s aboard: buy them at a shop` : full ? `Your ${what} is full` : `Use one ${name} (${c} left)`;
+      btn.setAttribute('aria-label', btn.title);
+    });
+    packs(this.hpPlus, this.hpN, 'repair', s.hp >= mh - 0.5, 'hull', 'Repair Pack');
+    packs(this.enPlus, this.enN, 'recharge', s.energy >= me - 0.5, 'energy', 'Energy Pack');
     if (s.energy < me * 0.3 && !w.atDock() && st.mode !== 'warp') st.game.hint('energy-dock', 'Energy only recharges at your homeworld, your colonies and allied systems. ⚡ Energy Packs top it up anywhere.', '⚡');
     // Exploration legend (galaxy map only)
     const gal = st.mode === 'galaxy';

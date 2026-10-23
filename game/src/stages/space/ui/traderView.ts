@@ -11,7 +11,7 @@ import type { GEvent } from '../types';
 import type { SpaceStage } from '../stage';
 import { fmtTime, money, rarityText } from './common';
 import { openCrate } from './crateOpen';
-import { faceScene } from './talk';
+import { faceScene, terminalAsk } from './talk';
 import { showLoot } from './scanCard';
 
 const TITLES = ['the Haggler', 'of the Long Road', 'the Starlane Peddler', 'the Bargainer', 'Junk-Prince', 'the Generous (Allegedly)'];
@@ -122,10 +122,23 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       audio.sfx('tap', { pitch: picked.has(i) ? 1.4 : 0.9, vol: 0.5 });
       render();
     };
+    // Accepting asks first, listing both sides of the deal and the net.
+    let asking: ReturnType<typeof terminalAsk> | null = null;
     const accept = () => {
       if (!picked.size || !w.s.events.includes(ev)) { audio.sfx('error'); return; }
       const t = sums();
       if (!t.ok) { audio.sfx('error'); talk('cant'); return; }
+      const deals = traderDeals(w, ev);
+      const chosen = [...picked].map((i) => deals[i]).filter((d): d is Deal => !!d);
+      const buys = chosen.filter((d) => d.price >= 0), sells = chosen.filter((d) => d.price < 0);
+      const q = h('div', null, h('div', null, 'Strike this deal?'),
+        buys.length ? h('div', { class: 'ft-ask-l' }, `You buy: ${buys.map((d) => `${d.icon} ${d.name}`).join(', ')} (${money(t.pay)})`) : null,
+        sells.length ? h('div', { class: 'ft-ask-l' }, `You sell: ${sells.map((d) => `${d.icon} ${d.name.replace(/^Your /, '')}`).join(', ')} (+${money(t.get)})`) : null,
+        h('div', { class: 'ft-ask-l' }, t.net >= 0 ? `You gain ${money(t.net)}.` : `Net cost: ${money(-t.net)}.`));
+      asking = terminalAsk(box, q, { key: 'A', label: 'Yes, deal' }, () => { asking = null; strike(); }, () => { asking = null; });
+    };
+    const strike = () => {
+      if (!picked.size || !w.s.events.includes(ev) || !sums().ok) { audio.sfx('error'); render(); return; }
       const deals = traderDeals(w, ev);
       // Sell first, so your sales pay for your buys.
       const order = [...picked].sort((a, b) => (deals[a]?.price ?? 0) - (deals[b]?.price ?? 0));
@@ -207,6 +220,7 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       if (document.querySelector('.sp-crate')) return;
       e.stopPropagation();
       const k = e.key.toLowerCase();
+      if (asking?.open) { asking.key(k); e.preventDefault(); return; }
       const { mine, theirs } = lists();
       const cols = [mine, theirs];
       if (k === 'arrowdown' || k === 's') { row = Math.min(cols[side].length - 1, row + 1); highlight(); }

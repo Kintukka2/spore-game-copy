@@ -235,6 +235,13 @@ export function declareWar(w: World, e: Empire, reason = 'You declared war on us
   if (e.allied) breakAlliance(w, e, true);
   if (e.route !== null) { e.route = null; removeMod(e, 'route'); }
   setMod(e, 'war', reason, -50);
+  // Their jobs and offers are off the table.
+  const jobs = w.s.missions.filter((m) => m.giver === e.id && !m.main);
+  if (jobs.length) {
+    w.s.missions = w.s.missions.filter((m) => !jobs.includes(m));
+    w.hooks?.toast(`${e.name} cancelled the ${jobs.length === 1 ? 'job they gave you' : `${jobs.length} jobs they gave you`}.`, '📜', 'bad');
+  }
+  delete w.s.offers[e.id];
   if (e.arch !== 'hollow') w.game.history(`War with ${e.name}`, '⚔️');
 }
 

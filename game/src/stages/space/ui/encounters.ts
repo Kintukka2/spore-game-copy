@@ -15,6 +15,8 @@ import { TOOL_MAP } from '../data';
 import { COMPONENTS, RECIPES, type CompId } from '../salvage';
 
 const pickOf = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+/** Energy it takes to tow a stranded ship clear. */
+const TOW = 25;
 
 /** A stranger's face, the same every time for the same seed. */
 function stranger(seed: number) {
@@ -123,17 +125,29 @@ export async function distressTalk(st: SpaceStage, ev: GEvent, ambush: () => voi
     return;
   }
   const o = w.ownerOf(ev.star);
-  const e: Empire | null = o && o !== 'player' && o !== 'hollow' ? w.emap.get(o) ?? null : null;
+  // An enemy's crew would never call you for help: a neutral freighter is stranded there instead.
+  const owner = o && o !== 'player' && o !== 'hollow' ? w.emap.get(o) ?? null : null;
+  const e: Empire | null = owner && !owner.war ? owner : null;
+  // Towing a dead ship drains your cells.
+  const tow = () => {
+    if (w.s.energy < TOW) return false;
+    w.s.energy -= TOW;
+    talkNote(`Towing took ⚡${TOW} energy.`);
+    return true;
+  };
+  const low = (): Line => ({ say: 'Your engines are running on fumes too! Recharge and come back, please. We will hold on as long as we can.', replies: [{ tag: 'Leave', text: 'I\'ll be back.', leave: true }] });
   const crew = e && !e.dead ? { name: `${e.species} Captain`, design: e.creature, color: e.color } : { name: `${s.species} Freighter Captain`, design: s.design, color: '#ffd166' };
   await openTalk({ name: crew.name, sub: e ? e.name : 'Stranded freighter', design: crew.design, color: crew.color, voice: { sfx: 'tap', pitch: 1.4 }, ...wallet(st),
     meter: e ? () => ({ v: relation(e), label: stanceInfo(e).label }) : undefined }, {
     say: `Mayday, mayday! Our drive core is dead and life support is failing. We have been drifting off ${pl.name} for days. Can you tow us out?`,
     replies: [
-      { text: 'Hold tight. We\'ll get you moving.', go: () => {
+      { tag: `−${TOW} energy`, text: 'Hold tight. We\'ll get you moving.', fail: w.s.energy < TOW, go: () => {
+        if (!tow()) return low();
         paid(st, () => resolve(w, ev));
         return end('Thank the stars! Take this, it is all we can spare. We will not forget you.', 'happy');
       } },
-      { tag: 'Barter', text: 'A rescue like this isn\'t free.', go: () => {
+      { tag: `Barter · −${TOW} energy`, text: 'A rescue like this isn\'t free.', fail: w.s.energy < TOW, go: () => {
+        if (!tow()) return low();
         paid(st, () => { resolve(w, ev); w.addMoney(5000); });
         if (e) addMod(e, 'haggled', 'You haggled over our rescue', -6, { min: -12, decay: 0.5 });
         return end('Robbed by our own rescuers! ...Fine. Take it. Take all of it.', 'angry');

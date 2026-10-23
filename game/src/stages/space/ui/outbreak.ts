@@ -37,7 +37,7 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
       h('div', { class: 'ob-stat' }, leftEl, h('span', null, 'outbreaks')),
       h('div', { class: 'ob-stat ok' }, doneEl, h('span', null, 'purged'))),
     h('div', { class: 'ob-stage' }, cv, banner),
-    h('div', { class: 'ob-hint' }, 'Tap the glowing spots to purge them. Drag to spin the world. Spots left alone grow hot and spread!'));
+    h('div', { class: 'ob-hint' }, 'Tap the glowing spots to purge them. Drag the world, or tap the ◀ ▶ arrows, to find spots on the far side. Spots left alone grow hot and spread!'));
   document.body.append(root);
   audio.sfx('alarm', { vol: 0.5 });
 
@@ -47,6 +47,9 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
   let bursts: Burst[] = [];
   let floats: Float[] = [];
   let shake = 0;
+  // Spinning to the far side: a target turn set by the arrows, and when you last dragged (for the swipe hint).
+  let target: number | null = null, lastDrag = -9;
+  let hidden = { l: 0, r: 0 };
 
   const look = (): PlanetLook => {
     const ps = w.peekPS(ev.star, ev.planet);
@@ -113,6 +116,31 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
     if (!marks.length) finish(true);
   };
 
+  /** The side arrows: where they sit, if that side hides any spots. */
+  const arrows = () => {
+    const { cx, cy, r } = geom();
+    // Beside the world when there is room, otherwise just under it.
+    const room = cx - r - 44 >= 30;
+    const dx = room ? r + 44 : r * 0.72, y = room ? cy : cy + r + 50;
+    return [
+      { side: -1, n: hidden.l, x: cx - dx, y },
+      { side: 1, n: hidden.r, x: cx + dx, y },
+    ].filter((a) => a.n > 0);
+  };
+  /** Turn the world until the nearest hidden spot on that side faces you. */
+  const spinTo = (side: number) => {
+    let best = -1, bz = -2;
+    for (let i = 0; i < marks.length; i += 2) {
+      const p = project(marks[i], marks[i + 1]);
+      if (p.z >= 0.1 || Math.sign(p.side) !== side) continue;
+      if (p.z > bz) { bz = p.z; best = i; }
+    }
+    if (best < 0) return;
+    target = ((-marks[best] / TAU) % 1 + 1) % 1;
+    spin = 0;
+    audio.sfx('whoosh', { pitch: 1.3, vol: 0.5 });
+  };
+
   // Drag to spin (with a little inertia); a short tap purges.
   let down: { x: number; y: number; rot: number; id: number; moved: boolean; lx: number; lt: number } | null = null;
   cv.addEventListener('pointerdown', (e) => {
@@ -123,8 +151,9 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
   cv.addEventListener('pointermove', (e) => {
     if (!down || e.pointerId !== down.id) return;
     const dx = e.clientX - down.x;
-    if (Math.abs(dx) > 8) down.moved = true;
+    if (Math.abs(dx) > 8) { down.moved = true; target = null; }
     if (!down.moved) return;
+    lastDrag = t;
     const wdt = geom().r * 2 * 1.6;
     rot = (((down.rot - dx / wdt) % 1) + 1) % 1;
     const now = performance.now();
@@ -135,7 +164,10 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
     if (!down || e.pointerId !== down.id) return;
     if (!down.moved && !won && !lost) {
       const rc = cv.getBoundingClientRect();
-      tryPurge(e.clientX - rc.left, e.clientY - rc.top);
+      const x = e.clientX - rc.left, y = e.clientY - rc.top;
+      const arrow = arrows().find((a) => Math.hypot(a.x - x, a.y - y) < 36);
+      if (arrow) spinTo(arrow.side);
+      else tryPurge(x, y);
     }
     down = null;
   };
@@ -147,7 +179,14 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     t += dt;
-    if (!down) {
+    if (!down && target !== null) {
+      // Ease the shortest way round to the arrow's target.
+      let d = target - rot;
+      d -= Math.round(d);
+      const step = Math.sign(d) * Math.min(Math.abs(d), Math.max(0.05, Math.abs(d) * 5) * dt);
+      rot = (((rot + step) % 1) + 1) % 1;
+      if (Math.abs(d) < 0.003) target = null;
+    } else if (!down) {
       rot = (((rot + (0.012 + spin) * dt) % 1) + 1) % 1;
       spin *= Math.exp(-2.5 * dt);
     }
@@ -199,13 +238,30 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
     sprite.update(l, rot);
     drawPlanet(g, sprite, l, cx, cy, r, { light: -2.4, rings: pl.rings, ringTilt: -0.3, t });
     // Spots: green when fresh, yellow, then red and frantic just before they spread.
-    let hiddenL = 0, hiddenR = 0;
+    let hiddenL = 0, hiddenR = 0, shown = 0;
     for (let i = 0; i < marks.length; i += 2) {
       const p = project(marks[i], marks[i + 1]);
-      if (p.z < 0.1) { if (p.side < 0) hiddenL++; else hiddenR++; continue; }
       const f = clamp(ages[i / 2] / spreadT, 0, 1);
-      const pop = clamp(born[i / 2] / 0.35, 0, 1);
       const col = f < 0.5 ? '#7dff6a' : f < 0.8 ? '#ffd166' : '#ff5a4f';
+      if (p.z < 0.1) {
+        if (p.side < 0) hiddenL++; else hiddenR++;
+        // Far side: a blip on the rim at the spot's height, brighter as it comes round.
+        const yy = cy + Math.sin(marks[i + 1]) * r;
+        const xx = cx + (p.side < 0 ? -1 : 1) * Math.sqrt(Math.max(0, r * r - (yy - cy) ** 2));
+        const near = clamp((p.z + 1) / 1.1, 0, 1);
+        g.globalAlpha = 0.3 + 0.7 * near * near;
+        g.globalCompositeOperation = 'lighter';
+        blit(g, glow(col, 32), xx, yy, 22 + 10 * Math.sin(t * 6 + i));
+        g.globalCompositeOperation = 'source-over';
+        g.strokeStyle = col;
+        g.lineWidth = 3;
+        const ang = Math.atan2(yy - cy, xx - cx);
+        g.beginPath(); g.arc(cx, cy, r + 5, ang - 0.09, ang + 0.09); g.stroke();
+        g.globalAlpha = 1;
+        continue;
+      }
+      shown++;
+      const pop = clamp(born[i / 2] / 0.35, 0, 1);
       const pul = 0.6 + 0.4 * Math.sin(t * (5 + f * 14) + i);
       const sz = (11 + f * 8) * (r / 150) * (0.4 + pop * 0.6) * Math.max(0.55, p.z);
       g.globalCompositeOperation = 'lighter';
@@ -223,12 +279,48 @@ export function openOutbreak(st: SpaceStage, ev: GEvent, onClose?: () => void) {
         g.beginPath(); g.arc(p.x, p.y, sz * 1.6, -Math.PI / 2, -Math.PI / 2 + TAU * f); g.stroke();
       }
     }
-    // Spots out of sight: counters at the limb.
-    g.font = '700 14px Fredoka, system-ui, sans-serif';
+    // Spots out of sight: big pulsing arrows at the sides (tap to turn the world to them).
+    hidden = { l: hiddenL, r: hiddenR };
     g.textBaseline = 'middle';
-    g.fillStyle = '#c9ffbf';
-    if (hiddenL) { g.textAlign = 'right'; g.fillText(`◀ ${hiddenL}`, cx - r - 12, cy); }
-    if (hiddenR) { g.textAlign = 'left'; g.fillText(`${hiddenR} ▶`, cx + r + 12, cy); }
+    g.textAlign = 'center';
+    for (const a of won || lost ? [] : arrows()) {
+      const pul = 1 + 0.08 * Math.sin(t * 6);
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = 0.55;
+      blit(g, glow('#5fdc4a', 32), a.x, a.y, 70 * pul);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = 'rgba(6,26,8,0.88)';
+      g.strokeStyle = '#7dff6a';
+      g.lineWidth = 2.5;
+      g.beginPath(); g.arc(a.x, a.y, 25 * pul, 0, TAU); g.fill(); g.stroke();
+      // Chevron, nudging outward.
+      const nx = a.x + a.side * (2 + 3 * Math.sin(t * 6));
+      g.strokeStyle = '#c9ffbf';
+      g.lineWidth = 4;
+      g.lineCap = 'round';
+      g.beginPath(); g.moveTo(nx - a.side * 4, a.y - 9); g.lineTo(nx + a.side * 6, a.y); g.lineTo(nx - a.side * 4, a.y + 9); g.stroke();
+      g.lineCap = 'butt';
+      g.font = '700 13px Fredoka, system-ui, sans-serif';
+      g.fillStyle = '#c9ffbf';
+      g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.7)';
+      const lbl = `${a.n} hidden`;
+      g.strokeText(lbl, a.x, a.y + 40); g.fillText(lbl, a.x, a.y + 40);
+    }
+    // Nothing in view but spots behind: a hand shows the swipe.
+    if (!won && !lost && !shown && hiddenL + hiddenR > 0 && !down && target === null && t - lastDrag > 2) {
+      const k = (t * 0.7) % 1;
+      const hx = cx - r * 0.45 * (hiddenR >= hiddenL ? 1 : -1) * (1 - 2 * k), hy = cy + r * 0.35;
+      g.globalAlpha = Math.sin(k * Math.PI);
+      g.font = `${Math.round(r * 0.32)}px system-ui, sans-serif`;
+      g.fillText('👆', hx, hy);
+      g.font = '700 16px Fredoka, system-ui, sans-serif';
+      g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.fillStyle = '#ffffff';
+      const msg = `Swipe to spin · ${hiddenL + hiddenR} on the far side`;
+      g.globalAlpha = 0.6 + 0.4 * Math.sin(t * 3);
+      g.strokeText(msg, cx, cy - r - 18); g.fillText(msg, cx, cy - r - 18);
+      g.globalAlpha = 1;
+    }
     // Bursts and floating words
     for (const b of bursts) { b.life -= dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.94; b.vy *= 0.94; }
     bursts = bursts.filter((b) => b.life > 0);

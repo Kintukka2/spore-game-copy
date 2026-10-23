@@ -16,7 +16,7 @@ import { scanPlanet } from '../scan';
 import { EVENT_INFO } from '../events';
 import type { Empire, GEvent, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
-import { inXenopedia } from '../xenolab';
+import { BUYERS, buyerAt, buyerWants, inXenopedia, sellSpecimen, specimenPrice, zooAppetite, zooFull } from '../xenolab';
 import { landingBlock } from '../surface/look';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './common';
 import { showScan } from './scanCard';
@@ -710,6 +710,7 @@ export class PlanetPanel {
       if (prod) row.append(button('Buy', () => { const n = buy(w, e, c, 1); if (!n) { audio.sfx('error'); this.st.ui.toast(w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'Not enough money.', '💱'); } this.render(); }, { cls: 'small' }));
       B.append(row);
     }
+    this.specimenMarket(e);
     // Takeover
     const prog = e.takeover[this.star] ?? 0;
     const tb = progressBar('gold');
@@ -717,6 +718,38 @@ export class PlanetPanel {
     B.append(h('div', { class: 'sp-section' }, 'Takeover'), tb.el, h('div', { class: 'sp-mini' }, `Trading here (and a trade route) fills the bar. When it's full, ${e.species} will sell you this system for about ${money(systemPrice(w, this.star))}.`));
     if (prog >= 1) B.append(button('🏳️ Make an offer', () => this.st.takeoverOffer(e, this.star, systemPrice(w, this.star)), { cls: 'gold' }));
     if (e.allied) B.append(button('🧰 Allied tool shop (−10%)', () => this.st.openShip('shop')));
+  }
+
+  /** Some empire colonies run a zoo that buys one kind of specimen from your hold. */
+  private specimenMarket(e: Empire) {
+    const w = this.w;
+    const B = this.body;
+    B.append(h('div', { class: 'sp-section' }, 'Specimen market'));
+    const kind = buyerAt(w, this.star, this.idx);
+    if (!kind) {
+      B.append(h('div', { class: 'sp-mini' }, `No zoo on ${this.pl.name} buys specimens. Other ${e.species} colonies might: each wants something different.`));
+      return;
+    }
+    const b = BUYERS[kind];
+    const ap = zooAppetite(w, this.star, this.idx);
+    const mood = zooFull(w, this.star, this.idx) ? 'enclosures full, back in a few minutes' : ap < 0.7 ? 'nearly stocked' : 'eager to buy';
+    B.append(h('div', { class: 'sp-item' }, h('div', { class: 'sp-ic' }, b.icon), h('div', { class: 'sp-txt' }, h('b', null, `${b.name}: buys ${b.wants}`), mood)));
+    const mine = w.s.specimens.map((sp, i) => ({ sp, i })).filter((x) => buyerWants(kind, x.sp));
+    for (const { sp, i } of mine) {
+      const price = specimenPrice(w, this.star, this.idx, sp);
+      const row = h('div', { class: 'sp-item' }, specimenThumb(w, sp, 64, 42),
+        h('div', { class: 'sp-txt' }, h('b', null, sp.name), `${dietIcon(sp.diet)} ${sp.rare ? 'rare' : sp.hybrid ? 'hybrid' : sp.diet}`),
+        button(`Sell ${money(price)}`, () => {
+          const got = sellSpecimen(w, this.star, this.idx, i);
+          if (typeof got === 'string') { this.st.ui.toast(got, b.icon); audio.sfx('error'); }
+          else { audio.sfx('coin'); this.st.ui.toast(`Sold the ${sp.name} to the ${b.name.toLowerCase()} for ${money(got)}.`, b.icon, 'good'); }
+          this.render();
+        }, { cls: 'small gold', disabled: zooFull(w, this.star, this.idx) }));
+      B.append(row);
+    }
+    const other = w.s.specimens.length - mine.length;
+    if (!mine.length) B.append(h('div', { class: 'sp-mini' }, `You have no ${b.wants} aboard.${other ? ` (${other} ${other === 1 ? 'specimen' : 'specimens'} in your hold ${other === 1 ? 'is' : 'are'} not what they want.)` : ''}`));
+    this.st.game.hint('zoo-market', 'Some alien colonies buy specimens, but each zoo wants one kind: plants, herbivores, carnivores, omnivores, or hybrids and rare creatures. Each sale fills them up for a few minutes.', b.icon);
   }
 
   private doSell(e: Empire, c: SpiceColor, n: number) {

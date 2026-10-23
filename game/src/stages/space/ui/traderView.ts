@@ -154,6 +154,14 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       setTimeout(() => { root.remove(); done(); }, 200);
     };
 
+    let rowEls: HTMLElement[][] = [[], []];
+    /** Move the highlight and show its description, without rebuilding the lists. */
+    const highlight = () => {
+      rowEls.forEach((els, c) => els.forEach((el, k) => el.classList.toggle('on', c === side && k === row)));
+      const { deals, mine, theirs } = lists();
+      const cur = deals[[mine, theirs][side][row]];
+      desc.textContent = cur ? `${cur.desc}${cur.block ? `  [${cur.block}]` : ''}` : '';
+    };
     const render = () => {
       const { deals, mine, theirs } = lists();
       const open = w.s.events.includes(ev);
@@ -164,23 +172,24 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       const cols: [HTMLElement, number[]][] = [[mineEl, mine], [theirsEl, theirs]];
       if (!cols[side][1].length) side = side ? 0 : 1;
       row = Math.min(row, Math.max(0, cols[side][1].length - 1));
+      rowEls = [[], []];
       cols.forEach(([el, ids], c) => {
         el.innerHTML = '';
         ids.forEach((i, k) => {
           const d = deals[i]!;
-          const on = c === side && k === row;
-          const rowEl = h('div', { class: 'bt-row' + (on ? ' on' : '') + (picked.has(i) ? ' in' : '') + (hard(d) ? ' off' : ''), role: 'option' },
+          const rowEl = h('div', { class: 'bt-row' + (picked.has(i) ? ' in' : '') + (hard(d) ? ' off' : ''), role: 'option' },
             h('span', { class: 'bt-mark' }, picked.has(i) ? '▶' : ''),
             h('span', { class: 'bt-ic' }, d.icon), h('span', { class: 'bt-name' }, d.name),
-            h('span', { class: 'bt-val' }, d.price < 0 ? `+${money(-d.price)}` : money(d.price)));
-          rowEl.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { side = c as 0 | 1; row = k; render(); } });
+            h('span', { class: 'bt-val' }, Math.abs(d.price) < 1 ? '—' : d.price < 0 ? `+${money(-d.price)}` : money(d.price)));
+          // Hover only moves the highlight: rebuilding the rows under the pointer would swallow the click.
+          rowEl.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { side = c as 0 | 1; row = k; highlight(); } });
           rowEl.addEventListener('click', () => { side = c as 0 | 1; row = k; toggle(i); });
+          rowEls[c].push(rowEl);
           el.append(rowEl);
         });
         if (!ids.length) el.append(h('div', { class: 'bt-empty' }, c === 0 ? 'Nothing they want. They buy spice.' : 'Sold out.'));
       });
-      const cur = deals[cols[side][1][row]];
-      desc.textContent = cur ? `${cur.desc}${cur.block ? `  [${cur.block}]` : ''}` : '';
+      highlight();
       const t = sums();
       total.className = 'bt-total' + (t.ok ? '' : ' bad');
       total.textContent = picked.size ? `You pay ${money(t.pay)} · You get ${money(t.get)} · ${t.net >= 0 ? 'You gain' : 'Net cost'} ${money(Math.abs(t.net))}` : 'Tap items to add them to the deal.';
@@ -199,9 +208,9 @@ export function openTrader(st: SpaceStage, ev: GEvent): Promise<void> {
       const k = e.key.toLowerCase();
       const { mine, theirs } = lists();
       const cols = [mine, theirs];
-      if (k === 'arrowdown' || k === 's') { row = Math.min(cols[side].length - 1, row + 1); render(); }
-      else if (k === 'arrowup' || k === 'w') { row = Math.max(0, row - 1); render(); }
-      else if ((k === 'arrowleft' || k === 'arrowright') && cols[side ? 0 : 1].length) { side = side ? 0 : 1; row = 0; render(); }
+      if (k === 'arrowdown' || k === 's') { row = Math.min(cols[side].length - 1, row + 1); highlight(); }
+      else if (k === 'arrowup' || k === 'w') { row = Math.max(0, row - 1); highlight(); }
+      else if ((k === 'arrowleft' || k === 'arrowright') && cols[side ? 0 : 1].length) { side = side ? 0 : 1; row = 0; highlight(); }
       else if (k === 'enter' || k === ' ') { const i = cols[side][row]; if (i !== undefined) toggle(i); }
       else if (k === 'a') accept();
       else if (k === 'r') { picked.clear(); render(); }

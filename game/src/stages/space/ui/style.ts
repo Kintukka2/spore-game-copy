@@ -101,6 +101,25 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .bt-keys { display:flex; flex-wrap:wrap; gap:4px 8px; }
 .bt-key { padding:6px 10px; }
 @media (max-width:560px) { .bt-cols { grid-template-columns:1fr; } .bt-list { max-height:22dvh; min-height:44px; } }
+/* The cargo hold, as a Fallout inventory */
+.inv { justify-content:center; }
+.inv-box { display:flex; flex-direction:column; gap:10px; margin:0; max-height:calc(100dvh - 40px); }
+.inv-tabs { display:flex; gap:4px 14px; flex-wrap:wrap; border-bottom:1px solid var(--ft-dim); padding:0 4px 6px; }
+.inv-tab { font-size:15px; text-transform:uppercase; letter-spacing:.08em; padding:4px 2px; cursor:pointer; color:var(--ft-dim); border-bottom:2px solid transparent; display:flex; gap:5px; align-items:center; }
+.inv-tab.on { color:var(--ft); border-bottom-color:var(--ft); text-shadow:0 0 8px var(--ft-glow); }
+.inv-tab i { font-style:normal; font-size:11px; border:1px solid currentColor; border-radius:4px; padding:0 4px; }
+.inv-main { display:grid; grid-template-columns:1.15fr 1fr; gap:14px; min-height:0; }
+.inv-list { border:1px solid var(--ft-dim); overflow-y:auto; max-height:52dvh; min-height:140px; }
+.inv-detail { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.inv-pic { height:120px; border:1px solid var(--ft-dim); display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 60%, var(--ft-bg), transparent 70%); }
+.inv-cv { width:100%; height:100%; }
+.inv-big { font-size:60px; filter:drop-shadow(0 0 10px var(--ft-glow)); }
+.inv-name { font-size:18px; text-transform:uppercase; letter-spacing:.05em; text-shadow:0 0 8px var(--ft-glow); }
+.inv-stats { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:14px; }
+.inv-stats span { color:var(--ft-dim); }
+.inv-stats b { font-weight:400; text-align:right; }
+.inv-desc { font-size:14px; line-height:1.35; opacity:.9; }
+@media (max-width:560px) { .inv-main { grid-template-columns:1fr; } .inv-list { max-height:30dvh; min-height:90px; } .inv-pic { height:90px; } .inv-tab { font-size:13px; } }
 /* Looting, Fallout style */
 .ft-loot { background:rgba(0,0,0,.78); justify-content:center; }
 .lb-box { display:flex; flex-direction:column; gap:8px; max-width:520px; margin:0; }
@@ -156,6 +175,7 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sp-rc.ok { border-color:rgba(76,217,123,.5); color:#a8f0bf; background:rgba(76,217,123,.08); }
 .sp-lock { display:flex; flex-direction:column; gap:6px; align-items:flex-start; padding:10px 12px; border-radius:14px; border:1px solid rgba(255,179,71,.55); background:rgba(255,179,71,.1); color:#ffe1b0; font-size:13.5px; }
 .sp-lock b { font-size:15px; color:#ffcf80; }
+.sf-hp { position:absolute; left:50%; transform:translateX(-50%); bottom:calc(96px + var(--safe-b)); width:min(240px, 46vw); height:18px; pointer-events:none; }
 .sp-blrow { display:flex; gap:12px; align-items:flex-end; }
 .sp-labbtn { width:54px; height:54px; font-size:24px; border-color:rgba(124,255,106,.65); background:radial-gradient(circle at 35% 30%, rgba(170,255,160,.35), rgba(8,30,14,.9)); animation:spLabIn .35s ease; }
 .sp-labn { position:absolute; top:-4px; right:-4px; min-width:20px; height:20px; border-radius:10px; background:#ff5a6e; color:#fff; font-size:12px; font-weight:700; font-style:normal; display:flex; align-items:center; justify-content:center; padding:0 5px; }
@@ -299,6 +319,7 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sf-hud .sf-acts { position:absolute; right:calc(12px + var(--safe-r)); bottom:calc(18px + var(--safe-b)); display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
 .sf-hud .sf-scan { width:56px; height:56px; font-size:25px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(140,240,220,.45), rgba(6,30,40,.92)); border:2px solid rgba(62,230,196,.7); }
 .sf-hud .sf-scan.cool { opacity:.45; }
+.sf-hud .sf-lab { width:52px; height:52px; font-size:24px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(170,255,160,.4), rgba(8,30,14,.92)); border:2px solid rgba(124,255,106,.7); }
 .sf-hud .sf-ctx { font-size:16px; padding:14px 18px; border-radius:16px; max-width:calc(100vw - 40px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .sf-hud .sf-ctx .xl-new { margin-left:8px; }
 .sp-sheet .btn.small, .sp-panel .btn.small, .sp-card .btn.small, .sp-hud-btn { min-height:44px; min-width:44px; }

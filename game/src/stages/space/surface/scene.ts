@@ -1,10 +1,11 @@
 // Planet landing: fly your starship low over a world (the Civilization-stage map, coloured to match the
-// planet), find its herds and flora, and beam specimens aboard. Cities sit where their owners founded them;
-// your homeworld is the very map you united in the Civilization stage.
+// planet), find its herds and flora, and beam specimens aboard. Cities sit where their owners founded them,
+// ringed by turrets; at war, those turrets open fire and you can lay siege to the cities. Your homeworld is
+// the very map you united in the Civilization stage, with the Xeno-Lab and its Menagerie on it.
 import type { Game, Scene } from '../../../game/game';
 import type { PointerInfo } from '../../../engine/input';
 import { Camera } from '../../../engine/camera';
-import { button, h } from '../../../engine/ui';
+import { button, h, progressBar } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { RNG } from '../../../engine/rng';
 import { clamp, TAU } from '../../../engine/math';
@@ -21,6 +22,7 @@ import { tScoreOf } from '../data';
 import { drawShip, shipLength } from '../art/shipArt';
 import { drawPlant, money, paintSpecimen } from '../ui/common';
 import { abduct, isHomeworld } from '../economy';
+import { razeCity } from '../empires';
 import { resolve as resolveEvent } from '../events';
 import { lifeOn } from '../scan';
 import { tutorialEvent } from '../missions';
@@ -38,7 +40,22 @@ const SEED_CAP = 60;
 /** Life scan radius: about a quarter of the planet, so finding everything takes a few sweeps. */
 const SCAN_R = 760;
 
-interface SurfCity { x: number; y: number; name: string; color: string; large: boolean; slots: number; blds: { d: Design; dx: number; dy: number; size: number }[] }
+interface Turret { dx: number; dy: number; hp: number; max: number; cd: number; ang: number; flash: number }
+interface SurfCity {
+  x: number; y: number; name: string; color: string; large: boolean; slots: number;
+  blds: { d: Design; dx: number; dy: number; size: number }[];
+  /** City hall strength, and the turrets on its rim. Turrets fire only when you are at war with the owner. */
+  hp: number; max: number; turrets: Turret[]; dead: boolean; fire: number;
+}
+/** An enemy turret's shot: flies along the ground toward where the ship was, rising to its height. */
+interface Bolt { x: number; y: number; tx: number; ty: number; t: number; dur: number }
+interface Spark { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }
+/** The Xeno-Lab on your homeworld: glass domes, and a paddock where your Menagerie exhibits roam. */
+interface Lab { x: number; y: number; pets: { d: Design; size: number; x: number; y: number; vx: number; vy: number; face: number; phase: number }[] }
+
+/** How close the ship must be to fire on a city, and for its turrets to fire back. */
+const SIEGE_R = 330;
+const TURRET_R = 430;
 interface Built { key: string; T: Terrain; sites: { x: number; y: number; name: string; large: boolean; slots: number }[] }
 /** An ancient relic buried on the surface (Ancient signal event). */
 interface Relic { relic: true; x: number; y: number; seen: boolean; taken: boolean }
@@ -75,6 +92,12 @@ export class SurfaceScene implements Scene {
   private relic: Relic | null = null;
   private tiles: Tile[] = [];
   private cities: SurfCity[] = [];
+  private lab: Lab | null = null;
+  private bolts: Bolt[] = [];
+  private sparks: Spark[] = [];
+  /** The city you are attacking. */
+  private siege: SurfCity | null = null;
+  private hitFlash = 0;
   private clouds: { x: number; y: number; s: number; k: number }[] = [];
   private scanCd = 0;
   private ping = -1;
@@ -92,11 +115,20 @@ export class SurfaceScene implements Scene {
   private elSub!: HTMLElement;
   private elLife!: HTMLElement;
   private elMini!: HTMLCanvasElement;
+  private elLab!: HTMLButtonElement;
+  private hpBar = progressBar('hp');
 
   constructor(private st: SpaceStage, readonly star: number, readonly idx: number) {}
 
   private get w() { return this.st.w; }
   private get planet() { return this.w.planet(this.star, this.idx); }
+  /** The owner is at war with you (and not charmed): their turrets fire, and their cities can be attacked. */
+  private get hostile(): boolean {
+    const o = this.w.peekPS(this.star, this.idx).owner;
+    const e = o && o !== 'player' && o !== 'hollow' ? this.w.emap.get(o) : null;
+    return !!e && e.war && e.serenade <= 0;
+  }
+  private get home(): boolean { return isHomeworld(this.w, this.star, this.idx); }
 
   // ------------------------------------------------------------------ lifecycle
   enter(game: Game) {
@@ -140,12 +172,16 @@ export class SurfaceScene implements Scene {
     const T = built.T;
     // Cities of the owner.
     const owner = ps.owner && ps.owner !== 'hollow' ? ps.owner : null;
-    const nCities = owner ? (home ? built.sites.length : Math.min(built.sites.length, ps.cities)) : 0;
+    // On the homeworld, the last city site holds the Xeno-Lab instead.
+    const labSite = home && built.sites.length > 1 ? built.sites[built.sites.length - 1] : null;
+    const sites = labSite ? built.sites.slice(0, -1) : built.sites;
+    const nCities = owner ? (home ? sites.length : Math.min(sites.length, ps.cities)) : 0;
     if (owner && nCities > 0) {
       const color = owner === 'player' ? PLAYER_COLOR : w.emap.get(owner)?.color ?? '#ffffff';
       const art = this.cityArt(owner, color);
       const r = new RNG(seed ^ 0xc17);
-      for (const s of built.sites.slice(0, nCities)) {
+      const thp = game.diff(120, 160, 200), chp = game.diff(450, 600, 750);
+      for (const s of sites.slice(0, nCities)) {
         const blds: SurfCity['blds'] = [{ d: art.hall, dx: 0, dy: 4, size: s.large ? 76 : 66 }];
         for (let i = 0; i < s.slots; i++) {
           if (r.chance(0.18)) continue;
@@ -153,8 +189,23 @@ export class SurfaceScene implements Scene {
           const k = r.pick(['house', 'house', 'factory', 'fun'] as const);
           blds.push({ d: art[k], dx: p.x, dy: p.y, size: k === 'house' ? 24 : k === 'factory' ? 30 : 28 });
         }
-        this.cities.push({ x: s.x, y: s.y, name: s.name, color, large: s.large, slots: s.slots, blds });
+        const nt = s.large ? 3 : 2;
+        const turrets: Turret[] = Array.from({ length: nt }, (_, i) => {
+          const a = -Math.PI / 2 + ((i + 0.5) * TAU) / nt + 0.35;
+          return { dx: Math.cos(a) * 128, dy: Math.sin(a) * 86 + 6, hp: thp, max: thp, cd: 1 + r.range(0, 1.5), ang: r.range(0, TAU), flash: 0 };
+        });
+        const max = Math.round(chp * (s.large ? 1.3 : 1));
+        this.cities.push({ x: s.x, y: s.y, name: s.name, color, large: s.large, slots: s.slots, blds, hp: max, max, turrets, dead: false, fire: 0 });
       }
+    }
+    if (labSite) {
+      const r = new RNG(seed ^ 0x1ab);
+      const pets: Lab['pets'] = [];
+      for (const sp of (w.s.zoo ?? []).filter((z) => z.diet !== 'plant').slice(0, 6)) {
+        const d = w.specimenDesign(sp);
+        if (d) pets.push({ d, size: r.range(22, 27), x: r.range(-50, 50), y: r.range(-14, 14), vx: 0, vy: 0, face: r.chance(0.5) ? 1 : -1, phase: r.range(0, 9) });
+      }
+      this.lab = { x: labSite.x, y: labSite.y, pets };
     }
     // Life: whatever lives in the planet's ecosystem, plus its natives.
     const species: Specimen[] = lifeOn(w, this.star, this.idx);
@@ -189,6 +240,11 @@ export class SurfaceScene implements Scene {
     if (rare) setTimeout(() => this.st.ui.toast(`The ${rare.name} is down here somewhere. It bolts at the sight of your ship: chase it down!`, '✨', 'gold'), 1600);
     if (this.relic) setTimeout(() => this.st.ui.toast('The ancient signal is faint. Sweep the surface with 📡 Life scan to pin it down.', '🗿', 'gold'), rare ? 4200 : 1600);
     game.hint('landing', 'Drag anywhere to fly. Fly over a creature and tap 🛸 Beam up, or just tap the creature.', '🛸');
+    if (this.hostile && this.cities.length) {
+      const e = w.emap.get(ps.owner!);
+      setTimeout(() => this.st.ui.toast(`You are at war with ${e?.name ?? 'them'}: their city turrets will open fire! Tap a city to lay siege to it.`, '⚔️', 'bad'), 900);
+    }
+    if (this.lab) game.hint('lab-surface', 'Your Xeno-Lab stands here, with your Menagerie exhibits in its paddock. Fly over it, or tap 🧬, to go inside.', '🧬');
   }
 
   private cityArt(owner: string, color: string): Record<'hall' | 'house' | 'factory' | 'fun', Design> {
@@ -218,6 +274,8 @@ export class SurfaceScene implements Scene {
     this.elSub = h('span', { class: 'sf-sub' });
     const title = h('div', { class: 'sf-title' }, h('b', null, pl.name), this.elSub);
     const top = h('div', { class: 'sf-top' }, back, title, this.elCargo);
+    this.hpBar.el.classList.add('sf-hp');
+    this.hpBar.el.style.display = 'none';
     this.elLife = h('div', { class: 'sf-life' });
     this.elMini = h('canvas', { class: 'sf-mini', 'aria-label': 'Map' }) as HTMLCanvasElement;
     this.elMini.addEventListener('pointerdown', (e) => {
@@ -230,14 +288,20 @@ export class SurfaceScene implements Scene {
     this.elScan = button('📡', () => this.scan(false), { cls: 'icon sf-scan', title: 'Life scan' });
     this.elCtx = button('', () => this.act(), { cls: 'primary sf-ctx' });
     this.elCtx.style.display = 'none';
-    const acts = h('div', { class: 'sf-acts' }, this.elScan, this.elCtx);
-    L.append(top, this.elLife, this.elMini, acts);
+    this.elLab = button('🧬', () => this.st.openLab(), { cls: 'icon sf-lab', title: 'Xeno-Lab' });
+    this.elLab.style.display = this.home ? '' : 'none';
+    const acts = h('div', { class: 'sf-acts' }, this.elLab, this.elScan, this.elCtx);
+    L.append(top, this.hpBar.el, this.elLife, this.elMini, acts);
   }
 
   private refreshHud(force = false) {
     const w = this.w;
     const ps = w.peekPS(this.star, this.idx);
     this.updateTray(force);
+    // Hull, while there is fighting (or damage) to show.
+    const showHp = this.hostile || w.s.hp < w.maxHp;
+    this.hpBar.el.style.display = showHp ? '' : 'none';
+    if (showHp) this.hpBar.set(w.s.hp / w.maxHp, `❤ ${Math.round(w.s.hp)} / ${w.maxHp}`);
     const key = `${w.cargoUsed}/${w.cargoCap}/${w.count('seeds')}`;
     if (!force && key === this.lastHud) return;
     this.lastHud = key;
@@ -360,7 +424,121 @@ export class SurfaceScene implements Scene {
   private act() {
     if (this.beam) return;
     const tg = this.ctxTarget();
-    if (tg) this.startBeam(tg);
+    if (tg) { this.startBeam(tg); return; }
+    if (this.nearLab()) { this.st.openLab(); return; }
+    const c = this.nearCity();
+    if (c && this.hostile) { this.siege = this.siege === c ? null : c; audio.sfx(this.siege ? 'alarm' : 'click', { vol: 0.5 }); }
+  }
+
+  private nearLab(): boolean {
+    const l = this.lab;
+    return !!l && wdist(l.x, l.y, this.ship.x, this.ship.y) < 150;
+  }
+
+  /** The standing city closest to the ship, within siege range. */
+  private nearCity(): SurfCity | null {
+    let best: SurfCity | null = null, bd = SIEGE_R;
+    for (const c of this.cities) {
+      if (c.dead) continue;
+      const d = wdist(c.x, c.y, this.ship.x, this.ship.y);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+
+  // ------------------------------------------------------------------ war
+  private spark(x: number, y: number, n: number, speed: number, colors: string[]) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, v = speed * (0.3 + Math.random());
+      this.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.4, life: 0.4 + Math.random() * 0.6, color: colors[i % colors.length], size: 1.5 + Math.random() * 2.5 });
+    }
+  }
+
+  /** Turrets fire on the ship; the ship's laser cuts down the city under siege, turrets first. */
+  private updateWar(dt: number) {
+    const w = this.w, sh = this.ship;
+    const hostile = this.hostile;
+    const dmg = Math.max(6, w.maxHp * this.game.diff(0.025, 0.035, 0.05));
+    for (const c of this.cities) {
+      if (c.fire > 0) c.fire -= dt;
+      for (const t of c.turrets) {
+        if (t.hp <= 0) continue;
+        t.flash = Math.max(0, t.flash - dt * 4);
+        const tx = c.x + t.dx, ty = c.y + t.dy;
+        const near = hostile && !c.dead && wdist(tx, ty, sh.x, sh.y) < TURRET_R;
+        const want = near ? Math.atan2(sh.y - ty, wdx(tx, sh.x)) : t.ang + Math.sin(this.t * 0.7 + t.dx) * dt * 0.8;
+        let da = want - t.ang;
+        while (da > Math.PI) da -= TAU;
+        while (da < -Math.PI) da += TAU;
+        t.ang += da * Math.min(1, dt * (near ? 5 : 1));
+        if (!near) continue;
+        t.cd -= dt;
+        if (t.cd > 0) continue;
+        t.cd = this.game.diff(2.4, 1.8, 1.35) + Math.random() * 0.6;
+        t.flash = 1;
+        const d = wdist(tx, ty, sh.x, sh.y);
+        this.bolts.push({ x: tx, y: ty, tx: wrapX(sh.x + sh.vx * 0.25), ty: sh.y + sh.vy * 0.25, t: 0, dur: Math.max(0.35, d / 380) });
+        audio.sfx('laser', { pitch: 0.55, vol: 0.35 });
+      }
+    }
+    for (const b of this.bolts) {
+      b.t += dt;
+      if (b.t < b.dur) continue;
+      if (wdist(b.tx, b.ty, sh.x, sh.y) < 32) {
+        w.s.hp = Math.max(0, w.s.hp - dmg);
+        this.hitFlash = 1;
+        this.spark(sh.x, sh.y - LIFT, 10, 140, ['#ff8a5a', '#ffd166']);
+        audio.sfx('hit', { vol: 0.5 });
+      } else this.spark(b.tx, b.ty, 5, 70, ['#ff9a6a', '#776655']);
+    }
+    this.bolts = this.bolts.filter((b) => b.t < b.dur);
+    this.hitFlash = Math.max(0, this.hitFlash - dt * 2.5);
+    // Your laser: turrets first, then the city hall.
+    const c = this.siege;
+    if (c && (c.dead || !hostile)) this.siege = null;
+    if (this.siege && wdist(this.siege.x, this.siege.y, sh.x, sh.y) < SIEGE_R) {
+      const sc = this.siege;
+      const dps = this.st.sv.combat.laserDps();
+      const t = sc.turrets.filter((x) => x.hp > 0).sort((a, b) => wdist(sc.x + a.dx, sc.y + a.dy, sh.x, sh.y) - wdist(sc.x + b.dx, sc.y + b.dy, sh.x, sh.y))[0];
+      const px = t ? sc.x + t.dx : sc.x, py = t ? sc.y + t.dy - 16 : sc.y - 30;
+      if (Math.random() < dt * 20) this.spark(px, py, 1, 90, ['#9ff3ff', '#ffffff']);
+      if (t) {
+        t.hp -= dps * dt;
+        if (t.hp <= 0) {
+          this.spark(px, py, 30, 220, ['#ff7a3a', '#ffd166', '#555555']);
+          audio.sfx('explode', { vol: 0.45, pitch: 1.3 });
+          w.addMoney(3000);
+          this.st.ui.toast(`Turret destroyed: +${money(3000)}`, '💥', 'good');
+        }
+      } else {
+        sc.hp -= dps * dt;
+        if (sc.hp <= 0) this.cityFalls(sc);
+      }
+    }
+    // Shot down? Limp back to orbit.
+    if (w.s.hp <= 0 && !this.left) {
+      this.left = true;
+      this.st.ui.toast('Hull breached! Emergency lift to orbit…', '💥', 'bad');
+      this.leave();
+    }
+  }
+
+  private cityFalls(c: SurfCity) {
+    const w = this.w;
+    c.dead = true;
+    c.hp = 0;
+    c.fire = 30;
+    for (const t of c.turrets) t.hp = 0;
+    this.siege = null;
+    for (let i = 0; i < 4; i++) setTimeout(() => this.spark(c.x + (Math.random() - 0.5) * 160, c.y - 20 + (Math.random() - 0.5) * 80, 40, 260, ['#ff7a3a', '#ffd166', '#ffffff', '#444444']), i * 160);
+    audio.sfx('explode');
+    w.addMoney(12000);
+    const res = razeCity(w, this.star, this.idx);
+    if (res === 'captured') {
+      this.st.ui.toast(`${c.name} falls, and ${this.planet.name} is yours! Plunder: +${money(12000)}`, '🏳️', 'gold');
+      audio.sfx('levelup');
+    } else this.st.ui.toast(`${c.name} has fallen! Plunder: +${money(12000)}. ${w.peekPS(this.star, this.idx).cities} ${w.peekPS(this.star, this.idx).cities === 1 ? 'city' : 'cities'} left.`, '🔥', 'gold');
+    this.refreshHud(true);
   }
 
   private startBeam(tg: Target) {
@@ -509,6 +687,16 @@ export class SurfaceScene implements Scene {
     const scary = speed > 170 || !!this.beam;
     for (const c of this.critters) stepCritter(c, dt, T, { x: sh.x, y: sh.y, scary });
     this.updateBeam(dt);
+    this.updateWar(dt);
+    for (const p of this.sparks) { p.life -= dt; p.x = wrapX(p.x + p.vx * dt); p.y += p.vy * dt; p.vy += 260 * dt; }
+    this.sparks = this.sparks.filter((p) => p.life > 0);
+    if (this.lab) for (const p of this.lab.pets) {
+      // Menagerie exhibits amble about their paddock.
+      p.phase += dt;
+      if (Math.random() < dt * 0.4) { p.vx = (Math.random() - 0.5) * 30; p.vy = (Math.random() - 0.5) * 12; }
+      p.x = clamp(p.x + p.vx * dt, -62, 62); p.y = clamp(p.y + p.vy * dt, -16, 16);
+      if (Math.abs(p.vx) > 2) p.face = p.vx > 0 ? 1 : -1;
+    }
     const b = cam.bounds(-20);
     for (const s of this.sites) if (!s.seen && s.y > b.y0 && s.y < b.y1 && Math.abs(wdx(cam.x, s.x)) < (b.x1 - b.x0) / 2) s.seen = true;
     const rl = this.relic;
@@ -520,14 +708,19 @@ export class SurfaceScene implements Scene {
     this.elScan.classList.toggle('cool', this.scanCd > 0);
     // Contextual action
     const tg = this.beam ? null : this.ctxTarget();
-    const ctxKey = this.beam ? 'beam' : tg ? ('relic' in tg ? 'relic' : 'd' in tg ? 'c' + tg.sp.seed : 'f' + tg.sp.seed) : '';
+    const city = !tg && this.hostile ? (this.siege ?? this.nearCity()) : null;
+    const ctxKey = this.beam ? 'beam' : tg ? ('relic' in tg ? 'relic' : 'd' in tg ? 'c' + tg.sp.seed : 'f' + tg.sp.seed)
+      : this.nearLab() ? 'lab' : city ? (this.siege === city ? 'siege:' : 'city:') + city.name : '';
     if (ctxKey !== this.lastCtx) {
       this.lastCtx = ctxKey;
       const el = this.elCtx;
       el.innerHTML = '';
       el.style.display = ctxKey ? '' : 'none';
       el.disabled = !!this.beam;
+      el.classList.toggle('danger', !!city && !tg && !this.beam);
       if (this.beam) el.append('🛸 Hold steady…');
+      else if (ctxKey === 'lab') el.append('🧬 Enter the Xeno-Lab');
+      else if (city) el.append(this.siege === city ? `⚔️ Attacking ${city.name} (tap to stop)` : `🎯 Attack ${city.name}`);
       else if (tg && 'relic' in tg) el.append('🗿 Beam up the relic');
       else if (tg) {
         el.append('d' in tg ? `🛸 Beam up ${tg.sp.name}` : `🌱 Gather ${tg.sp.name}`);
@@ -556,8 +749,16 @@ export class SurfaceScene implements Scene {
     this.drawThings(g);
     this.drawPing(g);
     this.drawShipAndBeam(g);
+    this.drawWar(g);
     this.drawClouds(g);
     g.restore();
+    if (this.hitFlash > 0) {
+      const gr = g.createRadialGradient(w / 2, hh / 2, Math.min(w, hh) * 0.3, w / 2, hh / 2, Math.max(w, hh) * 0.75);
+      gr.addColorStop(0, 'rgba(255,40,30,0)');
+      gr.addColorStop(1, `rgba(255,40,30,${0.45 * this.hitFlash})`);
+      g.fillStyle = gr;
+      g.fillRect(0, 0, w, hh);
+    }
     this.drawLabels(g);
     this.drawArrows(g, w, hh);
     this.drawJoystick(g);
@@ -580,6 +781,30 @@ export class SurfaceScene implements Scene {
 
   private drawCityGround(g: CanvasRenderingContext2D) {
     const cam = this.cam, b = cam.bounds(170);
+    const lab = this.lab;
+    if (lab) {
+      const x = nearX(cam, lab.x);
+      if (x > b.x0 && x < b.x1 && lab.y > b.y0 && lab.y < b.y1) {
+        g.fillStyle = 'rgba(125,255,106,0.12)';
+        g.beginPath(); g.ellipse(x, lab.y + 4, 150, 104, 0, 0, TAU); g.fill();
+        g.setLineDash([10, 8]);
+        g.lineDashOffset = -this.t * 8;
+        g.strokeStyle = 'rgba(125,255,106,0.75)';
+        g.lineWidth = 2.2;
+        g.beginPath(); g.ellipse(x, lab.y + 4, 150, 104, 0, 0, TAU); g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = '#d3e6db';
+        g.beginPath(); g.ellipse(x, lab.y + 4, 116, 80, 0, 0, TAU); g.fill();
+        // The paddock, fenced, below the domes.
+        g.fillStyle = '#86c97a';
+        g.beginPath(); g.ellipse(x, lab.y + 46, 80, 28, 0, 0, TAU); g.fill();
+        g.strokeStyle = '#8a6a44';
+        g.lineWidth = 2.5;
+        g.beginPath(); g.ellipse(x, lab.y + 46, 80, 28, 0, 0, TAU); g.stroke();
+        g.fillStyle = '#6e5234';
+        for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; g.fillRect(x + Math.cos(a) * 80 - 1.5, lab.y + 46 + Math.sin(a) * 28 - 7, 3, 8); }
+      }
+    }
     for (const c of this.cities) {
       const x = nearX(cam, c.x);
       if (x < b.x0 || x > b.x1 || c.y < b.y0 || c.y > b.y1) continue;
@@ -652,11 +877,26 @@ export class SurfaceScene implements Scene {
   /** Buildings and creatures, painted back to front. */
   private drawThings(g: CanvasRenderingContext2D) {
     const cam = this.cam, b = cam.bounds(90);
-    const list: { y: number; s: Sprite; x: number; dy: number; scale: number; face: number; c?: Critter }[] = [];
+    const list: { y: number; s?: Sprite; x: number; dy: number; scale: number; face: number; c?: Critter; dark?: boolean; fn?: () => void }[] = [];
     for (const c of this.cities) {
       const x = nearX(cam, c.x);
       if (x < b.x0 - 100 || x > b.x1 + 100 || c.y < b.y0 - 100 || c.y > b.y1 + 60) continue;
-      for (const bl of c.blds) list.push({ y: c.y + bl.dy, s: designSprite(bl.d, bl.size), x: x + bl.dx, dy: 0, scale: 1, face: 1 });
+      for (const bl of c.blds) list.push({ y: c.y + bl.dy, s: designSprite(bl.d, bl.size), x: x + bl.dx, dy: 0, scale: 1, face: 1, dark: c.dead });
+      for (const t of c.turrets) list.push({ y: c.y + t.dy, x: x + t.dx, dy: 0, scale: 1, face: 1, fn: () => this.drawTurret(g, x + t.dx, c.y + t.dy, t, c.color) });
+      if (c.dead && c.fire > 0) list.push({ y: c.y + 30, x, dy: 0, scale: 1, face: 1, fn: () => this.drawFires(g, x, c.y, c.fire) });
+    }
+    const lab = this.lab;
+    if (lab) {
+      const x = nearX(cam, lab.x);
+      if (x > b.x0 - 120 && x < b.x1 + 120 && lab.y > b.y0 - 120 && lab.y < b.y1 + 80) {
+        list.push({ y: lab.y - 4, x, dy: 0, scale: 1, face: 1, fn: () => this.drawDome(g, x, lab.y - 4, 46, false) });
+        list.push({ y: lab.y + 8, x: x - 84, dy: 0, scale: 1, face: 1, fn: () => this.drawDome(g, x - 84, lab.y + 8, 27, true) });
+        list.push({ y: lab.y + 10, x: x + 82, dy: 0, scale: 1, face: 1, fn: () => this.drawDome(g, x + 82, lab.y + 10, 25, true) });
+        for (const p of lab.pets) {
+          const bob = Math.abs(p.vx) > 2 ? Math.abs(Math.sin(p.phase * 9)) * 1.4 : 0;
+          list.push({ y: lab.y + 46 + p.y, s: designSprite(p.d, p.size), x: x + p.x, dy: bob, scale: 1, face: p.face });
+        }
+      }
     }
     for (const c of this.critters) {
       if (c.gone || c.lift > 0) continue;
@@ -668,12 +908,134 @@ export class SurfaceScene implements Scene {
     }
     list.sort((a, b2) => a.y - b2.y);
     for (const it of list) {
+      if (it.fn) { it.fn(); continue; }
       if (it.c) {
         g.fillStyle = 'rgba(0,0,0,0.22)';
         g.beginPath(); g.ellipse(it.x, it.y, it.c.size * 0.42, it.c.size * 0.14, 0, 0, TAU); g.fill();
       }
-      drawSprite(g, it.s, it.x, it.y - it.dy, it.scale, it.face);
+      if (it.dark) { g.save(); g.filter = 'brightness(0.32) saturate(0.3)'; }
+      drawSprite(g, it.s!, it.x, it.y - it.dy, it.scale, it.face);
+      if (it.dark) g.restore();
     }
+  }
+
+  /** A defence turret on a city's rim: a squat tower in the city's colour with a swivelling barrel. */
+  private drawTurret(g: CanvasRenderingContext2D, x: number, y: number, t: Turret, col: string) {
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.beginPath(); g.ellipse(x, y + 1, 15, 5, 0, 0, TAU); g.fill();
+    if (t.hp <= 0) {
+      g.fillStyle = '#3a3836';
+      g.beginPath(); g.moveTo(x - 12, y); g.lineTo(x - 6, y - 7); g.lineTo(x + 1, y - 4); g.lineTo(x + 7, y - 9); g.lineTo(x + 12, y); g.closePath(); g.fill();
+      return;
+    }
+    g.fillStyle = '#5b6170';
+    g.strokeStyle = '#2b2f38';
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x - 11, y); g.lineTo(x - 8, y - 14); g.lineTo(x + 8, y - 14); g.lineTo(x + 11, y); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = col;
+    g.fillRect(x - 9, y - 10, 18, 3);
+    const bx = x + Math.cos(t.ang) * 15, by = y - 18 + Math.sin(t.ang) * 8;
+    g.strokeStyle = '#2b2f38';
+    g.lineWidth = 4;
+    g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, y - 18); g.lineTo(bx, by); g.stroke();
+    g.lineCap = 'butt';
+    g.fillStyle = '#8a93a6';
+    g.beginPath(); g.arc(x, y - 16, 7.5, Math.PI, 0); g.fill(); g.stroke();
+    if (t.flash > 0) {
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = `rgba(255,150,80,${t.flash})`;
+      g.beginPath(); g.arc(bx, by, 6 * t.flash + 2, 0, TAU); g.fill();
+      g.globalCompositeOperation = 'source-over';
+    }
+    if (t.hp < t.max) {
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(x - 12, y + 5, 24, 4);
+      g.fillStyle = '#ff6a5a'; g.fillRect(x - 12, y + 5, 24 * (t.hp / t.max), 4);
+    }
+  }
+
+  /** A fallen city burns for a while. */
+  private drawFires(g: CanvasRenderingContext2D, x: number, y: number, left: number) {
+    const k = Math.min(1, left / 10);
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 5; i++) {
+      const fx = x + Math.cos(i * 1.7) * 60, fy = y + Math.sin(i * 2.3) * 30 - 10;
+      const r = (10 + 5 * Math.sin(this.t * 9 + i * 2)) * k;
+      g.fillStyle = `rgba(255,${120 + i * 15},40,${0.55 * k})`;
+      g.beginPath(); g.arc(fx, fy, r, 0, TAU); g.fill();
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = `rgba(40,40,40,${0.25 * k})`;
+    for (let i = 0; i < 4; i++) {
+      const rise = ((this.t * 14 + i * 25) % 100);
+      g.beginPath(); g.arc(x + Math.cos(i * 2.1) * 50 + rise * 0.2, y - 20 - rise, 12 + rise * 0.15, 0, TAU); g.fill();
+    }
+  }
+
+  /** A glass dome of the Xeno-Lab: the big one has the lab inside, the small ones are greenhouses. */
+  private drawDome(g: CanvasRenderingContext2D, x: number, y: number, r: number, green: boolean) {
+    g.fillStyle = 'rgba(0,0,0,0.2)';
+    g.beginPath(); g.ellipse(x, y + 2, r * 1.05, r * 0.32, 0, 0, TAU); g.fill();
+    g.fillStyle = '#9aa6b8';
+    g.beginPath(); g.ellipse(x, y, r, r * 0.3, 0, 0, TAU); g.fill();
+    // What is inside, seen through the glass.
+    if (green) {
+      g.fillStyle = '#4cbf5a';
+      for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(x - r * 0.5 + i * r * 0.33, y - r * 0.25 - (i % 2) * r * 0.15, r * 0.22, 0, TAU); g.fill(); }
+    } else {
+      g.fillStyle = '#e8eef5';
+      g.fillRect(x - r * 0.45, y - r * 0.55, r * 0.9, r * 0.55);
+      g.fillStyle = '#7dff6a';
+      const pul = 0.6 + 0.4 * Math.sin(this.t * 3);
+      g.globalAlpha = pul;
+      g.beginPath(); g.arc(x, y - r * 0.75, r * 0.16, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+    }
+    const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.8, r * 0.1, x, y - r * 0.4, r);
+    gr.addColorStop(0, green ? 'rgba(220,255,220,0.65)' : 'rgba(230,250,255,0.7)');
+    gr.addColorStop(1, green ? 'rgba(90,190,120,0.3)' : 'rgba(110,190,230,0.3)');
+    g.fillStyle = gr;
+    g.beginPath(); g.ellipse(x, y, r, r, 0, Math.PI, 0); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.75)';
+    g.lineWidth = 1.5;
+    g.beginPath(); g.ellipse(x, y, r, r, 0, Math.PI, 0); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.35)';
+    g.beginPath(); g.ellipse(x, y, r * 0.5, r, 0, Math.PI, 0); g.moveTo(x, y - r); g.lineTo(x, y); g.stroke();
+  }
+
+  /** Turret bolts in flight, your laser on the city under siege, and sparks. */
+  private drawWar(g: CanvasRenderingContext2D) {
+    const cam = this.cam, sh = this.ship;
+    g.globalCompositeOperation = 'lighter';
+    for (const b of this.bolts) {
+      const p = b.t / b.dur;
+      const gx = nearX(cam, wrapX(b.x + wdx(b.x, b.tx) * p)), gy = b.y + (b.ty - b.y) * p;
+      const yy = gy - (18 + (LIFT - 18) * p);
+      g.fillStyle = 'rgba(255,120,60,0.35)';
+      g.beginPath(); g.arc(gx, yy, 9, 0, TAU); g.fill();
+      g.fillStyle = '#ffd0a0';
+      g.beginPath(); g.arc(gx, yy, 3.5, 0, TAU); g.fill();
+    }
+    const sc = this.siege;
+    if (sc && wdist(sc.x, sc.y, sh.x, sh.y) < SIEGE_R) {
+      const t = sc.turrets.filter((x) => x.hp > 0).sort((a, b) => wdist(sc.x + a.dx, sc.y + a.dy, sh.x, sh.y) - wdist(sc.x + b.dx, sc.y + b.dy, sh.x, sh.y))[0];
+      const tx = nearX(cam, t ? sc.x + t.dx : sc.x), ty = t ? sc.y + t.dy - 16 : sc.y - 30;
+      const sx = nearX(cam, sh.x), sy = sh.y - LIFT + 8;
+      const flick = 0.7 + 0.3 * Math.sin(this.t * 40);
+      g.strokeStyle = `rgba(120,240,255,${0.35 * flick})`;
+      g.lineWidth = 9;
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(tx, ty); g.stroke();
+      g.strokeStyle = `rgba(230,255,255,${0.9 * flick})`;
+      g.lineWidth = 2.5;
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(tx, ty); g.stroke();
+    }
+    for (const p of this.sparks) {
+      g.globalAlpha = Math.min(1, p.life * 2);
+      g.fillStyle = p.color;
+      g.beginPath(); g.arc(nearX(cam, p.x), p.y, p.size, 0, TAU); g.fill();
+    }
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
   }
 
   private drawPing(g: CanvasRenderingContext2D) {
@@ -767,10 +1129,19 @@ export class SurfaceScene implements Scene {
       }
     };
     if (cam.zoom > 0.45) {
+      const hostile = this.hostile;
       for (const c of this.cities) {
         const p = cam.worldToScreen(nearX(cam, c.x), c.y - 92);
         if (p.x < -80 || p.x > cam.w + 80 || p.y < -20 || p.y > cam.h + 20) continue;
-        label(c.name, p.x, p.y, c.color);
+        label(c.dead ? `Ruins of ${c.name}` : c.name, p.x, p.y, c.dead ? '#9aa4b2' : c.color);
+        if (hostile && !c.dead && (c.hp < c.max || this.siege === c)) {
+          g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(p.x - 30, p.y + 12, 60, 5);
+          g.fillStyle = '#ff6a5a'; g.fillRect(p.x - 30, p.y + 12, 60 * (c.hp / c.max), 5);
+        }
+      }
+      if (this.lab) {
+        const p = cam.worldToScreen(nearX(cam, this.lab.x), this.lab.y - 92);
+        if (p.x > -80 && p.x < cam.w + 80 && p.y > -20 && p.y < cam.h + 20) label('🧬 Xeno-Lab', p.x, p.y, '#7dff6a');
       }
     }
     const sh = this.ship;
@@ -863,7 +1234,8 @@ export class SurfaceScene implements Scene {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.drawImage(T.mini, 0, 0, cw, ch);
     const sx = cw / W, sy = ch / H;
-    for (const ct of this.cities) { g.fillStyle = ct.color; g.fillRect(ct.x * sx - 2.5, ct.y * sy - 2.5, 5, 5); }
+    for (const ct of this.cities) { g.fillStyle = ct.dead ? '#6b7280' : ct.color; g.fillRect(ct.x * sx - 2.5, ct.y * sy - 2.5, 5, 5); }
+    if (this.lab) { g.fillStyle = '#7dff6a'; g.beginPath(); g.arc(this.lab.x * sx, this.lab.y * sy, 3.2, 0, TAU); g.fill(); }
     for (const s of this.sites) {
       if (!s.seen) continue;
       const empty = s.kind === 'flora' ? s.harvested : !this.critters.some((q) => q.site === s && !q.gone);
@@ -905,6 +1277,20 @@ export class SurfaceScene implements Scene {
     const rl = this.relic;
     if (!best && rl && !rl.taken && Math.hypot(wdx(p.x, rl.x), rl.y - 22 - p.y) < 36) best = rl;
     if (best) { this.chase = best; this.moveTarget = null; audio.sfx('tap'); return; }
+    // An enemy city: lay siege, holding off within laser range. The Xeno-Lab: fly over it.
+    if (this.hostile) {
+      for (const c of this.cities) {
+        if (c.dead || Math.hypot(wdx(p.x, c.x), c.y - p.y) > 120) continue;
+        this.siege = c;
+        const dx = wdx(c.x, this.ship.x), dy = this.ship.y - c.y, d = Math.hypot(dx, dy) || 1;
+        this.moveTarget = d > 230 ? { x: wrapX(c.x + (dx / d) * 220), y: clamp(c.y + (dy / d) * 220, 90, H - 90) } : null;
+        this.chase = null;
+        audio.sfx('alarm', { vol: 0.5 });
+        return;
+      }
+    }
+    const lab = this.lab;
+    if (lab && Math.hypot(wdx(p.x, lab.x), lab.y - p.y) < 120) { this.moveTarget = { x: lab.x, y: lab.y + 40 }; this.chase = null; audio.sfx('tap'); return; }
     this.moveTarget = { x: wrapX(p.x), y: clamp(p.y, 90, H - 90) };
     this.chase = null;
   }

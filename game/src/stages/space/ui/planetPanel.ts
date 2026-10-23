@@ -13,7 +13,7 @@ import {
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
 import { deliver, deliverables, tutorialEvent } from '../missions';
 import { scanPlanet } from '../scan';
-import { dismiss, EVENT_INFO, welcomeRefugees } from '../events';
+import { EVENT_INFO } from '../events';
 import type { Empire, GEvent, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
 import { inXenopedia } from '../xenolab';
@@ -21,7 +21,7 @@ import { landingBlock } from '../surface/look';
 import { dietIcon, fmtTime, money, sheet, specimenThumb, tabStrip } from './common';
 import { showScan } from './scanCard';
 import { openOutbreak } from './outbreak';
-import { openTrader } from './traderView';
+import { greetTrader, refugeeTalk } from './encounters';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
 
@@ -186,7 +186,7 @@ export class PlanetPanel {
   }
   private visitTrader(ev: GEvent) {
     audio.sfx('tap');
-    openTrader(this.st, ev, () => { if (this.el.isConnected) this.render(); });
+    greetTrader(this.st, ev, () => { if (this.el.isConnected) this.render(); });
   }
 
   private ecoEvent() {
@@ -244,12 +244,8 @@ export class PlanetPanel {
       const acts = h('div', { class: 'sp-tools' });
       if (ev.kind === 'trader') acts.append(button(`🛍️ Visit the trader (${ev.deals?.length ?? 0} deals)`, () => this.visitTrader(ev), { cls: 'gold sp-wide' }));
       if (ev.kind === 'eco') acts.append(button(`☣️ Contain the outbreak (${(ev.marks?.length ?? 0) / 2})`, () => this.contain(ev), { cls: 'sp-wide sp-toxic' }));
-      if (ev.kind === 'refugees') {
-        acts.append(
-          button('🏠 Take them in', () => { this.st.ui.toast(welcomeRefugees(w, ev), '🚀', 'good'); this.render(); }, { cls: 'gold' }),
-          button('Turn them away', () => { dismiss(w, ev); this.st.ui.toast('The refugee fleet moves on, disappointed.', '🚀'); this.render(); }),
-        );
-      }
+      if (ev.kind === 'meteor') acts.append(button('☄️ Man the planetary gun', () => this.st.defend(ev), { cls: 'sp-wide danger' }));
+      if (ev.kind === 'refugees') acts.append(button('📡 Hear their plea', () => refugeeTalk(this.st, ev, () => { if (this.el.isConnected) this.render(); }), { cls: 'gold sp-wide' }));
       if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, !!w.star(this.star).hollow)) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' }));
       if (acts.childElementCount) box.append(acts);
       this.body.append(box);
@@ -259,7 +255,7 @@ export class PlanetPanel {
   private eventText(ev: GEvent): string {
     const ps = this.ps;
     switch (ev.kind) {
-      case 'meteor': return 'Rocks are falling toward this world. Fly out and shoot them down: each one that lands cracks the spice stores, and every second one flattens a building.';
+      case 'meteor': return 'Rocks are falling toward this world. Take the planetary gun and shoot them down: each one that lands cracks the spice stores, and every second one flattens a building.';
       case 'distress': return 'A stranded ship drifts near this planet, its beacon blinking. Fly to the 🆘 marker to answer the call.';
       case 'relic': return 'Something ancient is buried down there. Land, sweep the surface with 📡 Life scan, and beam the relic up.';
       case 'rare': return 'A one-of-a-kind creature has been spotted on the surface. It bolts at the sight of your ship: land, chase it down and beam it aboard.';

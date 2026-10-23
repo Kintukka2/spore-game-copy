@@ -23,7 +23,9 @@ import { injectStyle } from './ui/style';
 import { StarCard } from './ui/starCard';
 import { PlanetPanel } from './ui/planetPanel';
 import { anySheetOpen, closeAllSheets } from './ui/common';
-import { openComm, openEmpires, openMissions, openShip, firstContactDialog, takeoverDialog, tributeDialog } from './ui/sheets';
+import { openEmpires, openMissions, openShip } from './ui/sheets';
+import { firstContactTalk, hailTalk, takeoverTalk, tributeTalk } from './ui/diplomacy';
+import { distressTalk } from './ui/encounters';
 import { annexSystem, breakLaw, meet } from './empires';
 import { checkMainMissions, onArrive, tutorialEvent } from './missions';
 import { collectSystem } from './economy';
@@ -33,6 +35,7 @@ import { landingBlock } from './surface/look';
 import { EVENT_INFO, randomEvent, start as startEvent } from './events';
 import { scanPlanet } from './scan';
 import { showScan } from './ui/scanCard';
+import { openMeteorDefense } from './ui/meteorDefense';
 import { playEnding } from './ending';
 
 export type ViewMode = 'galaxy' | 'system' | 'warp';
@@ -191,7 +194,7 @@ export class SpaceStage implements Scene, WorldHooks {
   // ------------------------------------------------------------------ loop
   update(dt: number) {
     if (!this.ready || this.cinematic) return;
-    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap')) { this.hud.update(dt); return; }
+    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft')) { this.hud.update(dt); return; }
     this.w.inWarp = this.mode === 'warp';
     this.w.update(dt);
     this.fx.update(dt);
@@ -415,6 +418,12 @@ export class SpaceStage implements Scene, WorldHooks {
 
   gotoEvent(ev: GEvent) {
     closeAllSheets();
+    if (ev.kind === 'meteor') {
+      // Defend now if we are there; otherwise set course and take the guns on arrival.
+      if (ev.star === this.w.s.loc && this.mode !== 'warp') { this.defend(ev); return; }
+      this.defendFor = ev.id;
+      this.ui.toast(`Set course for ${this.w.star(ev.star).name}. The planetary guns are yours when you arrive.`, '☄️');
+    }
     this.panel?.close();
     if (ev.star === this.w.s.loc) {
       this.showSystem();
@@ -423,6 +432,24 @@ export class SpaceStage implements Scene, WorldHooks {
     }
     this.showGalaxy(ev.star);
     this.selectStar(ev.star);
+  }
+
+  /** A meteor storm alert we chose to answer: defend on arrival. */
+  private defendFor: number | null = null;
+
+  /** The meteor defence minigame for a storm in this system. */
+  defend(ev: GEvent) {
+    if (!this.w.s.events.includes(ev) || document.querySelector('.sp-focus')) return;
+    closeAllSheets();
+    openMeteorDefense(this, ev, () => this.hud.refresh(true));
+  }
+
+  /** Arrived in a system under a meteor storm. */
+  meteorArrived(ev: GEvent) {
+    if (this.defendFor === ev.id) {
+      this.defendFor = null;
+      this.later(900, () => this.defend(ev));
+    } else this.later(600, () => this.ui.toast(`A meteor storm is falling on ${this.w.planet(ev.star, ev.planet).name}! Tap the ☄️ alert to man the planetary gun.`, '☄️', 'bad'));
   }
 
   showMissionTarget(m: Mission) {
@@ -456,7 +483,8 @@ export class SpaceStage implements Scene, WorldHooks {
   openShip(tab = 'shop') { openShip(this, tab); }
   openMissions() { openMissions(this); }
   openEmpires() { openEmpires(this); }
-  openComm(e: Empire) { openComm(this, e); }
+  /** Hail an empire: a face-to-face conversation. */
+  openComm(e: Empire) { this.dialog(() => hailTalk(this, e)); }
 
   /** Run modal dialogs one after another. */
   dialog<T>(f: () => Promise<T>): Promise<T> {
@@ -469,9 +497,11 @@ export class SpaceStage implements Scene, WorldHooks {
   toast(msg: string, icon?: string, kind?: 'info' | 'good' | 'bad' | 'gold') { this.ui.toast(msg, icon, kind); }
   ownerChanged() { this.w.dirtyTerritory = true; }
   changed() { /* HUD polls at 10 Hz */ }
-  firstContact(e: Empire) { this.dialog(() => firstContactDialog(this, e)); }
-  tribute(e: Empire, amount: number) { this.dialog(() => tributeDialog(this, e, amount)); }
-  takeoverOffer(e: Empire, star: number, price: number) { this.dialog(() => takeoverDialog(this, e, star, price)); }
+  firstContact(e: Empire) { this.dialog(() => firstContactTalk(this, e)); }
+  tribute(e: Empire, amount: number) { this.dialog(() => tributeTalk(this, e, amount)); }
+  takeoverOffer(e: Empire, star: number, price: number) { this.dialog(() => takeoverTalk(this, e, star, price)); }
+  /** You reached a distress beacon: the stranded crew (or the pirates faking it) hail you. */
+  distress(ev: GEvent, ambush: () => void) { this.dialog(() => distressTalk(this, ev, ambush)); }
   eventStarted(ev: GEvent) {
     const pl = this.w.planet(ev.star, ev.planet);
     const sys = this.w.star(ev.star).name;
@@ -480,7 +510,7 @@ export class SpaceStage implements Scene, WorldHooks {
       eco: `Eco-disaster on ${pl.name}! A plague is spreading.`,
       hollow: `The Hollow strike ${pl.name}!`,
       invasion: `${this.w.emap.get(ev.empire ?? '')?.name ?? 'Enemies'} invade ${pl.name}!`,
-      meteor: `A meteor storm is bearing down on ${pl.name}! Shoot the rocks down before they hit.`,
+      meteor: `A meteor storm is bearing down on ${pl.name}! Man the planetary gun.`,
       distress: `Distress call from a stranded ship near ${pl.name} (${sys}).`,
       relic: `An ancient signal is rising from the surface of ${pl.name} (${sys}). Land to find its source.`,
       rare: `Rare sighting! ${article(ev.sp?.name ?? 'strange', true)} ${ev.sp?.name ?? 'strange creature'} roams ${pl.name} (${sys}). Land and catch it before it migrates.`,
@@ -489,7 +519,7 @@ export class SpaceStage implements Scene, WorldHooks {
     };
     const info = EVENT_INFO[ev.kind];
     this.ui.toast(msg[ev.kind] + ' Tap the alert to go there.', info.good ? info.icon : ev.kind === 'eco' ? '☣️' : '🚨', info.good ? 'gold' : 'bad');
-    if (ev.star === this.w.s.loc) this.sv.setupEvent(ev);
+    if (ev.star === this.w.s.loc) this.sv.setupEvent(ev, false);
     this.game.hint('alerts', 'Alerts appear under your mission. Tap one to set course. Get there before the timer runs out.', '🚨');
     if (info.good) this.game.hint('opportunity', 'Gold alerts are opportunities: rescues, relics, rare creatures, traders and refugees. They pay well, but they do not wait.', '✨');
   }

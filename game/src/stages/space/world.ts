@@ -56,6 +56,8 @@ export class World {
   inWarp = false;
   /** "star:idx" of the world the ship has landed on, if any. */
   onSurface: string | null = null;
+  /** The event whose minigame is open: its clock waits. */
+  focusEvent: number | null = null;
   /** Set by the system view: the star the player currently flies in. */
   dirtyTerritory = true;
   rankCache = -1;

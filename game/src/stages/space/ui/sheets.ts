@@ -1,19 +1,15 @@
-// Bottom sheets and dialogs: ship & tool shop, cargo, badges, perks, missions, empires,
-// diplomacy (comm), first contact, tribute demands and takeover offers.
+// Bottom sheets: ship & tool shop, cargo, badges, perks, missions and the empires list.
+// Talking to empires lives in diplomacy.ts.
 import { button, h, progressBar, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
-import { ABILITIES, ARCHETYPES } from '../../../game/cards';
-import { BADGES, PERSONALITY, RANKS, SPICE, SPICE_COLORS, TOOL_CATS, TOOLS, type ToolCat, type ToolDef } from '../data';
-import type { Empire } from '../types';
-import {
-  archName, breakAlliance, canAlly, canRoute, contactReply, declareWar, formAlliance, gift, giftValue, makePeace, openRoute,
-  addMod, payTribute, peacePrice, relation, strength, annexSystem,
-} from '../empires';
-import { acceptOffer, abandon, declineOffer, offerFor } from '../missions';
+import { ABILITIES } from '../../../game/cards';
+import { BADGES, RANKS, SPICE, SPICE_COLORS, TOOL_CATS, TOOLS, type ToolCat, type ToolDef } from '../data';
+import { archName, relation } from '../empires';
+import { abandon } from '../missions';
 import { EVENT_INFO } from '../events';
 import { openCrate } from './crateOpen';
 import type { SpaceStage } from '../stage';
-import { dietIcon, fmtTime, modsList, money, portrait, relMeter, sheet, specimenThumb, stanceChip, tabStrip } from './common';
+import { dietIcon, fmtTime, money, sheet, specimenThumb, stanceChip, tabStrip } from './common';
 import { renderLab } from './xenoLab';
 
 // ------------------------------------------------------------------ ship sheet
@@ -197,172 +193,11 @@ export function openEmpires(st: SpaceStage) {
     const item = h('div', { class: 'sp-item', role: 'button', style: 'cursor:pointer' },
       h('div', { style: `width:10px;align-self:stretch;border-radius:6px;background:${e.color}` }),
       h('div', { class: 'sp-txt' }, h('b', null, e.name), h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, stanceChip(e), h('span', null, `${archName(e)} · ${w.countStars(e.id)} systems${e.route !== null ? ' · 💱 route' : ''}`))),
-      button('📡', () => { sh.close(); openComm(st, e); }, { cls: 'icon', title: 'Hail' }));
-    item.addEventListener('click', () => { sh.close(); openComm(st, e); });
+      button('📡', () => { sh.close(); st.openComm(e); }, { cls: 'icon', title: 'Hail' }));
+    item.addEventListener('click', () => { sh.close(); st.openComm(e); });
     sh.body.append(item);
   }
   const total = w.empires.filter((e) => e.arch !== 'hollow' && !e.dead).length;
   const held = w.countStars('player');
   sh.body.append(h('div', { class: 'sp-mini' }, `${met.filter((e) => e.arch !== 'hollow').length} of ${total} spacefaring empires met. You hold ${held} ${held === 1 ? 'system' : 'systems'}.`));
-}
-
-// ------------------------------------------------------------------ diplomacy
-export function openComm(st: SpaceStage, e: Empire) {
-  const w = st.w;
-  const sh = sheet(e.name);
-  const inTheirSystem = w.ownerOf(w.s.loc) === e.id;
-  const render = () => {
-    const B = sh.body;
-    B.innerHTML = '';
-    const head = h('div', { class: 'row', style: 'align-items:stretch' });
-    const pc = portrait(e.creature);
-    pc.style.width = '120px'; pc.style.flex = '0 0 120px';
-    const info = h('div', { class: 'col', style: 'gap:4px;flex:1;min-width:0' },
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, stanceChip(e), h('span', { class: 'chip', style: 'font-size:12px' }, e.arch === 'hollow' ? '🤖 Machine' : `${ARCHETYPES[e.arch].icon} ${archName(e)}`)),
-      h('div', { class: 'dim', style: 'font-size:13px' }, `${e.species} · strength ${'★'.repeat(strength(w, e))} · ${w.countStars(e.id)} systems`),
-      relMeter(e),
-      h('div', { class: 'sp-mini' }, `Relation ${relation(e)}${e.serenade > 0 ? ' (charmed)' : ''}`));
-    head.append(pc, info);
-    B.append(head, modsList(e));
-    const acts = h('div', { class: 'sp-tools' });
-    const hollow = e.arch === 'hollow';
-    // Gifts
-    for (const amt of [10000, 50000, 250000]) {
-      acts.append(button(`🎁 Gift ${money(amt)} (+${Math.min(50, giftValue(w, e, amt))})`, () => {
-        if (w.s.money < amt) { st.ui.toast('Not enough money.', '💸'); audio.sfx('error'); return; }
-        const d = gift(w, e, amt);
-        st.ui.toast(d > 0 ? `${e.species} appreciate your gift (+${d}).` : `${e.species} accept, but they have had enough gifts for now.`, '🎁', 'good');
-        render();
-      }, { disabled: w.s.money < amt }));
-    }
-    // Missions
-    if (!e.war || hollow) acts.append(button('📜 Ask for work', () => offer(), {}));
-    // Trade route
-    if (!hollow) {
-      if (e.route !== null) acts.append(button(`💱 Route to ${w.star(e.route).name}`, () => {}, { disabled: true }));
-      else acts.append(button('💱 Trade route', () => {
-        const err = canRoute(w, e);
-        if (err) { st.ui.toast(err, '💱'); audio.sfx('error'); return; }
-        const target = inTheirSystem ? w.s.loc : w.starsOf(e.id).sort((a, b) => w.gal.dist(a, w.s.loc) - w.gal.dist(b, w.s.loc))[0];
-        if (target === undefined) return;
-        openRoute(w, e, target);
-        audio.sfx('success');
-        st.ui.toast(`Trade route open with ${w.star(target).name}. It pays you and fills that system's takeover bar.`, '💱', 'good');
-        render();
-      }));
-    }
-    // Alliance
-    if (e.allied) acts.append(button('💔 End alliance', async () => { if (await ui.confirm('End the alliance?', 'They will take it badly.', 'End it', 'Keep')) { breakAlliance(w, e, true); render(); } }, { cls: 'ghost' }));
-    else acts.append(button('🤝 Propose alliance', () => {
-      const err = canAlly(w, e);
-      if (err) { st.ui.toast(err, '🤝'); audio.sfx('error'); return; }
-      formAlliance(w, e);
-      audio.sfx('levelup');
-      if (st.mode === 'system') st.sv.combat.spawnAlly(e.ship, e.id, 260 * strength(w, e), st.sv.combat.crafts.filter((c) => c.kind === 'ally').length);
-      st.ui.toast(`${e.name} are now your allies! Their ships will escort you.`, '🤝', 'gold');
-      st.sv.refreshHostility();
-      render();
-    }, { cls: relation(e) >= 70 && !e.war ? 'primary' : '' }));
-    // War and peace
-    if (e.war && !hollow) acts.append(button(`🕊️ Peace ${money(peacePrice(w, e))}`, () => {
-      if (!makePeace(w, e)) { st.ui.toast('Not enough money for a peace offering.', '🕊️'); audio.sfx('error'); return; }
-      st.sv.refreshHostility();
-      st.ui.toast(`Peace with ${e.name}.`, '🕊️', 'good');
-      render();
-    }, { cls: 'gold' }));
-    if (!e.war) acts.append(button('⚔️ Declare war', async () => {
-      if (!(await ui.confirm('Declare war?', `${e.name} will attack your colonies and defend their space.`, 'War', 'Cancel'))) return;
-      declareWar(w, e);
-      w.counter('wars');
-      audio.sfx('alarm');
-      st.sv.refreshHostility();
-      render();
-    }, { cls: 'danger' }));
-    // Planet-side tools
-    if (inTheirSystem && w.has('beacon')) acts.append(button('🎆 Goodwill Beacon', () => {
-      if (e.lastBeacon && w.s.t - e.lastBeacon < 60) { st.ui.toast(`The beacon recharges in ${Math.ceil(60 - (w.s.t - e.lastBeacon))}s.`, '🎆'); return; }
-      e.lastBeacon = w.s.t;
-      addMod(e, 'beacon', 'You dazzled us', hollow ? 6 : 12, { max: hollow ? 30 : 50, decay: 0.3 });
-      audio.sfx('charm');
-      const p = st.sv.combat.player;
-      for (let i = 0; i < 40; i++) { const a = Math.random() * Math.PI * 2; st.fx.spawn(p.x, p.y, Math.cos(a) * 260, Math.sin(a) * 260, 1, 4, ['#ffd166', '#ff7ab8', '#5cc8ff', '#4cd97b'][i % 4], 1, 1.5); }
-      render();
-    }));
-    if (inTheirSystem && w.count('embassy') > 0 && !e.mods.some((m) => m.id === 'embassy')) acts.append(button(`🏛️ Build embassy (${w.count('embassy')})`, () => {
-      if (!w.use('embassy')) return;
-      addMod(e, 'embassy', 'Your embassy', hollow ? 10 : 35);
-      audio.sfx('build');
-      render();
-    }));
-    B.append(acts);
-    if (!inTheirSystem) B.append(h('div', { class: 'sp-mini' }, 'You are hailing from afar. Fly to their worlds to trade spice.'));
-    if (hollow) B.append(h('div', { class: 'sp-mini' }, 'The Hollow trust no one. Allying with them will turn every other empire against you.'));
-  };
-  const offer = () => {
-    const m = offerFor(w, e);
-    const box = h('div', { class: 'sp-offer' }, h('b', null, `📜 ${m.title}`), h('div', null, m.desc), h('div', { class: 'sp-mini' }, `Reward ${money(m.reward)}${m.deadline ? ' · ' + fmtTime(m.deadline) + ' to finish' : ''}`),
-      h('div', { class: 'sp-actions' },
-        button('Accept', () => { const err = acceptOffer(w, e); if (err) { st.ui.toast(err, '📜'); return; } st.ui.toast(`Mission accepted: ${m.title}`, '📜', 'good'); render(); }, { cls: 'primary' }),
-        button('Decline', () => { declineOffer(w, e); render(); }, { cls: 'ghost' })));
-    sh.body.prepend(box);
-    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
-  render();
-}
-
-// ------------------------------------------------------------------ dialogs
-export async function firstContactDialog(st: SpaceStage, e: Empire): Promise<void> {
-  const w = st.w;
-  audio.sfx('bell');
-  const pc = portrait(e.creature);
-  if (e.arch === 'hollow') {
-    const r = await ui.modal({
-      title: 'The Hollow',
-      body: [pc, h('p', { style: 'margin-top:10px' }, '“We are the Hollow. Flesh is a fever that passes. Turn back, warm thing. The light at the centre is not for you.”')],
-      buttons: [{ id: 'core', label: 'We seek the Core' }, { id: 'peace', label: 'We come in peace', primary: true }],
-    });
-    if (r === 'peace') addMod(e, 'greet', 'You were polite', 5, { max: 5 });
-    st.ui.toast('Contact with the Hollow made. The road to the Core is open.', '🤖', 'gold');
-    return;
-  }
-  const greeting = PERSONALITY[e.arch].greeting;
-  const r = await ui.modal({
-    title: `First contact: ${e.name}`,
-    body: [pc, h('p', { style: 'margin-top:10px' }, `“${greeting}”`), h('div', { class: 'sp-mini' }, `${archName(e)} · ${w.countStars(e.id)} systems`)],
-    buttons: [{ id: 'threat', label: 'Stay out of our way' }, { id: 'boast', label: 'Behold our might!' }, { id: 'peace', label: 'We come in peace', primary: true }],
-  });
-  contactReply(w, e, r === 'threat' ? 'threat' : r === 'boast' ? 'boast' : 'peace');
-  st.game.hint('diplomacy', 'Hail empires from the 👽 button to gift, trade, ask for missions or form alliances.', '👽');
-}
-
-export async function tributeDialog(st: SpaceStage, e: Empire, amount: number): Promise<void> {
-  const w = st.w;
-  audio.sfx('alarm');
-  const r = await ui.modal({
-    title: `${e.name} demand tribute`,
-    body: [portrait(e.creature), h('p', { style: 'margin-top:10px' }, `“Your ships wander our stars. Pay ${money(amount)}, or we will remember this insult.”`)],
-    buttons: [{ id: 'no', label: 'Refuse', danger: true }, { id: 'pay', label: `Pay ${money(amount)}`, primary: true }],
-  });
-  payTribute(w, e, amount, r === 'pay' && w.s.money >= amount);
-  if (r === 'pay' && w.s.money < amount) st.ui.toast('You could not afford it. They take it as a refusal.', '💸', 'bad');
-  st.sv.refreshHostility();
-}
-
-export async function takeoverDialog(st: SpaceStage, e: Empire, star: number, price: number): Promise<void> {
-  const w = st.w;
-  if (w.ownerOf(star) !== e.id) return;
-  const free = price <= 0;
-  const r = await ui.modal({
-    title: `Buy ${w.star(star).name}?`,
-    body: h('p', null, free ? `A golden handshake! ${e.name} hand over the ${w.star(star).name} system for free.` : `${e.name} offer to sell you the ${w.star(star).name} system, cities and all, for ${money(price)}.`),
-    buttons: [{ id: 'no', label: 'Not now' }, { id: 'yes', label: free ? 'Accept' : `Buy for ${money(price)}`, primary: true }],
-  });
-  if (r !== 'yes') return;
-  if (!free && w.s.money < price) { st.ui.toast('Not enough money. The offer stands; come back richer.', '💸', 'bad'); return; }
-  if (!free) w.addMoney(-price);
-  annexSystem(w, star, 'bought');
-  w.counter('diplomacy');
-  audio.sfx('levelup');
-  st.ui.toast(`The ${w.star(star).name} system is yours!`, '🏳️', 'gold');
-  st.sv.refreshHostility();
 }

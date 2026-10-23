@@ -10,7 +10,7 @@ import { drawPlanet, sphereFor, styleFor, type PlanetLook } from '../art/planetA
 import { drawShip } from '../art/shipArt';
 import { Combat, type Craft } from '../combat';
 import { strength } from '../empires';
-import { EVENT_INFO, resolve as resolveEvent } from '../events';
+import { EVENT_INFO } from '../events';
 import { tutorialEvent } from '../missions';
 import type { GEvent, Planet } from '../types';
 import type { Design } from '../../../design/types';
@@ -319,11 +319,12 @@ export class SystemView {
   }
 
   /** Bring an event in this system to life: fights, meteor swarms, distress beacons. */
-  setupEvent(ev: GEvent) {
+  setupEvent(ev: GEvent, arriving = true) {
     if (ev.kind === 'distress') {
       if (ev.started) this.startEventFight(ev.id);
       else if (!this.rescue) this.rescue = { ev: ev.id, planet: ev.planet, a: Math.random() * TAU };
-    } else if (ev.kind === 'raid' || ev.kind === 'invasion' || ev.kind === 'hollow' || ev.kind === 'meteor') this.startEventFight(ev.id);
+    } else if (ev.kind === 'raid' || ev.kind === 'invasion' || ev.kind === 'hollow') this.startEventFight(ev.id);
+    else if (ev.kind === 'meteor' && arriving) this.st.meteorArrived(ev);
   }
 
   private rescuePos() {
@@ -344,7 +345,6 @@ export class SystemView {
     if (ev.kind === 'raid') this.combat.spawnPirates(3 + Math.floor(Math.random() * 2), x, y, { ev: ev.id, planet: ev.planet });
     else if (ev.kind === 'invasion' && ev.empire) this.combat.spawnEmpire(ev.empire, 3, x, y, { ev: ev.id, planet: ev.planet });
     else if (ev.kind === 'hollow') this.combat.spawnEmpire('hollow', 3, x, y, { ev: ev.id, planet: ev.planet });
-    else if (ev.kind === 'meteor') this.combat.spawnMeteors(ev.planet, Math.max(3, 8 - (ev.hits ?? 0)), ev.id);
     else if (ev.kind === 'distress') this.combat.spawnPirates(3, x, y, { ev: ev.id });
     this.updateMusic();
   }
@@ -505,12 +505,13 @@ export class SystemView {
         this.rescue = null;
         audio.sfx('pop');
         this.st.fx.ring(b.x, b.y, 10, 110, 0.6, '#ffd166', 4);
-        if (ev.trap) {
+        this.st.distress(ev, () => {
+          if (!w.s.events.includes(ev)) return;
           ev.started = true;
           this.combat.spawnPirates(3, b.x, b.y, { ev: ev.id });
           this.st.ui.toast('It\'s a trap! Pirates de-cloak around the beacon!', '🏴‍☠️', 'bad');
           audio.sfx('alarm');
-        } else resolveEvent(w, ev);
+        });
       }
     }
     // Scan pulses
@@ -982,30 +983,6 @@ export class SystemView {
       g.fillStyle = col;
       g.fillRect(4, -3, 14, 6);
       if (c.flash > 0) { g.globalAlpha = c.flash; g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 11, 0, TAU); g.fill(); }
-      g.restore();
-      return;
-    }
-    if (c.kind === 'rock') {
-      g.save();
-      g.translate(c.x, c.y);
-      g.globalCompositeOperation = 'lighter';
-      blit(g, glow('#ff8a3a', 32), 0, 0, c.radius * 2.6);
-      g.globalCompositeOperation = 'source-over';
-      g.rotate(c.angle);
-      const r = c.radius;
-      g.fillStyle = frozen ? '#8fb8d8' : '#6b5546';
-      g.strokeStyle = '#d8b48a';
-      g.lineWidth = 2 / z;
-      g.beginPath();
-      for (let i = 0; i < 9; i++) {
-        const a = (i / 9) * TAU, rr = r * (0.75 + 0.25 * Math.sin(c.id * 7.3 + i * 2.1));
-        if (i) g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
-      }
-      g.closePath(); g.fill(); g.stroke();
-      g.fillStyle = 'rgba(30,20,14,0.45)';
-      g.beginPath(); g.arc(r * 0.25, -r * 0.2, r * 0.22, 0, TAU); g.fill();
-      g.beginPath(); g.arc(-r * 0.3, r * 0.25, r * 0.15, 0, TAU); g.fill();
-      if (c.flash > 0) { g.globalAlpha = c.flash; g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, r * 0.8, 0, TAU); g.fill(); g.globalAlpha = 1; }
       g.restore();
       return;
     }

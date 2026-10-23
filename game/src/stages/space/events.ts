@@ -17,7 +17,7 @@ export const EVENT_INFO: Record<EventKind, { icon: string; label: string; how: s
   invasion: { icon: '⚔️', label: 'Invasion', how: 'Destroy the invasion fleet.' },
   eco: { icon: '☣️', label: 'Eco-disaster', how: 'Tap the glowing outbreaks on the planet.' },
   hollow: { icon: '🤖', label: 'Hollow incursion', how: 'Destroy the Hollow ships.' },
-  meteor: { icon: '☄️', label: 'Meteor storm', how: 'Shoot the meteors down before they hit.' },
+  meteor: { icon: '☄️', label: 'Meteor storm', how: 'Man the planetary gun and shoot the meteors down.' },
   distress: { icon: '🆘', label: 'Distress call', how: 'Fly to the beacon near the planet.', good: true },
   relic: { icon: '🗿', label: 'Ancient signal', how: 'Land, find the relic and beam it up.', good: true },
   rare: { icon: '✨', label: 'Rare sighting', how: 'Land and catch it before it migrates.', good: true },
@@ -89,6 +89,7 @@ export function eventsTick(w: World, dt: number) {
     // If the player is fighting there, or is down on the surface after it, give them the time.
     if (ev.started && s.loc === ev.star && w.inCombat) continue;
     if ((ev.kind === 'relic' || ev.kind === 'rare') && w.onSurface === `${ev.star}:${ev.planet}`) continue;
+    if (w.focusEvent === ev.id) continue;
     fail(w, ev);
   }
 }
@@ -192,13 +193,13 @@ function knockBuilding(ps: PlanetState): string {
   return BUILDINGS[b].name;
 }
 
-/** A meteor got through: the store cracks, and every second hit flattens a building. */
-export function meteorImpact(w: World, ev: GEvent) {
+/** A meteor got through: the store cracks, and every second hit flattens a building (named in the result). */
+export function meteorImpact(w: World, ev: GEvent): string {
   ev.hits = (ev.hits ?? 0) + 1;
   const ps = w.ps(ev.star, ev.planet);
   ps.stored = Math.max(0, ps.stored - 3);
   const lost = ev.hits % 2 === 0 ? knockBuilding(ps) : '';
-  w.hooks?.toast(`A meteor struck ${w.planet(ev.star, ev.planet).name}!${lost ? ` A ${lost} was flattened.` : ' Spice stores cracked.'}`, '☄️', 'bad');
+  return lost;
 }
 
 export function resolve(w: World, ev: GEvent) {

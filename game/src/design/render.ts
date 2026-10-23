@@ -122,6 +122,7 @@ function animateSpine(d: Design, pose: Pose): SpineNode[] {
       if (act === 'pose') { y -= Math.sin(at * Math.PI) * 8 * head; }
       if (act === 'charge' || act === 'bite') x += Math.sin(at * Math.PI) * 10 * head;
       if (act === 'eat') y += Math.sin(at * Math.PI * 4) * 4 * head;
+      if (act === 'talk') y -= Math.abs(Math.sin(at * Math.PI)) * 1.2 * head;
     } else if (d.kind === 'ship') {
       y += Math.sin(t * 1.5) * 1.2;
     }
@@ -794,6 +795,8 @@ function drawPartInstance(g: CanvasRenderingContext2D, d: Design, pi: PartInstan
 function actIntensity(p: PartDef, pose: Pose): number {
   const a = pose.action, t = pose.actionT ?? 0;
   if (!a) return 0;
+  // Talking only moves the mouth (actionT runs freely: one syllable per unit).
+  if (a === 'talk') return p.category === 'mouth' || p.category === 'cell-mouth' ? Math.abs(Math.sin(t * Math.PI)) * 0.8 : 0;
   const pulse = Math.sin(clamp(t, 0, 1) * Math.PI);
   switch (p.category) {
     case 'mouth': case 'cell-mouth': return a === 'bite' || a === 'eat' || a === 'sing' || a === 'roar' ? Math.abs(Math.sin(t * Math.PI * (a === 'sing' ? 4 : 2))) : 0;

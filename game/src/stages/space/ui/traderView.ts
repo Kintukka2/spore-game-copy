@@ -13,7 +13,12 @@ import { fmtTime, money, portrait } from './common';
 import { openCrate } from './crateOpen';
 
 const TITLES = ['the Haggler', 'of the Long Road', 'the Starlane Peddler', 'the Bargainer', 'Junk-Prince', 'the Generous (Allegedly)'];
-const LINES = {
+export const LINES = {
+  browse: [
+    'Take your time. Touch nothing you cannot afford.',
+    'Everything on the table is for sale. The table is also for sale.',
+    'Have a look, have a look. Prices go up when I get bored.',
+  ],
   greet: [
     'Ah, a customer! Fresh off the starlanes, are we? Look, look, everything must go.',
     'Welcome, welcome! {name} sells only the finest and mostly legal goods.',
@@ -30,7 +35,7 @@ const LINES = {
 };
 
 const merchants = new Map<number, { design: Design; name: string }>();
-function merchant(seed: number) {
+export function merchant(seed: number) {
   let m = merchants.get(seed);
   if (!m) {
     const r = new RNG((seed ^ 0x7ade) >>> 0);
@@ -111,7 +116,7 @@ export function openTrader(st: SpaceStage, ev: GEvent, onClose?: () => void) {
     }
     setTimeout(tick, 250);
   };
-  talk('greet');
+  talk('browse');
   render();
   tick();
   audio.sfx('coin', { vol: 0.5 });

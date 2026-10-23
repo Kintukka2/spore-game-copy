@@ -58,6 +58,38 @@ export function talkNote(text: string, kind?: 'good' | 'bad') {
 
 export function talkOpen(): boolean { return !!current; }
 
+/** A yes/no question in a terminal box laid over `host` (a positioned Fallout frame). Pass its keys to `key()`. */
+export function terminalAsk(host: HTMLElement, text: string | Node, yes: { key: string; label: string }, onYes: () => void, onNo?: () => void) {
+  let done = false;
+  const finish = (ok: boolean) => {
+    if (done) return;
+    done = true;
+    el.remove();
+    if (ok) onYes();
+    else { audio.sfx('click', { pitch: 0.8 }); onNo?.(); }
+  };
+  const opt = (k: string, label: string, ok: boolean) => {
+    const b = h('div', { class: 'ft-opt bt-key' + (ok ? ' on' : ''), role: 'button' }, h('span', { class: 'ft-tag' }, `[${k}] `), label);
+    b.addEventListener('click', (e) => { e.stopPropagation(); finish(ok); });
+    return b;
+  };
+  const el = h('div', { class: 'ft-ask', role: 'dialog', 'aria-modal': 'true' },
+    h('div', { class: 'ft-ask-box' }, h('div', { class: 'ft-ask-q' }, text), h('div', { class: 'bt-keys' }, opt(yes.key, yes.label, true), opt('Esc', 'Cancel', false))));
+  el.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === el) finish(false); });
+  host.append(el);
+  audio.sfx('tap');
+  return {
+    /** Dismiss without answering. */
+    close: () => { done = true; el.remove(); },
+    /** Handle a key while the question is up: its key, Enter or Y says yes; Esc, Tab or N says no. */
+    key: (k: string) => {
+      if (k === 'enter' || k === 'y' || k === yes.key.toLowerCase()) finish(true);
+      else if (k === 'escape' || k === 'tab' || k === 'n') finish(false);
+    },
+    get open() { return !done; },
+  };
+}
+
 /** The middle of the speaker's face in design space, and its radius. */
 function faceOf(d: Design): { x: number; y: number; r: number } {
   const n = d.spine.length - 1;

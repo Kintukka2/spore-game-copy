@@ -196,7 +196,8 @@ function tree(st: SpaceStage, e: Empire) {
   const hub = (say: string, mood?: Line['mood']): Line => {
     const r: Reply[] = [];
     if (e.war && !hollow) r.push({ text: 'Can we end this war?', go: peaceTalk });
-    if (!e.war || hollow) {
+    // Nobody hands out work to an enemy.
+    if (!e.war) {
       const job = w.s.missions.find((m) => m.giver === e.id && !m.main);
       if (job) r.push({ text: 'About the job you gave us...', go: () => jobTalk(job) });
       r.push({ text: job ? 'Any more work for us?' : 'Do you have any work for us?', go: work });

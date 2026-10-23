@@ -308,6 +308,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 1. **Galaxy map:** pan, pinch, tap a star → info card (owner, planets, spice) → **Travel**. Travel range is limited by the drive level; longer jumps need multiple hops (show the range ring). Travelling costs energy.
    - Energy only recharges at a friendly dock: your homeworld and colony systems, or an ally's systems (`World.atDock`). The energy bar shows ▲ while it charges. Elsewhere, Energy Packs ⚡ top it up, and hops without energy strain the hull. A one-time hint explains this when energy drops below 30% away from a dock.
 2. **System view:** the star with orbiting planets; your ship flies around (joystick, or tap to move). Tap a planet → planet panel.
+   - A world you have not explored yet is drawn greyscale, dimmed and out of focus under a drifting grey haze, beside its "?" label, until you scan it or land. Where canvas filters are missing (older Safari), a thicker haze does the greying.
    - Every settled world (not destroyed, with at least one city) is ringed by orbital defence platforms: one more than its cities, up to 4. They are drawn as hexagonal hulls with solar wings and a swivelling gun, in the owner's colour (teal for yours, red for the Hollow). In combat the live turret craft use the same platform art.
 3. **Planet panel:** a 2D close-up of the planet sphere with its stats (T-score 0–3, atmosphere and temperature sliders, spice colour and amount, cities and owners). The available actions depend on context:
    - Scan, Colonize (Colony Pack), Terraform (atmosphere and temperature tools), Plant (flora) and Abduct/Place animals (to fill the ecosystem)
@@ -324,10 +325,12 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
      - A fallen city counts as razed (`razeCity`, shared with orbital bombing): -30 relations. The last city to fall hands you the world.
    - Herds of animals and patches of flora live on land. A 📡 life scan (radius about a quarter of the planet, 6 s cooldown) marks them on the minimap and points arrows toward them, new species first.
    - **Species tray** (top left): one icon per species living there, plants first, then animals. Each is a dark silhouette until a group of it is spotted on screen or by a scan; then it shows in colour with NEW (not yet catalogued) or ✓ (in the Xenopedia), dimmed once none are left. Tap a revealed icon to fly to its nearest group. It goes compact on rich worlds (more than 8 species).
-   - Herds bolt from a fast-moving ship. Hover over a creature (or tap it) and the tractor beam lifts it aboard in about 1.5 s; fly off too soon and it slips away. Flying over flora gathers seed pods.
+   - Herds bolt from a fast-moving ship. Hover over a creature (or tap it) and the tractor beam lifts it aboard in about 1.5 s; fly off too soon and it slips away.
+     - Beaming up flora takes a living plant sample into the hold, like an animal, plus 2 seed pods while the 60-pod seed vault has room. A full vault no longer blocks it: you get the sample alone, or only seeds if the hold is full. Both full says so.
    - Abduction happens only on the surface now. The Life tab lists the species and offers a Land button. Landing also counts as exploring the planet.
 5. **Scanning** (`scan.ts`, `ui/scanCard.ts`): 🔍 Scan in the planet panel, or **quick scan** from anywhere in the system view: right-click a planet (or press and hold it on touch, or press Q for the nearest one). Right-click or hold the star to **sweep** every world at once. A beam, rings and a sweep line play over the planet.
    - The **scan report** card (3.6 s; a sweep 5.2 s; tap to dismiss) shows: T-score with air and heat words, owner, chips for spice (colour and richness), "Can colonise" and "Landable", plant and animal species counts with how many are undiscovered (not in the Xenopedia), wrecks, ruins and any event there. A sweep shows one line per world.
+     - There is one card per world: a fresh scan of a world replaces its old card (so spamming Q shows one), and at most two scan cards show at once.
    - Every scan costs ⚡1 energy per world: a planet-panel scan, a quick scan, a sweep (⚡1 for each world it covers) and a 📡 surface life scan. The automatic sweep when you land is free. Without the energy, a toast says what it takes and where to recharge.
    - The first scan of a world you don't own pays for survey data: §400 for a gas giant, §500 for a lifeless rock, §600 + §250 per species for a living world, plus the old wreck (§15,000) and ruin (§8,000 + 2 tools) salvage. Re-scans just show the report.
 6. **Protoplanetary disks** (proto stars): a newborn star still wrapped in the dust and gas its planets will form from, so it has no planets. Its belt holds up to 14 asteroids. Tap one and the ship moves within reach; the laser cuts it (about 3 to 5 s at laser level 1, using a little energy).
@@ -401,13 +404,14 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Tap a meteor to shoot it. Big ones (30%) split into two fragments. Kills within 1.4 s of each other chain a combo worth §150 per step.
   - Each impact drains 3 spice from the store, and every second one flattens a building (named on screen).
   - When the last rock is gone, ore salvage pays §15,000 minus §3,000 per impact (minimum §3,000). The event's timer waits while the gun is manned. If you never show up, the store empties and two buildings go. An orbital turret sometimes breaks the storm up alone.
-- 🆘 **Distress call** (any nearby world, 3:30): a stranded freighter drifts near the planet with an SOS beacon. Fly to it and the captain hails you (a conversation, see below; in empire space it is one of theirs). **Tow them out** for §9,000 to §15,000 and, in empire space, +12 relations ("You rescued our stranded crew"). **[Barter]** for §5,000 more, at -6 relations. Or leave them (-8).
+- 🆘 **Distress call** (any nearby world, 3:30): a stranded freighter drifts near the planet with an SOS beacon. Fly to it and the captain hails you (a conversation, see below; in empire space it is one of theirs, unless you are at war with them, when a neutral freighter is stranded there instead). Towing costs ⚡25 energy, shown as a `[−25 energy]` tag. Without the energy the replies are greyed out, and the crew asks you to recharge and come back. **Tow them out** for §9,000 to §15,000 and, in empire space, +12 relations ("You rescued our stranded crew"). **[Barter]** for §5,000 more, at -6 relations. Or leave them (-8).
   - 30% of calls are pirate bait: the "captain" drops the act mid-sentence. **[Fight]** and three raiders de-cloak (beating them pays their loot), or pay them §8,000 to go away.
 - 🗿 **Ancient signal** (a landable world you do not own, 7:00): land, sweep with life scans (the relic is buried far from where you touch down) and beam up the glowing monolith (2.2 s). Collectors pay §22,000 to §38,000, plus 2 terraform pods or packs, 1–2 components (leaning rare) and a 55% chance of a blueprint.
 - ✨ **Rare sighting** (a landable world with animals, 5:30): a one-off, recoloured cousin of a native (Golden, Starlit, Prism, Ghost or Ember …). It roams alone, bolts from your ship within 230 units at 128 speed, and must be chased down. It earns a §10,000 Xenopedia grant, a §8,000 bonus, and triple Menagerie crowds.
 - 🛍️ **Wandering trader** (any nearby world, 5:00): **Visit the trader** starts a conversation with the merchant (who they are, where the goods come from, what is in the crate). **[Barter]** opens the barter screen (`ui/traderView.ts`), Fallout style, and leaving it returns to the conversation.
   - The merchant's face fills the space behind an amber terminal frame, and their quips are typed across the top.
   - Two columns: **Your goods** (what they buy from you, with your credits) and **their wares** (with your hold). Tap or press Enter to mark items into the deal. Hovering only moves the highlight; it never rebuilds the rows, so mouse clicks always land. The highlighted item's description shows below, then the totals ("You pay · You get · Net"), shown in red if you cannot cover them. Then [A] Accept, [R] Reset, [C] Open crate, [Tab] Leave.
+  - Accepting asks first in a terminal box: "Strike this deal? You buy: … (§X). You sell: … (+§Y). Net cost / You gain …". [A], Enter or Y strikes it; Esc cancels.
   - Accepting sells first, so your sales pay for your buys. Items you cannot take (no room, already owned) are greyed out.
   - The wares, each a one-off:
     - a consumable tool bundle at half price (up to one rank ahead of yours)
@@ -442,6 +446,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - **First contact**: their greeting, then "We come in peace.", "[Intimidate] Behold our might!" or "Stay out of our way.". Their reaction leads straight into the hail menu.
 - **Hail menu**: every topic is its own conversation path, not a button.
   - **Work**: "Do you have any work for us?" (or "Any more work for us?").
+    - Never offered by an empire you are at war with, the Hollow included. Declaring war, by either side, cancels the jobs that empire gave you.
     - Their pitch, then [Accept], "Tell me more." (where, why, how long and the pay), "[Barter N%] Make it worth our while.", "Let me think about it." (the offer stands) or [Refuse].
     - Barter is one try per offer: +25% reward on success, -3 relations on failure. The odds are 35% + relation/200, +15% with merchants, kept between 10% and 85%.
     - With 4 missions running, [Accept] shows a failed `[Missions 4/4]` check and they ask you to finish or drop one first.
@@ -526,6 +531,10 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
     - The engineer reports: "we have every component for the Cargo Bay III. That is 3 Alloy Plating, 1 Grav Coil."
     - **[Set course]** plots a course to the nearest shop (yours or an ally's). "What will it do for us?" describes the part, and [Leave] closes the call.
 - **Cargo hold** (`ui/inventory.ts`): a Fallout-style inventory, opened from the 📦 HUD chip or the Ship sheet's Cargo tab. Clicking or tapping outside the frame closes it.
+  - The cargo hold and the barter screen share one terminal confirm box (`terminalAsk` in `ui/talk.ts`).
+- **Quick use:** a small ＋ at the end of the HUD's hull and energy bars uses a Repair Pack or an Energy Pack straight from the hold.
+  - A badge shows how many you carry.
+  - The button greys out when you have none or are already full, and its tooltip says why.
   - Tabs: Spice, Specimens, Aid (consumables), Parts (components) and Blueprints, each with a count.
   - The item list sits on the left. On the right is the highlighted item's picture (the specimen itself, a glowing spice orb, or a big icon), its name, its stats (value, kind, rarity, recipe progress) and a description.
   - Actions are labelled with keys: [E] Use/Open (repair and energy packs, crates), [X] Jettison 1 or Set free, [Z] Jettison all, [L] Xeno-Lab (at home) and [Tab] Close. ←/→ switch tabs and ↑/↓ move through the list.

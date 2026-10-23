@@ -112,7 +112,14 @@ export function showLoot(w: World, title: string, items: { icon: string; text: s
 export function showScan(w: World, rs: ScanResult[]) {
   if (!rs.length) return;
   const el = rs.length === 1 ? single(w, rs[0]) : sweep(w, rs);
+  // One card per world: a fresh scan replaces the old card, and at most two cards show at once.
+  const keys = rs.map((r) => `${r.star}:${r.idx}`);
+  const open = [...document.querySelectorAll<HTMLElement>('.toast.scan:not([data-out])')];
+  for (const c of open) if ((c.dataset.scan ?? '').split(',').some((k) => keys.includes(k))) c.remove();
+  const left = [...document.querySelectorAll<HTMLElement>('.toast.scan:not([data-out])')];
+  while (left.length > 1) left.shift()!.remove();
   const t = ui.toast(el, { kind: 'scan', ms: rs.length === 1 ? 3600 : 5200 });
+  t.dataset.scan = keys.join(',');
   t.addEventListener('pointerdown', () => { t.classList.remove('in'); setTimeout(() => t.remove(), 300); }, { once: true });
   audio.sfx('zap', { pitch: 1.5 });
   const pay = rs.reduce((a, r) => a + r.pay, 0);

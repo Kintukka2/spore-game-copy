@@ -168,7 +168,10 @@ export class SpaceHud {
     this.set('cargo', `${w.cargoUsed}/${w.cargoCap}`, () => { this.cargoEl.textContent = `📦 ${w.cargoUsed}/${w.cargoCap}`; });
     const mh = w.maxHp, me = w.maxEnergy;
     this.set('hp', `${Math.round(s.hp)}/${mh}`, () => this.hpBar.set(s.hp / mh, `❤ ${Math.round(s.hp)} / ${mh}`));
-    this.set('en', `${Math.round(s.energy)}/${me}`, () => this.enBar.set(s.energy / me, `⚡ ${Math.round(s.energy)} / ${me}`));
+    // Energy only recharges at a friendly dock; the bar says when it is charging.
+    const charging = w.atDock() && !w.inCombat && s.energy < me - 0.5;
+    this.set('en', `${Math.round(s.energy)}/${me}/${charging}`, () => this.enBar.set(s.energy / me, `⚡ ${Math.round(s.energy)} / ${me}${charging ? ' ▲' : ''}`));
+    if (s.energy < me * 0.3 && !w.atDock() && st.mode !== 'warp') st.game.hint('energy-dock', 'Energy only recharges at your homeworld, your colonies and allied systems. ⚡ Energy Packs top it up anywhere.', '⚡');
     // Exploration legend (galaxy map only)
     const gal = st.mode === 'galaxy';
     let full = 0;

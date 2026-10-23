@@ -170,6 +170,11 @@ export class World {
   countStars(owner: string): number {
     return this.ownerIdx.get(owner)?.size ?? 0;
   }
+  /** At a system that recharges your energy: one you hold, or an ally's. */
+  atDock(star = this.s.loc): boolean {
+    if (this.inWarp) return false;
+    return this.ownerOf(star) === 'player' || !!this.empireOf(star)?.allied;
+  }
   empireOf(star: number): Empire | null {
     const o = this.ownerOf(star);
     return o && o !== 'player' ? this.emap.get(o) ?? null : null;
@@ -409,10 +414,9 @@ export class World {
     const s = this.s;
     s.t += dt;
     if (s.powerCd > 0) s.powerCd = Math.max(0, s.powerCd - dt);
-    // Energy trickles back slowly anywhere and quickly in your own systems.
+    // Energy only recharges at a friendly dock: your homeworld and colonies, or an ally's systems.
     const own = this.ownerOf(s.loc) === 'player' && !this.inWarp;
-    const eRate = this.inWarp ? 0 : own && !this.inCombat ? 12 : 0.3;
-    s.energy = Math.min(this.maxEnergy, s.energy + eRate * dt);
+    if (this.atDock() && !this.inCombat) s.energy = Math.min(this.maxEnergy, s.energy + 12 * dt);
     if (own && !this.inCombat) s.hp = Math.min(this.maxHp, s.hp + this.maxHp * 0.08 * dt);
     this.tick05 += dt;
     if (this.tick05 >= 0.5) {

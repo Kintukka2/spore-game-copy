@@ -3,13 +3,14 @@
 import { audio } from '../../../engine/audio';
 import { article, clamp } from '../../../engine/math';
 import { ARCHETYPES } from '../../../game/cards';
-import { PERSONALITY, SPICE, type AiArch } from '../data';
-import type { Empire } from '../types';
+import { PERSONALITY, SPICE, SPICE_COLORS, type AiArch } from '../data';
+import type { Empire, Mission } from '../types';
 import {
   addMod, annexSystem, archName, breakAlliance, canAlly, canRoute, contactReply, declareWar, formAlliance, gift, makePeace,
   openRoute, payTribute, peacePrice, relation, stanceInfo, strength,
 } from '../empires';
-import { acceptOffer, declineOffer, offerFor } from '../missions';
+import { abandon, acceptOffer, declineOffer, offerFor } from '../missions';
+import { BUYERS, buyerAt } from '../xenolab';
 import { EVENT_INFO } from '../events';
 import type { SpaceStage } from '../stage';
 import { fmtTime, money } from './common';
@@ -193,25 +194,20 @@ function tree(st: SpaceStage, e: Empire) {
 
   const hub = (say: string, mood?: Line['mood']): Line => {
     const r: Reply[] = [];
-    if (e.war && !hollow) {
-      const price = peacePrice(w, e);
-      r.push({ tag: money(price), text: 'We offer peace, and payment for your trouble.', fail: w.s.money < price, go: () => {
-        if (!makePeace(w, e)) return hub(`Words are cheap. Peace is not. Come back with ${money(price)}.`, 'angry');
-        st.sv.refreshHostility();
-        audio.sfx('success');
-        talkNote(`Peace with ${e.name}.`, 'good');
-        return hub('...Very well. The guns go quiet. For now.');
-      } });
+    if (e.war && !hollow) r.push({ text: 'Can we end this war?', go: peaceTalk });
+    if (!e.war || hollow) {
+      const job = w.s.missions.find((m) => m.giver === e.id && !m.main);
+      if (job) r.push({ text: 'About the job you gave us...', go: () => jobTalk(job) });
+      r.push({ text: job ? 'Any more work for us?' : 'Do you have any work for us?', go: work });
     }
-    if (!e.war || hollow) r.push({ text: 'Do you have any work for us?', go: work });
-    if (!e.war) r.push({ text: 'Let\'s talk diplomacy.', go: () => talks('We are listening.') });
+    if (!e.war && !hollow) r.push({ text: e.route !== null ? 'How is our trade route doing?' : 'We would like to trade with you.', go: tradeTalk });
+    if (!e.war) r.push({ text: 'We come bearing gifts.', go: gifts });
+    if (!e.war) r.push({ text: e.allied ? 'About our alliance...' : 'Let\'s talk about an alliance.', go: allianceTalk });
     if (inTheirSystem() && w.has('beacon')) {
       const wait = e.lastBeacon ? Math.ceil(60 - (w.s.t - e.lastBeacon)) : 0;
       r.push({ tag: wait > 0 ? `Goodwill Beacon ${wait}s` : 'Goodwill Beacon', text: 'Look at the sky!', fail: wait > 0, go: beacon });
     }
-    if (inTheirSystem() && w.count('embassy') > 0 && !e.mods.some((m) => m.id === 'embassy')) {
-      r.push({ tag: `Embassy ×${w.count('embassy')}`, text: 'We would like to open an embassy here.', go: embassy });
-    }
+    if (inTheirSystem() && w.count('embassy') > 0 && !e.mods.some((m) => m.id === 'embassy')) r.push({ text: 'We would like to open an embassy here.', go: embassyTalk });
     r.push({ text: 'I have some questions.', go: () => questions('Ask.') });
     if (!e.war) r.push({ tag: 'War', text: hollow ? 'We will end you, machine.' : 'Your time is up.', go: warAsk });
     r.push(leave());
@@ -219,70 +215,163 @@ function tree(st: SpaceStage, e: Empire) {
   };
 
   const again = () => hub(pickOf(AGAIN));
+  const back = (say?: string): Reply => ({ text: 'Let\'s talk about something else.', leave: true, go: () => hub(say ?? pickOf(AGAIN)) });
+  const full = () => w.s.missions.filter((x) => !x.main).length >= 4;
 
   // ---------------------------------------------------------------- missions
   const work = (): Line => {
     const m = offerFor(w, e);
     const intro = hollow ? HOLLOW.work : voice!.work;
-    return {
-      say: `${intro} ${m.title}. ${m.desc} We pay ${money(m.reward)}${m.deadline ? `, if it is done within ${fmtTime(m.deadline)}` : ''}.`,
+    const odds = clamp(Math.round((0.35 + relation(e) / 200 + (e.arch === 'merchant' ? 0.15 : 0)) * 20) / 20, 0.1, 0.85);
+    const offer = (say: string, mood?: Line['mood']): Line => ({
+      say, mood,
       replies: [
-        { tag: 'Accept', text: 'Consider it done.', go: () => {
+        { tag: full() ? 'Missions 4/4' : 'Accept', text: 'Consider it done.', fail: full(), go: () => {
+          if (full()) return offer('Your hands are full already. Finish or drop one of your other jobs, then come back. The offer will wait.');
           const err = acceptOffer(w, e);
-          if (err) { talkNote(err, 'bad'); return hub('Your hands are full already. Come back when they are free.'); }
+          if (err) return offer(err);
           talkNote(`Mission accepted: ${m.title}`, 'good');
           return hub(hollow ? 'Compliance noted.' : 'Good. Do not disappoint us.', 'happy');
         } },
+        { text: 'Tell me more.', go: () => offer(details(m)) },
+        ...(m.haggled ? [] : [{ tag: `Barter ${Math.round(odds * 100)}%`, text: 'Make it worth our while.', go: () => {
+          m.haggled = true;
+          if (Math.random() < odds) {
+            m.reward = Math.round((m.reward * 1.25) / 50) * 50;
+            talkNote(`Reward raised to ${money(m.reward)}.`, 'good');
+            return offer(hollow ? `Recalculated. ${money(m.reward)}. Final.` : `...Fine. ${money(m.reward)}. Not a credit more.`);
+          }
+          addMod(e, 'haggle', 'You haggled with us', -3, { min: -6, decay: 0.5 });
+          return offer(hollow ? 'Negotiation rejected.' : 'Take it or leave it. The price is fair.', 'angry');
+        } } as Reply]),
         { text: 'Let me think about it.', leave: true, go: () => hub('The offer stands. For now.') },
         { tag: 'Refuse', text: 'Find someone else.', go: () => { declineOffer(w, e); return hub(hollow ? 'Refusal logged.' : 'Hmph. We will.'); } },
+      ],
+    });
+    return offer(`${intro} ${m.title}. ${m.desc} We pay ${money(m.reward)}${m.deadline ? `, if it is done within ${fmtTime(m.deadline)}` : ''}.`);
+  };
+
+  /** Where, how long and why, in their words. */
+  const details = (m: Mission): string => {
+    const where = m.star !== undefined ? ` Go to ${m.planet !== undefined ? `${w.planet(m.star, m.planet).name}, in` : 'the'} ${w.star(m.star).name} system.` : '';
+    const why = m.kind === 'deliver' ? 'Our own worlds cannot grow it.' : m.kind === 'scan' ? 'Our scholars need the data.' : m.kind === 'pirates' ? 'They have been raiding our freighters.' : m.kind === 'terraform' ? 'We want that world green and living.' : m.kind === 'explore' ? 'We have never charted it.' : 'It matters to us.';
+    return `${m.desc}${where} ${why} ${m.deadline ? `You will have ${fmtTime(m.deadline)}.` : 'Take your time.'} The pay is ${money(m.reward)}.`;
+  };
+
+  const jobTalk = (m: Mission): Line => ({
+    say: `${m.title}. ${m.deadline ? `You have ${fmtTime(Math.max(0, m.deadline - w.s.t))} left. ` : ''}${hollow ? 'Progress: insufficient.' : 'We are still waiting.'}`,
+    replies: [
+      { text: 'Remind me what you need.', go: () => ({ ...jobTalk(m), say: details(m) }) },
+      { text: 'We\'re on it.', go: () => hub(hollow ? 'Acknowledged.' : 'See that you are.') },
+      { tag: 'Abandon', text: 'We can\'t finish it.', go: () => ({
+        say: hollow ? 'Task failure will be recorded. Confirm.' : 'You gave us your word. You would break it?',
+        mood: 'angry',
+        replies: [
+          { tag: 'Abandon', text: 'I\'m sorry. It\'s off.', go: () => { abandon(w, m); talkNote(`Mission abandoned: ${m.title}`, 'bad'); return hub(hollow ? 'Recorded.' : 'Then we will find someone who keeps their word.', 'angry'); } },
+          { text: 'No, we\'ll see it through.', leave: true, go: () => hub('Good.') },
+        ],
+      }) },
+    ],
+  });
+
+  // ---------------------------------------------------------------- trade
+  const tradeTalk = (): Line => {
+    if (e.route !== null) {
+      const port = w.star(e.route).name;
+      return { say: `Our freighters run to ${port} every day. Business is good, and ${port} grows fonder of you with every cargo.`, replies: [
+        { text: 'What does it earn us?', go: () => ({ ...tradeTalk(), say: `Steady credits for you, a better standing with us, and every run fills ${port}'s takeover bar. Fill it, and we may sell you the system.` }) },
+        back(),
+      ] };
+    }
+    const why = canRoute(w, e);
+    if (why && relation(e) < 30) return { say: 'Trade? With you? Our merchants do not trust your kind yet.', replies: [
+      { text: 'What would change your mind?', go: () => ({ ...tradeTalk(), say: `Honest work. Gifts. Time. Right now we are ${stanceInfo(e).label.toLowerCase()} toward you. Show us you are a partner, not a pirate.` }) },
+      { tag: 'Relation 30', text: 'We have been good partners.', fail: true, go: () => ({ ...tradeTalk(), say: 'Have you? We have not noticed.', mood: 'angry' as const }) },
+      back(),
+    ] };
+    if (why) return { say: why.includes('3 trade') ? 'Your merchants are stretched thin already. Three routes is all you can run.' : why, replies: [back()] };
+    const ports = w.starsOf(e.id).sort((a, b) => w.gal.dist(a, w.s.loc) - w.gal.dist(b, w.s.loc)).slice(0, 3);
+    return {
+      say: 'A trade route? Our ports are open to you. Which of our worlds should your freighters serve?',
+      mood: 'happy',
+      replies: [
+        ...ports.map((sid): Reply => ({ tag: 'Port', text: `${w.star(sid).name}${sid === w.s.loc ? ' (here)' : ''}.`, go: () => {
+          openRoute(w, e, sid);
+          audio.sfx('success');
+          talkNote(`Trade route open with ${w.star(sid).name}: it pays you and fills that system's takeover bar.`, 'good');
+          return hub(`Done. Our freighters will run to ${w.star(sid).name}. Everyone profits.`, 'happy');
+        } })),
+        back(),
       ],
     };
   };
 
-  // ---------------------------------------------------------------- diplomacy
-  const talks = (say: string, mood?: Line['mood']): Line => {
-    const r: Reply[] = [{ text: 'We bring a gift.', go: gifts }];
-    if (!hollow && e.route === null) {
-      const err = canRoute(w, e);
-      r.push({ tag: 'Relation 30', text: 'Let\'s open a trade route.', fail: !!err, go: () => {
-        const why = canRoute(w, e);
-        if (why) return talks(relation(e) < 30 ? 'Trade with strangers? Earn our trust first.' : why.includes('3 trade') ? 'Your merchants are stretched thin already. Three routes is all you can run.' : why, 'angry');
-        const target = inTheirSystem() ? w.s.loc : w.starsOf(e.id).sort((a, b) => w.gal.dist(a, w.s.loc) - w.gal.dist(b, w.s.loc))[0];
-        if (target === undefined) return talks('We have no port left to trade from.');
-        openRoute(w, e, target);
-        audio.sfx('success');
-        talkNote(`Trade route open with ${w.star(target).name}: it pays you and fills that system's takeover bar.`, 'good');
-        return talks(`Done. Our freighters will run to ${w.star(target).name}. Everyone profits.`, 'happy');
-      } });
-    }
-    if (e.allied) r.push({ tag: 'Betray', text: 'Our alliance ends today.', go: () => ({
-      say: hollow ? 'Disconnection from the collective is... noted. Confirm.' : 'You would break your oath to us?',
-      mood: 'angry',
+  // ---------------------------------------------------------------- gifts
+  const gifts = (): Line => ({
+    say: hollow ? 'Specify offering.' : 'A gift? How thoughtful. What did you bring?',
+    replies: [
+      ...([[10000, 'A token of friendship.'], [50000, 'A generous gift.'], [250000, 'A fortune, for your friendship.']] as [number, string][]).map(([amt, text]): Reply => ({
+        tag: money(amt), text, fail: w.s.money < amt, go: () => {
+          if (w.s.money < amt) return { ...gifts(), say: 'Your purse cannot cover that, stranger.' };
+          const d = gift(w, e, amt);
+          if (d <= 0) return hub('We thank you, but we have had our fill of gifts for now. Keep your credits.');
+          return hub(d >= 5 ? (hollow ? HOLLOW.gift : voice!.gift) : 'Hm. Generous enough. We accept.', 'happy');
+        },
+      })),
+      { text: 'On second thought, never mind.', leave: true, go: () => hub('...Then why bring it up?') },
+    ],
+  });
+
+  // ---------------------------------------------------------------- alliance
+  const allianceTalk = (): Line => {
+    if (e.allied) return {
+      say: hollow ? 'Integration holds. State concern.' : 'Our alliance holds strong. Our ships fly at your side. What of it?',
       replies: [
-        { tag: 'Betray', text: 'It\'s over.', go: () => {
-          breakAlliance(w, e, true);
-          st.sv.refreshHostility();
-          return hub(hollow ? 'Severed.' : 'Then go, oath-breaker. We will not forget this.', 'angry');
-        } },
-        { text: 'No. Forget I said that.', leave: true, go: () => talks('...We will pretend we did not hear it.') },
+        { text: 'Just making sure it still stands.', go: () => hub(hollow ? 'It stands.' : 'It does. As long as you keep faith with us.', 'happy') },
+        { tag: 'Betray', text: 'Our alliance ends today.', go: () => ({
+          say: hollow ? 'Disconnection from the collective is... noted. Confirm.' : 'You would break your oath to us?',
+          mood: 'angry',
+          replies: [
+            { tag: 'Betray', text: 'It\'s over.', go: () => {
+              breakAlliance(w, e, true);
+              st.sv.refreshHostility();
+              return hub(hollow ? 'Severed.' : 'Then go, oath-breaker. We will not forget this.', 'angry');
+            } },
+            { text: 'No. Forget I said that.', leave: true, go: () => hub('...We will pretend we did not hear it.') },
+          ],
+        }) },
+        back(),
       ],
-    }) });
-    else if (!e.war) {
-      const err = canAlly(w, e);
-      r.push({ tag: 'Relation 70', text: hollow ? 'Join with us.' : 'Stand with us as allies.', fail: !!err, go: () => {
-        if (canAlly(w, e)) return talks(hollow ? 'Insufficient trust. Continue to comply.' : 'Allies? We barely know you. Prove yourself first.', 'angry');
-        if (hollow) return {
+    };
+    const rel = relation(e);
+    const ready = !canAlly(w, e);
+    const benefits: Reply = { text: 'What would an alliance mean?', go: () => ({ ...allianceTalk(), say: hollow
+      ? 'Our drones escort you. The warm ones will hate you for it. All of them.'
+      : 'Our warships would escort yours. Our docks would recharge your ship, and our shops would sell you tools for less. In return, you would be our friend in a cold galaxy.' }) };
+    if (!ready) return {
+      say: hollow ? `Trust level ${rel}. Required: 70. Integration denied.` : `An alliance? We are ${stanceInfo(e).label.toLowerCase()} toward you, and our trust stands at ${rel}. We would need 70 before our fleets fly with yours.`,
+      replies: [
+        { text: 'How do we earn your trust?', go: () => ({ ...allianceTalk(), say: hollow ? 'Complete tasks. Provide resources. Do not attack.' : 'Do our work. Bring gifts. Trade with us. Open an embassy. And never, ever threaten us.' }) },
+        benefits,
+        { tag: 'Relation 70', text: hollow ? 'Join with us.' : 'Stand with us anyway.', fail: true, go: () => ({ ...allianceTalk(), say: hollow ? 'Insufficient trust. Continue to comply.' : 'Allies? We barely know you. Prove yourself first.', mood: 'angry' as const }) },
+        back(),
+      ],
+    };
+    return {
+      say: hollow ? 'Your compliance has been... adequate. Integration is possible.' : 'We have watched you. You have been a true friend to us. What do you propose?',
+      mood: 'happy',
+      replies: [
+        { tag: 'Ally', text: hollow ? 'Join with us.' : 'Stand with us. Our fleets fly together.', go: () => hollow ? {
           say: 'Integration is permanent in the eyes of the warm ones. Every other empire will turn on you. Confirm.',
           replies: [
             { tag: 'Ally', text: 'Do it.', go: ally },
-            { text: 'No. Not yet.', leave: true, go: () => talks('Hesitation logged.') },
+            { text: 'No. Not yet.', leave: true, go: () => hub('Hesitation logged.') },
           ],
-        };
-        return ally();
-      } });
-    }
-    r.push({ text: 'Never mind.', leave: true, go: again });
-    return { say, mood, replies: r };
+        } : ally() },
+        benefits,
+        { text: 'Not yet. We will speak of it again.', leave: true, go: () => hub('We will be here.') },
+      ],
+    };
   };
 
   const ally = (): Line => {
@@ -290,24 +379,37 @@ function tree(st: SpaceStage, e: Empire) {
     audio.sfx('levelup');
     if (st.mode === 'system') st.sv.combat.spawnAlly(e.ship, e.id, 260 * strength(w, e), st.sv.combat.crafts.filter((c) => c.kind === 'ally').length);
     st.sv.refreshHostility();
-    talkNote(`${e.name} are now your allies! Their ships will escort you.`, 'good');
+    talkNote(`${e.name} are now your allies! Their ships escort you, and their systems recharge your energy.`, 'good');
     return hub(hollow ? HOLLOW.ally2 : voice!.ally, 'happy');
   };
 
-  const gifts = (): Line => ({
-    say: hollow ? 'Specify offering.' : 'A gift? We are listening.',
-    replies: [
-      ...([[10000, 'A token of friendship.'], [50000, 'A generous gift.'], [250000, 'A fortune, for your friendship.']] as [number, string][]).map(([amt, text]): Reply => ({
-        tag: money(amt), text, fail: w.s.money < amt, go: () => {
-          if (w.s.money < amt) return { ...gifts(), say: 'Your purse cannot cover that, stranger.' };
-          const d = gift(w, e, amt);
-          return talks(d > 0 ? (hollow ? HOLLOW.gift : voice!.gift) : 'We thank you, but we have had enough gifts for now.', d > 0 ? 'happy' : undefined);
-        },
-      })),
-      { text: 'Never mind.', leave: true, go: () => talks('...Then why bring it up?') },
-    ],
-  });
+  // ---------------------------------------------------------------- peace
+  const peaceTalk = (): Line => {
+    let price = peacePrice(w, e);
+    let haggled = false;
+    const deal = (say: string, mood?: Line['mood']): Line => ({
+      say, mood,
+      replies: [
+        { tag: money(price), text: 'Agreed. Here is the payment.', fail: w.s.money < price, go: () => {
+          if (!makePeace(w, e, price)) return deal(`Words are cheap. Peace is not. Come back with ${money(price)}.`, 'angry');
+          st.sv.refreshHostility();
+          audio.sfx('success');
+          talkNote(`Peace with ${e.name}.`, 'good');
+          return hub('...Very well. The guns go quiet. For now.');
+        } },
+        ...(haggled ? [] : [{ tag: 'Barter 40%', text: 'Peace is worth less than that.', go: () => {
+          haggled = true;
+          if (Math.random() < 0.4) { price = Math.round((price * 0.7) / 1000) * 1000; return deal(`...${money(price)}, then. And not a credit less.`); }
+          return deal('The price stands. Be grateful it has not gone up.', 'angry');
+        } } as Reply]),
+        { text: 'Why should we pay you?', go: () => deal('Because our fleets are at your colonies\' doors, and they do not get tired.', 'angry') },
+        { text: 'Then we fight on.', leave: true, go: () => hub('So be it.', 'angry') },
+      ],
+    });
+    return deal(`End it? After everything? ...Perhaps. For ${money(price)}, our generals could be persuaded to stand down.`, 'angry');
+  };
 
+  // ---------------------------------------------------------------- planet-side
   const beacon = (): Line => {
     if (e.lastBeacon && w.s.t - e.lastBeacon < 60) return hub(`The sky is still full of your last show. Wait ${Math.ceil(60 - (w.s.t - e.lastBeacon))} seconds.`);
     e.lastBeacon = w.s.t;
@@ -318,13 +420,20 @@ function tree(st: SpaceStage, e: Empire) {
     return hub(hollow ? 'Light pattern... pleasing. Logging.' : 'Oh! The lights! The colours! Do it again!', 'happy');
   };
 
-  const embassy = (): Line => {
-    if (!w.use('embassy')) return hub('You have nothing to build it with.');
-    addMod(e, 'embassy', 'Your embassy', hollow ? 10 : 35);
-    audio.sfx('build');
-    talkNote(`Embassy built with ${e.name}.`, 'good');
-    return hub(hollow ? 'Embassy installed. Monitoring enabled.' : 'An embassy! Our doors are open to you now.', 'happy');
-  };
+  const embassyTalk = (): Line => ({
+    say: hollow ? 'An embassy. Purpose: surveillance? Acceptable.' : 'An embassy? Here? Our council would want to know what you have in mind.',
+    replies: [
+      { tag: `Embassy ×${w.count('embassy')}`, text: 'A grand one, with gardens and a translator on every floor.', go: () => {
+        if (!w.use('embassy')) return hub('You have nothing to build it with.');
+        addMod(e, 'embassy', 'Your embassy', hollow ? 10 : 35);
+        audio.sfx('build');
+        talkNote(`Embassy built with ${e.name}.`, 'good');
+        return hub(hollow ? 'Embassy installed. Monitoring enabled.' : 'Splendid! Our doors are open to you now.', 'happy');
+      } },
+      { text: 'What would it do for us?', go: () => ({ ...embassyTalk(), say: hollow ? 'It would make you... less unfamiliar.' : 'Our people would see your people every day. Familiar faces are trusted faces.' }) },
+      back(),
+    ],
+  });
 
   // ---------------------------------------------------------------- questions
   const questions = (say: string): Line => {
@@ -332,7 +441,11 @@ function tree(st: SpaceStage, e: Empire) {
       { text: hollow ? 'What are you?' : 'Tell me about your people.', go: () => questions(hollow ? HOLLOW.about : fill(voice!.about, e, w)) },
       { text: 'How do you feel about us?', go: () => questions(feelings()) },
     ];
-    if (!hollow && !e.war) r.push({ text: 'Heard any rumours?', go: () => questions(rumour()) });
+    if (!hollow && !e.war) {
+      r.push({ text: 'What do you trade in?', go: () => questions(goods()) });
+      r.push({ text: 'Do your zoos buy creatures?', go: () => questions(zoos()) });
+      r.push({ text: 'Heard any rumours?', go: () => questions(rumour()) });
+    }
     r.push({ text: 'That\'s all.', leave: true, go: again });
     return { say, replies: r };
   };
@@ -345,6 +458,23 @@ function tree(st: SpaceStage, e: Empire) {
     if (hollow) return `Assessment: ${stanceInfo(e).label.toLowerCase()}. ${pos ? `Positive factor: ${lc(pos.label)}. ` : ''}${neg ? `Negative factor: ${lc(neg.label)}.` : ''}`;
     if (!pos && !neg) return 'We hardly know you yet.';
     return [pos ? `${pos.label}. That counts for something.` : '', neg ? `But ${lc(neg.label)}. We have not forgotten.` : ''].filter(Boolean).join(' ');
+  };
+
+  const goods = (): string => {
+    const made = e.produces.map((c) => SPICE[c].name);
+    const want = SPICE_COLORS.filter((c) => !e.produces.includes(c) && e.demand[c] > 0.85).map((c) => SPICE[c].name);
+    return `${made.length ? `We make ${made.join(' and ')}, and we sell it cheap.` : 'We make nothing worth selling.'} ${want.length ? `We pay best for ${want.join(', ')} right now.` : 'Right now our markets are glutted. Try us later.'}`;
+  };
+
+  const zoos = (): string => {
+    const out: string[] = [];
+    for (const sid of w.starsOf(e.id)) for (const p of w.gal.planets(sid)) {
+      const k = w.peekPS(sid, p.idx).owner === e.id ? buyerAt(w, sid, p.idx) : null;
+      if (k) out.push(`${p.name} buys ${BUYERS[k].wants}`);
+    }
+    if (!out.length) return 'Zoos? We prefer our creatures wild.';
+    const shown = out.slice(0, 3);
+    return `Some of them. ${shown.join('; ')}${out.length > 3 ? `; and ${out.length - 3} more` : ''}. Each wants its own kind.`;
   };
 
   const rumour = (): string => {

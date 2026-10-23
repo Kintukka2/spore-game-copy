@@ -242,9 +242,8 @@ export function peacePrice(w: World, e: Empire): number {
   return 150000 * strength(w, e) * (e.arch === 'warlord' || e.arch === 'prophet' ? 2 : 1);
 }
 
-export function makePeace(w: World, e: Empire): boolean {
+export function makePeace(w: World, e: Empire, price = peacePrice(w, e)): boolean {
   if (e.arch === 'hollow') return false;
-  const price = peacePrice(w, e);
   if (w.s.money < price) return false;
   w.addMoney(-price);
   e.war = false;

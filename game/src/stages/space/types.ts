@@ -166,6 +166,8 @@ export interface Mission {
   progress?: number;
   /** Is a main-line mission (cannot be abandoned). */
   main?: boolean;
+  /** You already haggled over this offer's reward. */
+  haggled?: boolean;
 }
 
 export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow' | 'meteor' | 'distress' | 'relic' | 'rare' | 'trader' | 'refugees';
@@ -221,4 +223,6 @@ export interface SpaceSave {
   catalog?: Specimen[];
   zoo?: Specimen[];
   zooAcc?: number;
+  /** Alien zoos you sold specimens to: their appetite (0..1) at time t; it recovers over a few minutes. */
+  specDemand?: Record<string, { d: number; t: number }>;
 }

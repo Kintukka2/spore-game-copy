@@ -306,6 +306,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 
 **Views (all touch)**
 1. **Galaxy map:** pan, pinch, tap a star → info card (owner, planets, spice) → **Travel**. Travel range is limited by the drive level; longer jumps need multiple hops (show the range ring). Travelling costs energy.
+   - Energy only recharges at a friendly dock: your homeworld and colony systems, or an ally's systems (`World.atDock`). The energy bar shows ▲ while it charges. Elsewhere, Energy Packs ⚡ top it up, and hops without energy strain the hull. A one-time hint explains this when energy drops below 30% away from a dock.
 2. **System view:** the star with orbiting planets; your ship flies around (joystick, or tap to move). Tap a planet → planet panel.
 3. **Planet panel:** a 2D close-up of the planet sphere with its stats (T-score 0–3, atmosphere and temperature sliders, spice colour and amount, cities and owners). The available actions depend on context:
    - Scan, Colonize (Colony Pack), Terraform (atmosphere and temperature tools), Plant (flora) and Abduct/Place animals (to fill the ecosystem)
@@ -330,6 +331,12 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - **Menagerie:** while in a home or colony system, exhibit specimens at the homeworld zoo, up to 24, one per species. Each pays §150/min in tourism; hybrids pay triple.
 - **Gene Splicer:** fuse two cargo animals for §6,000. The hybrid keeps parent A's skeleton with blended girth, and takes each organ group (mouths, eyes, limbs, weapons, frills) from one parent. It opens in the creature editor to be named and tweaked. Hybrids count as omnivores, so they fit any animal ecosystem slot.
 - Specimens still fill ecosystem slots on terraformed worlds.
+- **Alien zoos:** about half of the empire colonies run a zoo that buys one kind of specimen from your hold. The kind is fixed per world: 🌿 Botanical garden (plants), 🐄 Grazing park (herbivores), 🦖 Predator arena (carnivores), 🐗 Petting zoo (omnivores) or 🧬 Curio collector (hybrids and rare creatures). Hybrids and rares also sell to the zoo matching their diet.
+  - You sell in the planet's Trade tab, under **Specimen market**. The zoo is shown on scan reports ("Zoo buys herbivores"), and empires name theirs if you ask "Do your zoos buy creatures?".
+  - Base prices: §3,500 for a plant, §6,000 for an animal, §12,000 for a hybrid, §24,000 for a rare.
+  - Tastes: scholars pay ×1.25 for everything and merchants ×0.85. Gardeners pay ×1.3 for plants and herbivores, warlords ×1.3 for carnivores, and minstrels ×1.3 for hybrids and rares.
+  - Each sale takes 30% of the zoo's appetite and lowers the next price. Under 10% the zoo is full. Appetite recovers in about 4 minutes, so a zoo takes about three specimens at a time.
+  - Each sale is +3 relations ("You stocked our zoos", up to +15).
 
 **Terraforming**
 - Each planet has atmosphere and temperature from 0..1 (the T-zone).
@@ -361,7 +368,10 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - 🚀 **Refugee fleet** (a colony with room for another city, 4:20): **Hear their plea** to talk to their elder. Take them in for a free city (or §12,000 if the colony filled up meanwhile), ask what they offer and where they come from, or turn them away.
 - ☣️ **Outbreak containment** (`ui/outbreak.ts`): an eco-disaster's planet panel (Overview banner, Life tab, or a tap on the globe) offers **Contain the outbreak**, a full-screen minigame. It shows just the world, big and spinning (drag to turn it, with inertia), its infection spots, the clock, spots left and spots purged.
   - Spots age from green through yellow to red, then **spread**: a new spot appears nearby, at most 12. They spread every 12 / 9 / 7 s on easy / normal / hard.
-  - Spots on the far side are counted at the limb (◀ 2 · 1 ▶). Purges within 1.6 s of each other chain a combo worth §200 per step.
+  - Spots on the far side show as blips on the rim at their height, brighter as they come round.
+  - Big pulsing ◀ ▶ arrows (beside the world, or under it on narrow screens) count the hidden spots on each side. Tapping one spins the world so the nearest hidden spot faces you.
+  - When nothing is in view but spots remain behind, a hand swipes across the world with "Swipe to spin · N on the far side".
+  - Purges within 1.6 s of each other chain a combo worth §200 per step.
   - Clearing them all contains the outbreak (§10,000) and returns to the panel; running out of time ends it as before.
 - Opportunities that time out just end with a note. The timer waits while you are fighting in that system, or while you are down on the surface for a relic or rare sighting.
 
@@ -375,12 +385,21 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Relation changes are announced the way Fallout announces a companion's opinion ("Droo Republic liked that (+10)."), along with short notes such as "Mission accepted".
 - Each archetype has its own voice (`ui/diplomacy.ts`): reactions to the first-contact replies, an "about us" line, greetings by stance (allied, warm, cool, cold, war), and lines for gifts, work, alliance, war and tribute. The Hollow speak as a machine.
 - **First contact**: their greeting, then "We come in peace.", "[Intimidate] Behold our might!" or "Stay out of our way.". Their reaction leads straight into the hail menu.
-- **Hail menu**:
-  - "Do you have any work for us?": the mission, then [Accept], "Let me think about it." (the offer stands) or [Refuse].
-  - "Let's talk diplomacy.": gifts of §10k / §50k / §250k, [Relation 30] trade route, [Relation 70] alliance (or [Betray] to end one, with a confirm). An alliance with the Hollow needs a confirm too.
-  - [§price] peace while at war.
-  - [Goodwill Beacon] and [Embassy] when you are in their system.
-  - "I have some questions.": about their people (systems and goods), how they feel (the strongest good and bad modifiers, also listed as notes), and rumours (the nearest live event, or uncatalogued life near their home).
+- **Hail menu**: every topic is its own conversation path, not a button.
+  - **Work**: "Do you have any work for us?" (or "Any more work for us?").
+    - Their pitch, then [Accept], "Tell me more." (where, why, how long and the pay), "[Barter N%] Make it worth our while.", "Let me think about it." (the offer stands) or [Refuse].
+    - Barter is one try per offer: +25% reward on success, -3 relations on failure. The odds are 35% + relation/200, +15% with merchants, kept between 10% and 85%.
+    - With 4 missions running, [Accept] shows a failed `[Missions 4/4]` check and they ask you to finish or drop one first.
+  - **The current job**: "About the job you gave us..." gives the job's status and time left. From there: a reminder of the details, or [Abandon] with a confirm.
+  - **Trade**: below relation 30 they explain what would win them over. At 30+ you choose which of their three nearest ports the route serves. Once it runs, "How is our trade route doing?" explains what it earns.
+  - **Gifts**: §10k / §50k / §250k, and their reaction depends on how much it moved them.
+  - **Alliance**:
+    - Below 70 they say where trust stands and how to earn it, and the [Relation 70] reply fails.
+    - At 70+ they offer it. "What would an alliance mean?" explains the escorts, energy at their docks and the shop discount.
+    - Allied: "About our alliance..." can confirm it or [Betray] it, with a confirm. An alliance with the Hollow needs a confirm too.
+  - **Peace** (at war): "Can we end this war?" names their price. Then [§price] pay, "[Barter 40%] Peace is worth less than that." (-30% on success, once), "Why should we pay you?", or fight on.
+  - **Embassy** (in their system, with one in the hold): they ask what you have in mind, then [Embassy] builds it. The **Goodwill Beacon** is also offered in their system.
+  - **Questions**: about their people, how they feel (the strongest good and bad modifiers, also listed as notes), what they trade in (what they make and what they pay best for), which of their zoos buy which creatures, and rumours (the nearest live event, or uncatalogued life near their home).
   - [War] with a confirm, and [Leave].
 - **Tribute**: pay, refuse (they may declare war), or **[Bluff]**. The bluff's odds are 50%, ±6% per system you hold more or fewer than they do, -15% against warlords, kept between 10% and 85%. A failed bluff counts as a refusal and costs -5 more.
 - **System sale**: [§price] Deal, or Not now. A free handover is [Accept].

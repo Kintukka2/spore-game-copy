@@ -7,7 +7,7 @@ import { canColonize, isHomeworld } from '../economy';
 import { EVENT_INFO } from '../events';
 import { lifeOn, type ScanResult } from '../scan';
 import { landingBlock } from '../surface/look';
-import { inXenopedia } from '../xenolab';
+import { BUYERS, buyerAt, inXenopedia } from '../xenolab';
 import type { World } from '../world';
 import { money } from './common';
 
@@ -60,6 +60,8 @@ function single(w: World, r: ScanResult): HTMLElement {
     if (canColonize(w, r.star, r.idx) === null) chips.append(h('span', { class: 'sc-chip ok' }, ps.owner === 'player' ? '🏗️ Room for a city' : '🏗️ Can colonise'));
     if (!landingBlock(pl, ps, !!w.star(r.star).hollow)) chips.append(h('span', { class: 'sc-chip ok' }, '🛬 Landable'));
   }
+  const zoo = buyerAt(w, r.star, r.idx);
+  if (zoo) chips.append(h('span', { class: 'sc-chip' }, `${BUYERS[zoo].icon} Zoo buys ${BUYERS[zoo].wants}`));
   box.append(chips);
   const c = census(w, r.star, r.idx);
   const life = [lifeLine(c.plants, c.plantsNew, '🌿', 'plant species', 'plant species'), lifeLine(c.animals, c.animalsNew, '🐾', 'animal species', 'animal species')].filter((x): x is HTMLElement => !!x);

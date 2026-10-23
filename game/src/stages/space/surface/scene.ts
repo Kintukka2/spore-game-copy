@@ -412,7 +412,7 @@ export class SurfaceScene implements Scene {
       const sight = c.sp.rare ? this.event('rare') : undefined;
       if (sight) resolveEvent(w, sight);
       if (this.star === w.gal.homeStar) tutorialEvent(w, 'abduct');
-      if (!w.s.flags.labHint) { w.s.flags.labHint = true; setTimeout(() => this.st.ui.toast('Specimens can be exhibited, spliced into hybrids or released into ecosystems. See Ship → 🧬 Xeno-Lab.', '🧬'), 1800); }
+      if (!w.s.flags.labHint) { w.s.flags.labHint = true; setTimeout(() => this.st.ui.toast('Specimens can be exhibited, spliced into hybrids or released into ecosystems. Visit the 🧬 Xeno-Lab on your homeworld.', '🧬'), 1800); }
     } else if (b.relic) {
       const r = b.relic;
       if (wdist(r.x, r.y, sh.x, sh.y) > REACH + 20) { this.beam = null; audio.sfx('fail'); return; }

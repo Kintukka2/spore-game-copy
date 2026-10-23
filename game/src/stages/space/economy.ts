@@ -205,8 +205,10 @@ export function buy(w: World, e: Empire, c: SpiceColor, n: number): number {
   return bought;
 }
 
+/** When a takeover bar fills, the empire offers the system once. After that, ask from the Trade tab. */
 export function checkTakeover(w: World, e: Empire, star: number) {
-  if ((e.takeover[star] ?? 0) >= 1 && w.ownerOf(star) === e.id && !e.war) {
+  if ((e.takeover[star] ?? 0) >= 1 && w.ownerOf(star) === e.id && !e.war && !e.offered?.[star]) {
+    (e.offered ??= {})[star] = true;
     w.hooks?.takeoverOffer(e, star, systemPrice(w, star));
   }
 }

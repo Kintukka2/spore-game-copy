@@ -11,6 +11,7 @@ import {
 } from '../empires';
 import { abandon, acceptOffer, declineOffer, offerFor } from '../missions';
 import { BUYERS, buyerAt } from '../xenolab';
+import { previewSalvage } from '../salvage';
 import { EVENT_INFO } from '../events';
 import type { SpaceStage } from '../stage';
 import { fmtTime, money } from './common';
@@ -248,7 +249,8 @@ function tree(st: SpaceStage, e: Empire) {
         { tag: 'Refuse', text: 'Find someone else.', go: () => { declineOffer(w, e); return hub(hollow ? 'Refusal logged.' : 'Hmph. We will.'); } },
       ],
     });
-    return offer(`${intro} ${m.title}. ${m.desc} We pay ${money(m.reward)}${m.deadline ? `, if it is done within ${fmtTime(m.deadline)}` : ''}.`);
+    const bonus = m.bonus ? previewSalvage(m.bonus).map((b) => `${b.icon} ${b.text}`).join(' and ') : '';
+    return offer(`${intro} ${m.title}. ${m.desc} We pay ${money(m.reward)}${m.deadline ? `, if it is done within ${fmtTime(m.deadline)}` : ''}.${bonus ? ` And for you, something rare: ${bonus}.` : ''}`);
   };
 
   /** Where, how long and why, in their words. */
@@ -613,7 +615,7 @@ export async function takeoverTalk(st: SpaceStage, e: Empire, star: number, pric
       : `Our hold on ${name} grows thin, and your trade has done more for its people than we have. It can be yours, cities and all, for ${money(price)}.`,
     replies: [
       free ? { tag: 'Accept', text: 'We\'ll take good care of it.', go: buy } : { tag: money(price), text: 'Deal.', fail: w.s.money < price, go: buy },
-      { text: 'Not now.', leave: true },
+      { text: 'Not now.', leave: true, go: () => ({ say: `The offer stands. When you are ready, ask at the ${name} market.`, replies: [{ tag: 'Leave', text: 'We will.', leave: true }] }) },
     ],
   });
   await openTalk(speaker(st, e), offer());

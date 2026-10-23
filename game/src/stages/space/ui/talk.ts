@@ -89,6 +89,89 @@ function rgbOf(c: string): [number, number, number] {
 }
 const rgba = (c: [number, number, number], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`;
 
+export interface SceneOpts {
+  design: Design;
+  color: string;
+  /** Screen area to frame the face in. */
+  region: () => { top: number; height: number };
+  speaking: () => boolean;
+  angry: () => boolean;
+  /** -1..1: a flash of warmth (or chill) after a reply moved them. */
+  warmth?: () => number;
+}
+
+/** Paint a speaker's close-up into a full-screen canvas until it leaves the page: their colour glowing behind
+ * them (redder when angry), drifting motes, the face framed in `region` with the body running off the edge, the
+ * mouth moving while they speak, and signal noise as the channel opens. */
+export function faceScene(cv: HTMLCanvasElement, o: SceneOpts) {
+  const base = rgbOf(o.color), angry: [number, number, number] = [255, 70, 50];
+  const face = faceOf(o.design);
+  const L = layoutDesign(o.design);
+  const motes: Mote[] = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random(), z: 0.3 + Math.random() * 0.7, s: Math.random() }));
+  let t = 0, last = performance.now(), moodK = 0, talkT = 0;
+  const frame = (now: number) => {
+    if (!cv.isConnected) return;
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    t += dt;
+    const speaking = o.speaking();
+    talkT = speaking ? talkT + dt : 0;
+    moodK += ((o.angry() ? 1 : 0) - moodK) * Math.min(1, dt * 4);
+    const warm = o.warmth?.() ?? 0;
+    const W = cv.clientWidth || window.innerWidth, H = cv.clientHeight || window.innerHeight;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d')!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const reg = o.region();
+    const midH = Math.max(120, reg.height);
+    const fx = W * 0.5 + Math.sin(t * 0.21) * W * 0.008;
+    const fy = reg.top + midH * 0.5 + Math.sin(t * 0.27) * 4;
+    const facePx = clamp(Math.min(W * 0.46, midH * 0.62), 110, 320) * (1 + Math.sin(t * 0.17) * 0.012);
+    const col: [number, number, number] = [0, 1, 2].map((i) => base[i] + (angry[i] - base[i]) * moodK) as [number, number, number];
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, W, H);
+    const glowA = 0.42 + warm * 0.18 + moodK * Math.sin(t * 6) * 0.08;
+    const bg = g.createRadialGradient(fx, fy, 0, fx, fy, Math.max(W, H) * 0.7);
+    bg.addColorStop(0, rgba(col, glowA));
+    bg.addColorStop(0.4, rgba(col, glowA * 0.32));
+    bg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, W, H);
+    for (const m of motes) {
+      m.y -= dt * 0.012 * m.z;
+      if (m.y < -0.05) { m.y = 1.05; m.x = Math.random(); }
+      const x = m.x * W + Math.sin(t * 0.4 + m.s * TAU) * 10 * m.z;
+      g.fillStyle = rgba(col, 0.1 + m.z * 0.25);
+      g.beginPath(); g.arc(x, m.y * H, 0.8 + m.z * 2.2, 0, TAU); g.fill();
+    }
+    const size = facePx / (face.r * 2);
+    const sig = clamp(t / 0.5, 0, 1);
+    g.save();
+    g.globalAlpha = sig;
+    const jx = speaking && moodK > 0.5 ? (Math.random() - 0.5) * 2.4 : 0;
+    try {
+      renderDesign(g, o.design, fx - (face.x - L.cx) * size + jx, fy - (face.y - L.groundY) * size, size,
+        { t, action: speaking ? 'talk' : undefined, actionT: talkT * 3.2 }, { shadow: false });
+    } catch { /* a broken design still lets you talk */ }
+    g.restore();
+    if (sig < 1) {
+      for (let i = 0; i < 9; i++) {
+        g.fillStyle = rgba(col, (1 - sig) * 0.5 * Math.random());
+        g.fillRect(0, Math.random() * H, W, 2 + Math.random() * 10);
+      }
+    }
+    // Darken toward the bottom so the frame always reads.
+    const fade = g.createLinearGradient(0, H * 0.45, 0, H);
+    fade.addColorStop(0, 'rgba(0,0,0,0)');
+    fade.addColorStop(1, 'rgba(0,0,0,0.75)');
+    g.fillStyle = fade;
+    g.fillRect(0, H * 0.45, W, H * 0.55);
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
 /** Open a conversation. Resolves once it ends. */
 export function openTalk(sp: Speaker, first: Line): Promise<void> {
   return new Promise((done) => {
@@ -107,14 +190,10 @@ export function openTalk(sp: Speaker, first: Line): Promise<void> {
     const root = h('div', { class: `ft ft-${scheme}` }, cv, h('div', { class: 'ft-scan' }), h('div', { class: 'ft-top' }, say), mid, box);
     document.body.append(root);
 
-    const base = rgbOf(sp.color), angry: [number, number, number] = [255, 70, 50];
-    const face = faceOf(sp.design);
-    const L = layoutDesign(sp.design);
-    const motes: Mote[] = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random(), z: 0.3 + Math.random() * 0.7, s: Math.random() }));
     const voice = sp.voice ?? { sfx: 'tap', pitch: 1.6 };
     const seen = new Set<string>();
-    let line = first, text = '', shown = 0, pause = 0, talkT = 0, sel = 0, guardUntil = 0, closing = false;
-    let t = 0, last = performance.now(), moodK = 0, warm = 0;
+    let line = first, text = '', shown = 0, pause = 0, sel = 0, guardUntil = 0, closing = false;
+    let last = performance.now(), warm = 0;
 
     const info = () => {
       capsEl.textContent = sp.caps ? `§${Math.floor(sp.caps()).toLocaleString('en-US')}` : '';
@@ -202,7 +281,6 @@ export function openTalk(sp: Speaker, first: Line): Promise<void> {
       if (!root.isConnected) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      t += dt;
       // Typing, with a beat after each sentence.
       if (shown < text.length) {
         if (pause > 0) pause -= dt;
@@ -217,68 +295,18 @@ export function openTalk(sp: Speaker, first: Line): Promise<void> {
             if (after % 3 === 0 && ch !== ' ') audio.sfx(voice.sfx, { vol: 0.09, pitch: voice.pitch + Math.random() * 0.3 });
           }
         }
-        talkT += dt;
-      } else talkT = 0;
-      const speaking = shown < text.length && pause <= 0;
-      moodK += ((line.mood === 'angry' ? 1 : 0) - moodK) * Math.min(1, dt * 4);
+      }
       warm += (0 - warm) * Math.min(1, dt * 1.5);
-
-      const W = cv.clientWidth || window.innerWidth, H = cv.clientHeight || window.innerHeight;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-      const g = cv.getContext('2d')!;
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // The free space between the line and the reply box frames the face.
-      const mr = mid.getBoundingClientRect();
-      const midH = Math.max(120, mr.height);
-      const fx = W * 0.5 + Math.sin(t * 0.21) * W * 0.008;
-      const fy = mr.top + midH * 0.5 + Math.sin(t * 0.27) * 4;
-      const facePx = clamp(Math.min(W * 0.46, midH * 0.62), 110, 320) * (1 + Math.sin(t * 0.17) * 0.012);
-      // Backdrop: their colour glowing behind them, warmer or redder with the mood.
-      const col: [number, number, number] = [0, 1, 2].map((i) => base[i] + (angry[i] - base[i]) * moodK) as [number, number, number];
-      g.fillStyle = '#000';
-      g.fillRect(0, 0, W, H);
-      const glowA = 0.42 + warm * 0.18 + moodK * Math.sin(t * 6) * 0.08;
-      const bg = g.createRadialGradient(fx, fy, 0, fx, fy, Math.max(W, H) * 0.7);
-      bg.addColorStop(0, rgba(col, glowA));
-      bg.addColorStop(0.4, rgba(col, glowA * 0.32));
-      bg.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = bg;
-      g.fillRect(0, 0, W, H);
-      // Drifting motes for depth.
-      for (const m of motes) {
-        m.y -= dt * 0.012 * m.z;
-        if (m.y < -0.05) { m.y = 1.05; m.x = Math.random(); }
-        const x = m.x * W + Math.sin(t * 0.4 + m.s * TAU) * 10 * m.z;
-        g.fillStyle = rgba(col, 0.1 + m.z * 0.25);
-        g.beginPath(); g.arc(x, m.y * H, 0.8 + m.z * 2.2, 0, TAU); g.fill();
-      }
-      // The speaker, close up: the face is centred and the body runs off the edge of the screen.
-      const size = facePx / (face.r * 2);
-      const sig = clamp(t / 0.5, 0, 1);
-      g.save();
-      g.globalAlpha = sig;
-      const jx = speaking && moodK > 0.5 ? (Math.random() - 0.5) * 2.4 : 0;
-      try {
-        renderDesign(g, sp.design, fx - (face.x - L.cx) * size + jx, fy - (face.y - L.groundY) * size, size,
-          { t, action: speaking || talkT > 0 ? 'talk' : undefined, actionT: talkT * 3.2 }, { shadow: false });
-      } catch { /* a broken design still lets you talk */ }
-      g.restore();
-      // Signal noise while the channel opens.
-      if (sig < 1) {
-        for (let i = 0; i < 9; i++) {
-          g.fillStyle = rgba(col, (1 - sig) * 0.5 * Math.random());
-          g.fillRect(0, Math.random() * H, W, 2 + Math.random() * 10);
-        }
-      }
-      // Darken toward the reply box so it always reads.
-      const fade = g.createLinearGradient(0, H * 0.45, 0, H);
-      fade.addColorStop(0, 'rgba(0,0,0,0)');
-      fade.addColorStop(1, 'rgba(0,0,0,0.75)');
-      g.fillStyle = fade;
-      g.fillRect(0, H * 0.45, W, H * 0.55);
       requestAnimationFrame(frame);
     };
+    // The free space between the line and the reply box frames the face.
+    faceScene(cv, {
+      design: sp.design, color: sp.color,
+      region: () => mid.getBoundingClientRect(),
+      speaking: () => shown < text.length,
+      angry: () => line.mood === 'angry',
+      warmth: () => warm,
+    });
 
     info();
     show(first);

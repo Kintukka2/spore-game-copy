@@ -323,6 +323,8 @@ export class SystemView {
     if (ev.kind === 'distress') {
       if (ev.started) this.startEventFight(ev.id);
       else if (!this.rescue) this.rescue = { ev: ev.id, planet: ev.planet, a: Math.random() * TAU };
+    } else if (ev.kind === 'wreck') {
+      if (!this.rescue) this.rescue = { ev: ev.id, planet: ev.planet, a: Math.random() * TAU };
     } else if (ev.kind === 'raid' || ev.kind === 'invasion' || ev.kind === 'hollow') this.startEventFight(ev.id);
     else if (ev.kind === 'meteor' && arriving) this.st.meteorArrived(ev);
   }
@@ -504,7 +506,8 @@ export class SystemView {
       else if (Math.hypot(b.x - sh.x, b.y - sh.y) < 75) {
         this.rescue = null;
         audio.sfx('pop');
-        this.st.fx.ring(b.x, b.y, 10, 110, 0.6, '#ffd166', 4);
+        this.st.fx.ring(b.x, b.y, 10, 110, 0.6, ev.kind === 'wreck' ? '#7fe3ff' : '#ffd166', 4);
+        if (ev.kind === 'wreck') { this.st.salvageWreck(ev); return; }
         this.st.distress(ev, () => {
           if (!w.s.events.includes(ev)) return;
           ev.started = true;
@@ -831,6 +834,30 @@ export class SystemView {
   private drawRescue(g: CanvasRenderingContext2D, z: number) {
     const b = this.rescuePos();
     const pulse = 1 + Math.sin(this.t * 4) * 0.15;
+    const ev = this.st.w.s.events.find((e) => e.id === this.rescue!.ev);
+    if (ev?.kind === 'wreck') {
+      // A dead hulk, slowly tumbling, shedding debris.
+      g.globalCompositeOperation = 'lighter';
+      blit(g, glow('#7fe3ff', 32), b.x, b.y, 54 * pulse);
+      g.globalCompositeOperation = 'source-over';
+      drawShip(g, freighter(), b.x, b.y, this.t * 0.35 + 1.2, 0.5, 0, { thrust: 0, engine: '#333' });
+      g.fillStyle = 'rgba(160,170,185,0.85)';
+      for (let i = 0; i < 6; i++) {
+        const a = i * 1.05 + this.t * (0.2 + i * 0.05), rr = 30 + (i % 3) * 9;
+        g.fillRect(b.x + Math.cos(a) * rr - 2, b.y + Math.sin(a) * rr - 2, 4 + (i % 2) * 2, 3);
+      }
+      g.strokeStyle = `rgba(127,227,255,${0.45 + 0.4 * Math.sin(this.t * 3)})`;
+      g.lineWidth = 2 / z;
+      g.setLineDash([6 / z, 5 / z]);
+      g.beginPath(); g.arc(b.x, b.y, 44 * pulse, 0, TAU); g.stroke();
+      g.setLineDash([]);
+      g.font = `700 ${13 / z}px Fredoka, system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#7fe3ff';
+      g.fillText('🛰️ Salvage', b.x, b.y - 44 * pulse - 12 / z);
+      return;
+    }
     g.globalCompositeOperation = 'lighter';
     blit(g, glow('#ffd166', 32), b.x, b.y, 64 * pulse);
     g.globalCompositeOperation = 'source-over';
@@ -1083,7 +1110,7 @@ export class SystemView {
     for (const m of this.st.w.s.missions) {
       if (m.star === this.star && m.planet !== undefined) { const pp = this.planetPos(m.planet); marks.push({ x: pp.x, y: pp.y, color: '#ffd166' }); }
     }
-    if (this.rescue) marks.push({ ...this.rescuePos(), color: '#ffd166' });
+    if (this.rescue) marks.push({ ...this.rescuePos(), color: this.st.w.s.events.find((e) => e.id === this.rescue!.ev)?.kind === 'wreck' ? '#7fe3ff' : '#ffd166' });
     const pad = 26, top = 130, bottom = 150;
     for (const m of marks) {
       const p = this.cam.worldToScreen(m.x, m.y);

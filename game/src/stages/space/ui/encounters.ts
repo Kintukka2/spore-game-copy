@@ -48,10 +48,18 @@ export async function greetTrader(st: SpaceStage, ev: GEvent, onClose?: () => vo
     return { say, replies: r };
   };
   audio.sfx('coin', { vol: 0.5 });
-  await openTalk({ name: m.name, sub: 'Wandering trader', design: m.design, color: '#ffb347', voice: { sfx: 'tap', pitch: 1.9 }, ...wallet(st) },
-    hub(pickOf(LINES.greet).replace('{name}', first)));
-  if (barter && st.w.s.events.includes(ev)) openTrader(st, ev, onClose);
-  else onClose?.();
+  const sp: Speaker = { name: m.name, sub: 'Wandering trader', design: m.design, color: '#ffb347', voice: { sfx: 'tap', pitch: 1.9 }, ...wallet(st) };
+  let line = pickOf(LINES.greet).replace('{name}', first);
+  // Bartering returns to the conversation, as in Fallout.
+  for (;;) {
+    barter = false;
+    await openTalk(sp, hub(line));
+    if (!barter || !st.w.s.events.includes(ev)) break;
+    await openTrader(st, ev);
+    if (!st.w.s.events.includes(ev)) break;
+    line = pickOf(['Anything else, friend?', 'Back so soon? Wonderful.', 'Pleasure doing business. More business?']);
+  }
+  onClose?.();
 }
 
 // ------------------------------------------------------------------ refugees

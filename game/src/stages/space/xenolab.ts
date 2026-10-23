@@ -41,9 +41,9 @@ export function syncCatalog(w: World): number {
 }
 
 // ------------------------------------------------------------------ menagerie
-/** Exhibits can be donated while the ship is in one of your own systems. */
+/** The Menagerie is part of the Xeno-Lab on your homeworld: exhibits are handed over there. */
 export function canExhibitHere(w: World): boolean {
-  return w.ownerOf(w.s.loc) === 'player' && !w.inWarp;
+  return w.s.loc === w.gal.homeStar && !w.inWarp;
 }
 
 export function zooRate(w: World): number {
@@ -51,7 +51,7 @@ export function zooRate(w: World): number {
 }
 
 export function exhibit(w: World, i: number): string | null {
-  if (!canExhibitHere(w)) return 'Fly to your homeworld or a colony system to hand specimens to the Menagerie.';
+  if (!canExhibitHere(w)) return 'Fly to your homeworld to hand specimens to the Menagerie.';
   const sp = w.s.specimens[i];
   if (!sp) return 'That specimen is gone.';
   const zoo = (w.s.zoo ??= []);
@@ -68,7 +68,7 @@ export function exhibit(w: World, i: number): string | null {
 export function retire(w: World, i: number): string | null {
   const zoo = w.s.zoo ?? [];
   if (!zoo[i]) return null;
-  if (!canExhibitHere(w)) return 'Exhibits can only be collected from one of your own systems.';
+  if (!canExhibitHere(w)) return 'Exhibits can only be collected at your homeworld.';
   if (w.cargoUsed >= w.cargoCap) return 'Your cargo hold is full.';
   w.s.specimens.push(zoo.splice(i, 1)[0]);
   w.hooks?.changed();

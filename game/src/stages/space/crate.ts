@@ -3,6 +3,7 @@ import { article } from '../../engine/math';
 import { TOOL_MAP } from './data';
 import { rareSpecimen } from './events';
 import { catalogue } from './xenolab';
+import { giveSalvage, rollSalvage } from './salvage';
 import type { Design } from '../../design/types';
 import type { World } from './world';
 
@@ -55,7 +56,13 @@ export function openCrateLoot(w: World): Loot | null {
     w.give(p, 3);
     loot = { rarity: 'common', icon: TOOL_MAP[p].icon, name: `3 × ${TOOL_MAP[p].name}`, desc: TOOL_MAP[p].desc };
   }
-  if (!loot && x < 0.88) {
+  if (!loot && x < 0.8) {
+    // Salvage: a blueprint (epic) or a bundle of components (common).
+    const sv = rollSalvage(w, 'crate');
+    const got = giveSalvage(w, sv);
+    if (got.length) loot = { rarity: sv.bp ? 'epic' : 'common', icon: sv.bp ? '📐' : got[0].icon, name: got.map((g) => g.text).join(', '), desc: sv.bp ? 'Plans for advanced tech. Build it at a shop with the components it lists.' : 'Components for advanced parts. Blueprints tell you what each part needs.' };
+  }
+  if (!loot && x < 0.92) {
     const g = GADGETS[Math.floor(Math.random() * GADGETS.length)];
     w.give(g, 1);
     loot = { rarity: 'epic', icon: TOOL_MAP[g].icon, name: TOOL_MAP[g].name, desc: TOOL_MAP[g].desc };

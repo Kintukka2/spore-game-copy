@@ -127,7 +127,7 @@ export class World {
     for (const e of this.empires) {
       this.s.empires[e.id] = {
         met: e.met, war: e.war, allied: e.allied, mods: e.mods, demand: e.demand, route: e.route, takeover: e.takeover,
-        expandT: e.expandT, moodT: e.moodT, serenade: e.serenade, dead: e.dead, mult: e.mult, lastBeacon: e.lastBeacon, tributeAsked: e.tributeAsked,
+        expandT: e.expandT, moodT: e.moodT, serenade: e.serenade, dead: e.dead, mult: e.mult, lastBeacon: e.lastBeacon, tributeAsked: e.tributeAsked, offered: e.offered,
       };
     }
     return this.s;

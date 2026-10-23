@@ -327,12 +327,13 @@ export class PlanetPanel {
     if (e) acts.append(button('📡 Hail', () => this.st.openComm(e)));
     if (e && e.war) acts.append(button('🎯 Attack', () => { this.close(); this.st.sv.combat.planetTarget = this.idx; this.st.ui.toast(w.has('bomb') ? 'Target locked. Tap 💣 to bomb.' : 'You need Planet Bombs to capture worlds.', '🎯'); }, { cls: 'danger' }));
     if (this.shopHere()) acts.append(button('🧰 Tool shop', () => this.st.openShip('shop')));
-    if (isHomeworld(w, this.star, this.idx)) acts.append(button('🛠️ Redesign ship', () => { this.close(); this.st.redesignShip(); }));
+    if (isHomeworld(w, this.star, this.idx)) acts.append(button(`🧬 Xeno-Lab${w.s.specimens.length ? ` (${w.s.specimens.length})` : ''}`, () => this.st.openLab(), { cls: 'gold' }), button('🛠️ Redesign ship', () => { this.close(); this.st.redesignShip(); }));
     if (e && !e.war && e.arch !== 'hollow' && relation(e) >= 0) {
-      const price = Math.round((w.maxHp - w.s.hp) * 4 + (w.maxEnergy - w.s.energy) * 60);
-      if (price > 0) acts.append(button(`🔧 Repair ${money(price)}`, () => {
+      // Alien docks patch your hull for a fee; only friendly docks recharge energy.
+      const price = Math.round((w.maxHp - w.s.hp) * 4);
+      if (price > 0) acts.append(button(`🔧 Hull repair ${money(price)}`, () => {
         if (w.s.money < price) { audio.sfx('error'); return; }
-        w.addMoney(-price); w.s.hp = w.maxHp; w.s.energy = w.maxEnergy; audio.sfx('heal'); this.render();
+        w.addMoney(-price); w.s.hp = w.maxHp; audio.sfx('heal'); this.render();
       }));
     }
     const pw = w.arch?.power;
@@ -715,8 +716,8 @@ export class PlanetPanel {
     const prog = e.takeover[this.star] ?? 0;
     const tb = progressBar('gold');
     tb.set(prog, `Economic takeover ${Math.round(prog * 100)}%`);
-    B.append(h('div', { class: 'sp-section' }, 'Takeover'), tb.el, h('div', { class: 'sp-mini' }, `Trading here (and a trade route) fills the bar. When it's full, ${e.species} will sell you this system for about ${money(systemPrice(w, this.star))}.`));
-    if (prog >= 1) B.append(button('🏳️ Make an offer', () => this.st.takeoverOffer(e, this.star, systemPrice(w, this.star)), { cls: 'gold' }));
+    B.append(h('div', { class: 'sp-section' }, 'Takeover'), tb.el, h('div', { class: 'sp-mini' }, `Trading here (and a trade route) fills the bar. When it's full, ${e.species} offer to sell you this system for about ${money(systemPrice(w, this.star))}. They ask once; after that, make the offer here.`));
+    if (prog >= 1) B.append(button('🏳️ Ask to buy this system', () => this.st.takeoverOffer(e, this.star, systemPrice(w, this.star)), { cls: 'gold' }));
     if (e.allied) B.append(button('🧰 Allied tool shop (−10%)', () => this.st.openShip('shop')));
   }
 

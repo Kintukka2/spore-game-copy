@@ -3,9 +3,10 @@
 // wandering traders and refugee fleets.
 import { audio } from '../../engine/audio';
 import { fmt } from '../../engine/math';
+import { COMPONENTS, giveSalvage, grantTool, hasBlueprint, owned, pickBlueprint, pickFoundTool, RECIPES, rollComps, rollSalvage, salvageLine, type CompId } from './salvage';
 import { RNG } from '../../engine/rng';
 import { generateCreature } from '../../design/generate';
-import { SPICE, SPICE_COLORS, TOOL_MAP, TOOLS } from './data';
+import { RANKS, SPICE, SPICE_COLORS, TOOL_MAP, TOOLS } from './data';
 import type { EventKind, GEvent, Planet, PlanetState, Specimen } from './types';
 import { BUILDINGS, isHomeworld, maxCities, slots, used } from './economy';
 import { addMod } from './empires';
@@ -23,10 +24,11 @@ export const EVENT_INFO: Record<EventKind, { icon: string; label: string; how: s
   rare: { icon: '✨', label: 'Rare sighting', how: 'Land and catch it before it migrates.', good: true },
   trader: { icon: '🛍️', label: 'Wandering trader', how: 'Open the planet to see the deals.', good: true },
   refugees: { icon: '🚀', label: 'Refugee fleet', how: 'Open your colony to take them in.', good: true },
+  wreck: { icon: '🛰️', label: 'Derelict wreck', how: 'Fly to the wreck near the planet and salvage it.', good: true },
 };
 
 /** Seconds each random happening lasts. */
-const DURATION: Partial<Record<EventKind, number>> = { meteor: 160, distress: 210, relic: 420, rare: 330, trader: 300, refugees: 260 };
+const DURATION: Partial<Record<EventKind, number>> = { meteor: 160, distress: 210, relic: 420, rare: 330, trader: 300, refugees: 260, wreck: 300 };
 
 export function eventsTick(w: World, dt: number) {
   const s = w.s;
@@ -131,6 +133,7 @@ export function randomEvent(w: World, force?: EventKind): GEvent | null {
       { kind: 'relic', wt: 2, at: () => worlds((pl, ps) => ground(pl, ps) && ps.owner !== 'player') },
       { kind: 'rare', wt: 2, at: () => worlds((pl, ps) => ground(pl, ps) && (pl.life || ps.eco.some((x) => x && x.diet !== 'plant'))) },
       { kind: 'trader', wt: 1.5, at: () => worlds(() => true) },
+      { kind: 'wreck', wt: 2, at: () => worlds(() => true) },
     );
   }
   const live = opts.filter((o) => !force || o.kind === force).map((o) => ({ ...o, list: o.at() })).filter((o) => o.list.length);
@@ -151,7 +154,7 @@ export function randomEvent(w: World, force?: EventKind): GEvent | null {
     if (!sp) return null;
     ev.sp = sp;
   }
-  if (pick.kind === 'trader') { ev.deals = [0, 1, 2]; ev.seed = Math.floor(Math.random() * 1e9); }
+  if (pick.kind === 'trader') { ev.seed = Math.floor(Math.random() * 1e9); ev.stock = stockTrader(w); ev.deals = [0, 1, 2, 3, 4, 5]; }
   start(w, ev);
   return ev;
 }
@@ -233,7 +236,8 @@ export function resolve(w: World, ev: GEvent) {
       const gift = gifts[Math.floor(Math.random() * gifts.length)];
       w.give(gift, 2);
       w.counter('relics');
-      w.hooks?.toast(`Ancient relic recovered from ${pl.name}! Collectors pay ${pay(22000 + Math.floor(Math.random() * 16000))}, and it held 2 × ${TOOL_MAP[gift].icon} ${TOOL_MAP[gift].name}.`, '🗿', 'gold');
+      const extra = salvageLine(giveSalvage(w, rollSalvage(w, 'relic')));
+      w.hooks?.toast(`Ancient relic recovered from ${pl.name}! Collectors pay ${pay(22000 + Math.floor(Math.random() * 16000))}, and it held 2 × ${TOOL_MAP[gift].icon} ${TOOL_MAP[gift].name}${extra ? `, plus ${extra}` : ''}.`, '🗿', 'gold');
       break;
     }
     case 'rare':
@@ -241,6 +245,7 @@ export function resolve(w: World, ev: GEvent) {
       break;
     case 'trader':
     case 'refugees':
+    case 'wreck':
       // Their deals already spoke for themselves.
       break;
     default: {
@@ -312,9 +317,23 @@ export function eventAt(w: World, star: number): GEvent | undefined {
 }
 
 // ------------------------------------------------------------------ trader & refugees
-export interface Deal { kind: 'tool' | 'spice' | 'crate'; icon: string; name: string; desc: string; price: number; block: string | null; take(): string }
+export interface Deal { kind: 'tool' | 'spice' | 'crate' | 'blueprint' | 'parts' | 'gear'; icon: string; name: string; desc: string; price: number; block: string | null; take(): string }
 
-/** The trader's three deals (null once taken): a cut-price tool bundle, a spice buyer and a mystery crate. */
+/** Roll what a trader carries besides the usual three: a blueprint, a bundle of components and a finished part. */
+function stockTrader(w: World): NonNullable<GEvent['stock']> {
+  const st: NonNullable<GEvent['stock']> = {};
+  if (Math.random() < 0.6) st.bp = pickBlueprint(w) ?? undefined;
+  const comps = rollComps(1, 0.4);
+  st.comp = Object.keys(comps)[0];
+  st.compN = 2 + Math.floor(Math.random() * 2);
+  if (Math.random() < 0.5) { const g = pickFoundTool(w); if (g && TOOL_MAP[g.id].kind !== 'consumable') st.gear = g.id; }
+  return st;
+}
+
+const COMP_PRICE: Record<string, number> = { common: 8000, uncommon: 15000, rare: 40000 };
+
+/** The trader's deals (null once taken or not stocked): a cut-price tool bundle, a spice buyer, a mystery crate,
+ * and, if rolled, a blueprint, a bundle of components and a finished part (sold without needing its blueprint). */
 export function traderDeals(w: World, ev: GEvent): (Deal | null)[] {
   const r = new RNG(ev.seed ?? ev.id);
   const rank = w.rank();
@@ -341,8 +360,38 @@ export function traderDeals(w: World, ev: GEvent): (Deal | null)[] {
     block: w.s.money < crateCost ? 'Not enough money' : w.count('crate') >= (TOOL_MAP.crate.max ?? 9) ? 'No room for more crates' : null,
     take() { w.addMoney(-crateCost); w.give('crate', 1); return 'A mystery crate is stowed in your hold. Open it from Ship → Cargo.'; },
   };
-  const all = [tool, spice, crate];
-  return all.map((d, i) => (ev.deals ?? []).includes(i) ? d : null);
+  const stock = ev.stock ?? {};
+  let bp: Deal | null = null, parts: Deal | null = null, gear: Deal | null = null;
+  if (stock.bp && TOOL_MAP[stock.bp]) {
+    const bt = TOOL_MAP[stock.bp];
+    const cost = Math.round((bt.price * 0.25) / 1000) * 1000;
+    bp = {
+      kind: 'blueprint', icon: '📐', name: `${bt.name} blueprint`, desc: `Plans for ${bt.icon} ${bt.name} (${RANKS[Math.min(bt.rank, RANKS.length - 1)].name} rank). Build it at a shop once you have the components it lists.`, price: cost,
+      block: hasBlueprint(w, bt.id) ? 'You already have it' : w.s.money < cost ? 'Not enough money' : null,
+      take() { w.addMoney(-cost); giveSalvage(w, { bp: bt.id }); return `Bought the ${bt.name} blueprint for §${fmt(cost)}.`; },
+    };
+  }
+  if (stock.comp && COMPONENTS[stock.comp as CompId]) {
+    const c = COMPONENTS[stock.comp as CompId], n = stock.compN ?? 2;
+    const cost = COMP_PRICE[c.rarity] * n;
+    parts = {
+      kind: 'parts', icon: c.icon, name: `${n} × ${c.name}`, desc: `${c.desc} A ${c.rarity} component for advanced parts.`, price: cost,
+      block: w.s.money < cost ? 'Not enough money' : null,
+      take() { w.addMoney(-cost); giveSalvage(w, { comps: { [stock.comp as CompId]: n } }); return `Bought ${n} × ${c.icon} ${c.name} for §${fmt(cost)}.`; },
+    };
+  }
+  if (stock.gear && TOOL_MAP[stock.gear]) {
+    const gt = TOOL_MAP[stock.gear];
+    const cost = Math.round((w.toolPrice(gt, 'own') * (RECIPES[gt.id] ? 1.1 : 0.75)) / 1000) * 1000;
+    const have = owned(w, gt);
+    gear = {
+      kind: 'gear', icon: gt.icon, name: gt.name, desc: `${gt.desc} ${RECIPES[gt.id] ? 'Fully assembled: no blueprint or components needed.' : 'A quarter off the shop price.'}`, price: cost,
+      block: have ? 'You already have it' : w.s.money < cost ? 'Not enough money' : null,
+      take() { w.addMoney(-cost); grantTool(w, gt); w.hooks?.changed(); return `Bought and installed ${gt.icon} ${gt.name} for §${fmt(cost)}.`; },
+    };
+  }
+  const all = [tool, spice, crate, bp, parts, gear];
+  return all.map((d, i) => (d && (ev.deals ?? []).includes(i) ? d : null));
 }
 
 /** Take deal `i`. Returns the result line, or null if it was refused. The trader leaves once sold out. */

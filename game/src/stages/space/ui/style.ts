@@ -719,19 +719,21 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
 .nb-empty { padding:14px 10px; color:var(--ph-dim); font-size:15px; line-height:1.45; white-space:normal; }
 .nb-detail { min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; display:flex; flex-direction:column; gap:10px; }
 .nb-detail > * { flex-shrink:0; }
-.nb-dtop { display:flex; gap:12px; }
-.nb-pic { flex:1; min-width:0; height:clamp(110px, 27vh, 230px); display:flex; align-items:center; justify-content:center; }
-.nb-big { font-size:clamp(60px, 10vh, 108px); line-height:1; filter:url(#ph-f) drop-shadow(0 0 10px var(--ph-glow)); }
+.nb-dtop { position:relative; display:flex; }
+.nb-pic { position:relative; flex:1; min-width:0; height:clamp(110px, 27vh, 230px); display:flex; align-items:center; justify-content:center; }
+.nb-big { position:relative; font-size:clamp(60px, 10vh, 108px); line-height:1; filter:url(#ph-f) drop-shadow(0 0 10px var(--ph-glow)); }
 .nb-cv { width:100%; height:100%; display:block; }
 .nb-cv.mono { filter:url(#ph-f) drop-shadow(0 0 6px var(--ph-glow)); }
 .nb-cv.alive { filter:drop-shadow(0 0 14px var(--ph-faint)); }
-/* The shipyard shows its wares in their own colours, as the Nav-Boy does its creatures; what you own or can't buy yet fades back. */
-.nb-dev.term .nb-ic { filter:none; }
-.nb-dev.term .nb-row.dim .nb-ic { opacity:.5; }
-.nb-dev.term .nb-big { filter:drop-shadow(0 0 14px var(--ph-faint)); }
-.nb-acts { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-top:2px; }
-.nb-acts.row { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px 14px; }
-.nb-act { display:flex; align-items:center; gap:8px; font:inherit; font-size:clamp(13px, 1.45vw, 16px); color:var(--ph); background:none; border:0; padding:3px 4px; cursor:pointer; text-shadow:inherit; white-space:nowrap; }
+/* ITEMS, DATA and the shipyard show their icons in their own colours, as the Nav-Boy does its creatures; dim entries fade back.
+   A part in a line of tiers gets an aura behind its big icon (ui/aura.ts). */
+.nb-dev.color .nb-ic { filter:none; }
+.nb-dev.color .nb-row.dim .nb-ic { opacity:.5; }
+.nb-dev.color .nb-big { filter:drop-shadow(0 0 14px var(--ph-faint)); }
+.nb-aura { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.nb-acts { position:absolute; top:0; right:0; z-index:1; display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-top:2px; }
+.nb-acts.row { position:static; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px 14px; }
+.nb-act { display:flex; align-items:center; gap:8px; font:inherit; font-size:clamp(13px, 1.45vw, 16px); color:var(--ph); background:rgba(0,0,0,.55); border:0; border-radius:6px; padding:3px 4px; cursor:pointer; text-shadow:inherit; white-space:nowrap; }
 .nb-act:hover { background:var(--ph-bg); }
 .nb-act kbd { font:inherit; font-size:12px; min-width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:2px solid var(--ph); border-radius:7px; padding:0 4px; box-shadow:0 0 6px var(--ph-faint); }
 .nb-act.off { color:var(--ph-faint); }
@@ -762,7 +764,7 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
 .nb-fend.l { border-left:2px solid var(--ph); }
 .nb-fend.r { border-right:2px solid var(--ph); }
 .nb-ln { flex:1 1 14px; min-width:10px; height:2px; background:var(--ph); box-shadow:0 0 4px var(--ph-glow); }
-.nb-sub { flex:0 0 auto; font:inherit; font-size:clamp(13px, 1.55vw, 17px); color:var(--ph); background:none; border:2px solid transparent; padding:2px 8px; cursor:pointer; text-shadow:inherit; white-space:nowrap; }
+.nb-sub { flex:0 0 auto; font:inherit; font-size:clamp(13px, 1.55vw, 17px); color:var(--ph); background:none; border:2px solid transparent; padding:2px 5px; cursor:pointer; text-shadow:inherit; white-space:nowrap; }
 .nb-sub.on { border-color:var(--ph); box-shadow:0 0 8px var(--ph-faint), inset 0 0 8px var(--ph-faint); }
 .nb-sub sup { font-size:10px; margin-left:3px; color:var(--ph-dim); }
 .nb-note { position:absolute; left:50%; bottom:54px; z-index:2; max-width:88%; padding:4px 12px; background:#000; border:2px solid var(--ph); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transform:translate(-50%, 8px); transition:opacity .2s, transform .2s; pointer-events:none; }
@@ -803,6 +805,7 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
   .nb-btn > i { width:30px; height:30px; }
   .nb-btn small, .nb-sh { display:none; }
   .nb-pic { height:clamp(70px, 22vh, 140px); }
+  .nb-big { font-size:clamp(40px, 8vh, 60px); }
 }
 @media (max-width:760px) {
   .nb-dev { grid-template-columns:minmax(0, 1fr); padding:10px 8px 6px; border-radius:24px 24px 34px 34px; }
@@ -814,6 +817,10 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
   .nb-body { grid-template-columns:minmax(0, 1fr); grid-template-rows:minmax(0, .85fr) minmax(0, 1.15fr); gap:10px; }
   .nb-body.custom { grid-template-columns:minmax(0, 1fr); grid-template-rows:minmax(0, 1.3fr) minmax(0, 1fr); }
   .nb-pic { height:clamp(70px, 15vh, 130px); }
+  .nb-big { font-size:clamp(40px, 6vh, 56px); }
+  .nb-dtop { flex-direction:column; gap:6px; }
+  .nb-dtop > .nb-pic { flex:0 0 auto; }
+  .nb-acts { position:static; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:4px 12px; }
   .nb-btns { margin-top:6px; padding:5px 16px 4px; }
   .nb-btn > i { width:36px; height:36px; }
   .nb-sh { display:none; }

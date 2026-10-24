@@ -160,7 +160,7 @@ export function dataTab(ctx: NbCtx): NbTab {
     for (const c of SPICE_COLORS) {
       const ch = change(w, c);
       rows.push({
-        icon: '●', name: `${SPICE[c].name} (${CODE[c]})`, val: `${money(contractPrice(w, c))} ${ch >= 0 ? '▲' : '▼'}${Math.abs(ch * 100).toFixed(1)}%`,
+        icon: '●', tint: SPICE[c].hex, name: `${SPICE[c].name} (${CODE[c]})`, val: `${money(contractPrice(w, c))} ${ch >= 0 ? '▲' : '▼'}${Math.abs(ch * 100).toFixed(1)}%`,
         d: () => {
           const n = m.news.find((x) => x.fx.some((f) => f.c === c));
           return {

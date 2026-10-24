@@ -6,6 +6,7 @@ import { audio } from '../../../engine/audio';
 import { RANKS, TOOL_CATS, TOOLS, type ToolDef } from '../data';
 import { COMPONENTS, consumeRecipe, craftState, needsBlueprint, RECIPES, type CompId } from '../salvage';
 import type { SpaceStage } from '../stage';
+import { toolAura } from './aura';
 import { money } from './common';
 import { openHangar } from './hangar';
 import { openTerminal, type NbAct, type NbCtx, type NbDetail, type NbRow, type NbTab, type NbTerm } from './navboy';
@@ -144,6 +145,7 @@ function shopTab(ctx: NbCtx): NbTab {
     }
     return {
       big: t.icon,
+      aura: toolAura(t),
       boxes: [['PRICE', money(price)], ['RANK', RANKS[Math.min(t.rank, RANKS.length - 1)].name], [t.kind === 'consumable' ? 'CARRY' : 'OWN', own.note]],
       lines: lines.length ? lines : undefined,
       desc: `${t.desc}${note ? ` ${note}` : ''}`,

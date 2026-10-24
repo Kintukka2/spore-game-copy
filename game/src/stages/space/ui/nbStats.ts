@@ -149,7 +149,7 @@ export function statsTab(ctx: NbCtx): NbTab {
         pic: ship,
         boxes: [['POWER', String(w.shipStats.power ?? 0)], ['ARMOUR', String(w.shipStats.armor ?? 0)], ['SPEED', String(w.shipStats.move ?? 0)]],
         desc: `${what} It comes from the parts on your ship's design: ${st.shipDesign.name}.`,
-        acts: [{ key: 'G', label: 'Redesign', off: w.s.loc !== w.gal.homeStar ? 'Return to your homeworld to redesign your ship.' : undefined, run: () => { ctx.close(); st.redesignShip(); } }],
+        acts: [{ key: 'G', label: 'Redesign', off: w.ownerOf(w.s.loc) !== 'player' ? 'Go to your homeworld or one of your colonies to redesign your ship.' : undefined, run: () => { ctx.close(); st.redesignShip(); } }],
       }),
     });
     design('Power', 'power', 'Every point adds 4% to your weapon damage.');

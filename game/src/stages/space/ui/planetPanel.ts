@@ -331,7 +331,9 @@ export class PlanetPanel {
     if (e) acts.append(button('📡 Hail', () => this.st.openComm(e)));
     if (e && e.war) acts.append(button('🎯 Attack', () => { this.close(); this.st.sv.combat.planetTarget = this.idx; this.st.ui.toast(w.has('bomb') ? 'Target locked. Tap 💣 to bomb.' : 'You need Planet Bombs to capture worlds.', '🎯'); }, { cls: 'danger' }));
     if (this.shopHere()) acts.append(button('🧰 Tool shop', () => this.st.openShip('shop')));
-    if (isHomeworld(w, this.star, this.idx)) acts.append(button(`🧬 Xeno-Lab${w.s.specimens.length ? ` (${w.s.specimens.length})` : ''}`, () => this.st.openLab(), { cls: 'gold' }), button('🛠️ Redesign ship', () => { this.close(); this.st.redesignShip(); }));
+    if (isHomeworld(w, this.star, this.idx)) acts.append(button(`🧬 Xeno-Lab${w.s.specimens.length ? ` (${w.s.specimens.length})` : ''}`, () => this.st.openLab(), { cls: 'gold' }));
+    // Every world of yours is a shipyard, so any of them can refit your ship.
+    if (ps.owner === 'player') acts.append(button('🛠️ Redesign ship', () => { this.close(); this.st.redesignShip(); }));
     if (e && !e.war && e.arch !== 'hollow' && relation(e) >= 0) {
       // Alien docks patch your hull for a fee; only friendly docks recharge energy.
       const price = Math.round((w.maxHp - w.s.hp) * 4);
@@ -350,6 +352,7 @@ export class PlanetPanel {
     this.genesisButton(acts);
     if (w.count('cracker') > 0 && !isHomeworld(w, this.star, this.idx)) acts.append(button(`☄️ World Cracker (${w.count('cracker')})`, () => this.crack(), { cls: 'danger' }));
     if (pl.feature === 'home') B.append(h('div', { class: 'sp-mini' }, 'Your homeworld: the shop sells every tool you have unlocked, and your ship repairs itself here for free.'));
+    else if (ps.owner === 'player') B.append(h('div', { class: 'sp-mini' }, 'Your colony: a shipyard like home. Buy tools, redesign your ship, and your hull repairs itself here. The Xeno-Lab is on your homeworld.'));
   }
 
   private genesisButton(parent: HTMLElement) {

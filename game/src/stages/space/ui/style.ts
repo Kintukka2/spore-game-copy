@@ -725,6 +725,10 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
 .nb-cv { width:100%; height:100%; display:block; }
 .nb-cv.mono { filter:url(#ph-f) drop-shadow(0 0 6px var(--ph-glow)); }
 .nb-cv.alive { filter:drop-shadow(0 0 14px var(--ph-faint)); }
+/* The shipyard shows its wares in their own colours, as the Nav-Boy does its creatures; what you own or can't buy yet fades back. */
+.nb-dev.term .nb-ic { filter:none; }
+.nb-dev.term .nb-row.dim .nb-ic { opacity:.5; }
+.nb-dev.term .nb-big { filter:drop-shadow(0 0 14px var(--ph-faint)); }
 .nb-acts { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-top:2px; }
 .nb-acts.row { flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px 14px; }
 .nb-act { display:flex; align-items:center; gap:8px; font:inherit; font-size:clamp(13px, 1.45vw, 16px); color:var(--ph); background:none; border:0; padding:3px 4px; cursor:pointer; text-shadow:inherit; white-space:nowrap; }

@@ -7,8 +7,8 @@ import { RANKS, TOOL_CATS, TOOLS, type ToolDef } from '../data';
 import { COMPONENTS, consumeRecipe, craftState, needsBlueprint, RECIPES, type CompId } from '../salvage';
 import type { SpaceStage } from '../stage';
 import { money } from './common';
-import { drawSchematic, openHangar } from './hangar';
-import { openTerminal, picCanvas, type NbAct, type NbCtx, type NbDetail, type NbRow, type NbTab, type NbTerm } from './navboy';
+import { openHangar } from './hangar';
+import { openTerminal, type NbAct, type NbCtx, type NbDetail, type NbRow, type NbTab, type NbTerm } from './navboy';
 
 /** Where you are docked: your own world, an ally's (10% off), or nowhere. */
 function shopContext(st: SpaceStage): { kind: 'own' | 'ally' | null; label: string } {
@@ -143,7 +143,6 @@ function shopTab(ctx: NbCtx): NbTab {
       });
     }
     return {
-      pic: t.group || ['shield', 'bomb', 'wormkey'].includes(t.id) ? (el) => schematicPic(el, t.group ?? t.id) : undefined,
       big: t.icon,
       boxes: [['PRICE', money(price)], ['RANK', RANKS[Math.min(t.rank, RANKS.length - 1)].name], [t.kind === 'consumable' ? 'CARRY' : 'OWN', own.note]],
       lines: lines.length ? lines : undefined,
@@ -160,17 +159,4 @@ function shopTab(ctx: NbCtx): NbTab {
     },
     pages,
   };
-}
-
-function schematicPic(host: HTMLElement, kind: string) {
-  const cv = picCanvas(host, () => { /* drawn below */ }, false, 'mono');
-  let t = 0, last = performance.now();
-  const loop = (now: number) => {
-    if (!cv.isConnected && t > 0.2) return;
-    t += (now - last) / 1000;
-    last = now;
-    drawSchematic(cv, kind, false, t, 1);
-    requestAnimationFrame(loop);
-  };
-  requestAnimationFrame(loop);
 }

@@ -292,8 +292,6 @@ function device(st: SpaceStage, tab?: NbTabId, page?: string, term?: NbTerm) {
   const render = (fresh = false) => {
     if (!alive) return;
     btns.forEach((b, i) => b.classList.toggle('on', TAB_IDS[i] === tabId));
-    // ITEMS, DATA and the shipyard show their icons in colour; STATS keeps them in phosphor.
-    dev.classList.toggle('color', tabId !== 'stats');
     renderHead();
     renderFoot();
     const p = pageDef();

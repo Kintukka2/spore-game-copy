@@ -29,6 +29,7 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
   // Specimens aboard
   B.append(h('div', { class: 'sp-section' }, `Specimens aboard (${w.s.specimens.length})`));
   if (!w.s.specimens.length) B.append(h('div', { class: 'sp-mini' }, 'None yet. Fly to a living world, open it, and use Life → Beam up.'));
+  const splicable = (i: number) => !!w.s.specimens[i] && w.s.specimens[i].diet !== 'plant';
   w.s.specimens.forEach((sp, i) => {
     const picked = pick.includes(i);
     const ex = button('🏛️ Exhibit', () => {
@@ -48,11 +49,11 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
     B.append(h('div', { class: 'sp-item xl-row' + (picked ? ' picked' : '') }, specimenThumb(w, sp, 64, 44),
       h('div', { class: 'sp-txt' }, h('b', null, sp.name, sp.hybrid ? h('span', { class: 'xl-tag' }, 'Hybrid') : sp.rare ? h('span', { class: 'xl-tag' }, 'Rare') : null),
         sp.hybrid ? (sp.parents ? sp.parents.join(' × ') : 'Fits any animal slot') : `${dietIcon(sp.diet)} ${sp.diet}`),
-      h('div', { class: 'xl-btns' }, ex, sel)));
+      h('div', { class: 'xl-btns' }, ex, splicable(i) ? sel : null)));
   });
 
   // Gene Splicer
-  if (w.s.specimens.length >= 2) {
+  if (w.s.specimens.filter((_, i) => splicable(i)).length >= 2) {
     const [a, b] = pick.map((i) => w.s.specimens[i]);
     const box = h('div', { class: 'xl-splice' });
     if (a && b) {
@@ -60,7 +61,7 @@ export function renderLab(st: SpaceStage, B: HTMLElement, pick: number[], rerend
         button(`🧬 Splice · ${money(SPLICE_COST)}`, () => { const [i, j] = pick; pick.length = 0; void st.spliceHybrid(i, j); }, { cls: 'primary', disabled: w.s.money < SPLICE_COST }));
     } else {
       box.append(h('div', { class: 'dim' }, a ? `Pick one more specimen to splice with ${a.name}.`
-        : 'Gene Splicer: tap 🧬 Splice on two specimens to fuse them. Hybrids fit any animal ecosystem slot and draw triple crowds at the Menagerie.'));
+        : 'Gene Splicer: tap 🧬 Splice on two animals to fuse them (plants can\'t be spliced). Hybrids fit any animal ecosystem slot and draw triple crowds at the Menagerie.'));
     }
     B.append(box);
   }

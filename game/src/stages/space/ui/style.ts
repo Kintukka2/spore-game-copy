@@ -711,7 +711,8 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
 .nb-row.dim { color:var(--ph-dim); }
 .nb-mk { flex:0 0 auto; width:9px; height:9px; border:1px solid transparent; }
 .nb-mk.on { background:var(--ph); box-shadow:0 0 6px var(--ph-glow); }
-.nb-ic { flex:0 0 auto; width:1.35em; text-align:center; font-style:normal; filter:url(#ph-f); }
+.nb-ic { flex:0 0 auto; width:1.35em; text-align:center; font-style:normal; }
+.nb-row.dim .nb-ic { opacity:.5; }
 .nb-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .nb-v { flex:0 0 auto; }
 .nb-tag { font-style:normal; font-size:11px; padding:0 6px; border:1px solid var(--ph); letter-spacing:.1em; animation:crBlink 1.2s ease-in-out infinite; }
@@ -721,15 +722,12 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
 .nb-detail > * { flex-shrink:0; }
 .nb-dtop { position:relative; display:flex; }
 .nb-pic { position:relative; flex:1; min-width:0; height:clamp(110px, 27vh, 230px); display:flex; align-items:center; justify-content:center; }
-.nb-big { position:relative; font-size:clamp(60px, 10vh, 108px); line-height:1; filter:url(#ph-f) drop-shadow(0 0 10px var(--ph-glow)); }
+.nb-big { position:relative; font-size:clamp(60px, 10vh, 108px); line-height:1; filter:drop-shadow(0 0 14px var(--ph-faint)); }
 .nb-cv { width:100%; height:100%; display:block; }
 .nb-cv.mono { filter:url(#ph-f) drop-shadow(0 0 6px var(--ph-glow)); }
 .nb-cv.alive { filter:drop-shadow(0 0 14px var(--ph-faint)); }
-/* ITEMS, DATA and the shipyard show their icons in their own colours, as the Nav-Boy does its creatures; dim entries fade back.
-   A part in a line of tiers gets an aura behind its big icon (ui/aura.ts). */
-.nb-dev.color .nb-ic { filter:none; }
-.nb-dev.color .nb-row.dim .nb-ic { opacity:.5; }
-.nb-dev.color .nb-big { filter:drop-shadow(0 0 14px var(--ph-faint)); }
+/* Icons keep their own colours, as the creatures do; dim entries fade back. A part in a line of tiers gets an
+   aura behind its big icon (ui/aura.ts). */
 .nb-aura { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .nb-acts { position:absolute; top:0; right:0; z-index:1; display:flex; flex-direction:column; align-items:flex-end; gap:6px; padding-top:2px; }
 .nb-acts.row { position:static; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:6px 14px; }

@@ -647,7 +647,7 @@ body.sp-active:has(.mkt) .toasts { z-index:45; top:auto; bottom:calc(14px + var(
 }
 /* ===== Phosphor: the shared Fallout look. Colours come from phosphor.ts (the Nav-Boy's knob). ===== */
 body.sp-active { --ph:#1aff80; --ph-hi:#a0ffc8; --ph-dim:rgba(26,255,128,.6); --ph-faint:rgba(26,255,128,.28); --ph-bg:rgba(26,255,128,.13); --ph-glow:rgba(26,255,128,.55); --ph-dark:#010904; --mono:'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
-body.sp-active .ft, .nb, .mkt { --ft:var(--ph); --ft-dim:var(--ph-dim); --ft-bg:var(--ph-bg); --ft-glow:var(--ph-glow); }
+.nb { --ft:var(--ph); --ft-dim:var(--ph-dim); --ft-bg:var(--ph-bg); --ft-glow:var(--ph-glow); }
 body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(--safe-b)); }
 /* ===== The Nav-Boy 3000 ===== */
 .nb { position:fixed; inset:0; z-index:44; display:flex; align-items:center; justify-content:center; padding:max(6px, var(--safe-t)) max(6px, var(--safe-r)) max(6px, var(--safe-b)) max(6px, var(--safe-l)); background:radial-gradient(ellipse at 50% 55%, rgba(0,0,0,.5), rgba(0,0,0,.86)); animation:nbFade .2s ease; user-select:none; -webkit-user-select:none; }
@@ -815,68 +815,6 @@ body.sp-active:has(.nb) .toasts { z-index:46; top:auto; bottom:calc(14px + var(-
   .nb-dev.term { padding:8px 10px 8px; }
   .nb-tfoot > span { display:none; }
 }
-/* ===== Older space screens, re-skinned as phosphor terminals: they are drawn in greys and the #ph-f filter tints them. ===== */
-:is(.sp-panel-head, .sp-panel .sp-tabs, .sp-panel-body, .sp-card, .sp-sheet, .sp-top, .sp-bl, .sp-ctx, .sp-abil, .sp-side, .mkt-head, .mkt-tape, .mkt-board, .mkt-chead, .mkt-chart, .mkt-stats, .mkt-ticket, .mkt-wire, .mkt-desk) { filter:url(#ph-f); }
-body.sp-active .modal, body.sp-active .toast, .sp-globe canvas, .sp-globe > :not(canvas) { filter:url(#ph-f); }
-:is(.sp-panel, .sp-card, .sp-sheet, .mkt, .sp-top, .sp-bl, .sp-ctx, .sp-side) { font-family:var(--mono); }
-:is(.sp-panel, .sp-card, .sp-sheet, .sp-top, .sp-bl, .sp-ctx, .sp-side, .sp-abil) :is(h2, h3, b, .btn, .sp-tab, .sp-section) { font-family:var(--mono); }
-.sp-panel { background:radial-gradient(ellipse at 50% 22%, color-mix(in srgb, var(--ph) 9%, #000), #000 70%); backdrop-filter:none; -webkit-backdrop-filter:none; }
-.sp-panel::after, .sp-sheet::after, .mkt::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:5; background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, rgba(0,0,0,0) 1px 3px), radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,.55)); }
-.sp-sheet { position:relative; background:#020302; border:2px solid rgba(255,255,255,.75); border-bottom:0; border-radius:10px 10px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,.7); }
-.sp-sheet-head h2, .sp-panel-head h2 { text-transform:uppercase; letter-spacing:.12em; font-weight:400; }
-.sp-card { background:rgba(0,0,0,.9); border:2px solid rgba(255,255,255,.75); border-radius:6px; box-shadow:0 0 0 1px #000, 0 10px 30px rgba(0,0,0,.7); }
-.sp-card h3 { font-weight:400; text-transform:uppercase; letter-spacing:.08em; }
-:is(.sp-panel, .sp-sheet, .sp-card, .sp-top, .sp-bl, .sp-ctx, .sp-side) .btn { border-radius:5px; font-weight:400; letter-spacing:.04em; border:2px solid rgba(255,255,255,.6); background:rgba(0,0,0,.6); color:#f2f2f2; box-shadow:none; text-shadow:0 0 6px rgba(255,255,255,.45); }
-:is(.sp-panel, .sp-sheet, .sp-card, .sp-top, .sp-bl, .sp-ctx, .sp-side) .btn:not(:disabled):hover { background:rgba(255,255,255,.12); }
-:is(.sp-panel, .sp-sheet, .sp-card, .sp-ctx) :is(.btn.primary, .btn.gold, .btn.sp-toxic) { background:#e8e8e8; color:#000; border-color:#fff; text-shadow:none; box-shadow:0 0 12px rgba(255,255,255,.35); }
-:is(.sp-panel, .sp-sheet, .sp-card) .btn.ghost { background:transparent; border-color:rgba(255,255,255,.3); }
-:is(.sp-panel, .sp-sheet, .sp-card) .btn.danger { border-style:dashed; }
-:is(.sp-panel, .sp-sheet) .sp-tab { border-radius:0; background:transparent; border:2px solid transparent; text-transform:uppercase; letter-spacing:.08em; color:rgba(255,255,255,.62); font-weight:400; }
-:is(.sp-panel, .sp-sheet) .sp-tab.on { border-color:#fff; color:#fff; background:rgba(255,255,255,.07); text-shadow:0 0 8px rgba(255,255,255,.5); }
-:is(.sp-panel, .sp-sheet, .sp-card) .sp-item, :is(.sp-panel, .sp-sheet) .sp-offer { border-radius:0; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.22); }
-:is(.sp-panel, .sp-sheet) .sp-section { letter-spacing:.18em; border-top:2px solid rgba(255,255,255,.5); padding-top:6px; }
-:is(.sp-panel, .sp-sheet, .sp-card) .chip, :is(.sp-panel, .sp-card) .sp-stance { border-radius:3px; }
-:is(.sp-panel, .sp-sheet, .sp-top) .bar { border-radius:0; border:2px solid rgba(255,255,255,.7); background:#000; }
-:is(.sp-panel, .sp-sheet, .sp-top) .bar-fill { border-radius:0; background:#e6e6e6 !important; box-shadow:0 0 8px rgba(255,255,255,.5); }
-.sp-top .bar-text { color:#fff; text-shadow:none; font-family:var(--mono); mix-blend-mode:difference; }
-.sp-top .bar { height:22px; }
-.sp-money, .sp-track, .sp-alert, .sp-viewbtn, .sp-explored { border-radius:5px !important; background:rgba(0,0,0,.66) !important; border:2px solid rgba(255,255,255,.55) !important; color:#f0f0f0 !important; backdrop-filter:none !important; }
-.sp-money { color:#fff !important; }
-.sp-alert.good { border-style:double !important; border-width:3px !important; }
-.sp-rank { border-radius:6px; border:2px solid rgba(255,255,255,.75); background:rgba(0,0,0,.7); }
-.sp-rank .sp-rk { background:#000; color:#fff; border-color:rgba(255,255,255,.6); border-radius:3px; font-family:var(--mono); font-weight:400; }
-.sp-top .btn.icon, .sp-side .btn.icon { border-radius:6px; }
-.sp-plus { border-radius:4px; background:#000; border-color:rgba(255,255,255,.7) !important; color:#fff !important; }
-.sp-plus i { background:#fff; color:#000; border-radius:3px; }
-.sp-mktdot, .sp-labn { border-radius:3px; background:#fff; color:#000; box-shadow:0 0 0 2px #000; }
-.sp-mktdot.job { background:#fff; color:#000; outline:2px dashed #fff; outline-offset:1px; }
-.sp-abil .ability { border-radius:10px; background:rgba(0,0,0,.72); border:2px solid rgba(255,255,255,.65); box-shadow:none; }
-.sp-abil .ability .ab-label { font-family:var(--mono); font-weight:400; text-shadow:0 1px 2px #000; }
-body.sp-active .modal { background:#020302; border:2px solid #e8e8e8; border-radius:6px; font-family:var(--mono); box-shadow:0 0 0 1px #000, 0 0 40px rgba(255,255,255,.12), 0 20px 60px rgba(0,0,0,.8); }
-body.sp-active .modal h2 { font-family:var(--mono); font-weight:400; text-transform:uppercase; letter-spacing:.08em; font-size:20px; text-shadow:0 0 8px rgba(255,255,255,.5); }
-body.sp-active .modal-body { color:#d8d8d8; font-family:var(--mono); }
-body.sp-active .modal .btn { border-radius:4px; font-family:var(--mono); font-weight:400; border:2px solid rgba(255,255,255,.6); background:transparent; color:#f2f2f2; box-shadow:none; }
-body.sp-active .modal .btn.primary { background:#e8e8e8; color:#000; border-color:#fff; }
-body.sp-active .toast { background:rgba(0,0,0,.92); border:2px solid rgba(255,255,255,.7); border-radius:4px; font-family:var(--mono); font-weight:400; color:#f0f0f0; box-shadow:0 0 18px rgba(0,0,0,.6); }
-/* The exchange as a green-screen trading terminal */
-.mkt { background:radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--ph) 8%, #000), #000 70%); }
-.mkt-box { background:rgba(0,0,0,.6); border:2px solid rgba(255,255,255,.4); border-radius:4px; box-shadow:none; }
-.mkt-chartw { background:rgba(0,0,0,.4); border:1px solid var(--ph-faint); border-radius:0; }
-.mkt-main.mkt-box { border-color:var(--ph-dim); }
-.mkt-ctip { background:#000; border:2px solid var(--ph); border-radius:0; color:var(--ph); text-shadow:0 0 6px var(--ph-glow); }
-.mkt .mkt-h { color:#fff; letter-spacing:.16em; }
-.mkt-tape { background:#000; border:2px solid rgba(255,255,255,.45); border-radius:0; }
-.mkt-tk { color:#ddd; text-shadow:0 0 6px rgba(255,255,255,.5); }
-.mkt-tk b { color:#fff; }
-.mkt-live { animation:mktBlink 1.6s steps(1) infinite; }
-.mkt .btn { border-radius:4px; font-family:var(--mono); font-weight:400; }
-.mkt-seg.on, .mkt-side.buy.on, .mkt-side.sell.on, .mkt[data-side=buy] .btn.mkt-place:not(:disabled), .mkt[data-side=sell] .btn.mkt-place:not(:disabled) { background:#e8e8e8; color:#000; border-color:#fff; box-shadow:0 0 12px rgba(255,255,255,.35); }
-.mkt-side.sell.on, .mkt[data-side=sell] .btn.mkt-place:not(:disabled) { background:repeating-linear-gradient(135deg, #e8e8e8 0 8px, #bdbdbd 8px 16px); }
-.mkt-row.on { background:rgba(255,255,255,.1); border-color:#fff; box-shadow:inset 3px 0 0 #fff; }
-.mkt-zix { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.4); border-radius:0; }
-.mkt-job { background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.4); border-radius:0; }
-.mkt-news { border-radius:0; }
-.mkt-mood, .mkt-gsi, .mkt-cash, .mkt-stat, .mkt-lines, .mkt-pfr, .mkt-pft > div, .mkt-chip, .mkt-seg, .mkt-sides, .mkt-qty, .mkt i.tag, .mkt-imp { border-radius:3px; }
 `;
 
 let injected = false;

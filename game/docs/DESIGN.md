@@ -408,12 +408,11 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Founding a colony on a new world ("New Ember colony founded on …") and declaring war on an empire ("War with … rattles the Ember market", for the spice they make most of) make headlines that move prices too.
 - **The screen** opens from the 📈 button at the end of the HUD's top row. The icon turns 📉 when the index is down over five minutes, and a badge counts unread headlines (gold when a job is waiting). The galaxy waits while it is open, but the market keeps running.
   - **Header**: the Galactic Spice Index (GSI, every spice weighted by value, around 1,000) with its 5-minute change, a 🐂 Bull / 🐻 Bear / 😐 Steady mood pill, and your cash.
-  - The whole floor is a phosphor trading terminal in the Nav-Boy's colour: rising candles are hollow and falling ones solid, and every move carries ▲ or ▼.
-  - **Ticker tape**: an LED marquee of every spice code, price and change, plus the latest headlines.
-  - **Spot board**: the six spices (EMB, SUN, AZR, VRD, BLS, UMB) with a sparkline, the contract price, the 5-minute change and how many you hold. Prices flash bright or dim as they tick. Keys 1–6 pick one.
-  - **Chart**: candles or a line over 5, 15 or 30 minutes, with a moving average, a dashed live price with a pulsing dot and an axis tag, and your average cost as a dotted line. Each headline that touched the spice is flagged where it hit, with its icon; hover a flag to read it. A crosshair shows the price (or open, high, low and close for a candle) and how long ago.
+  - **Ticker tape**: an amber LED marquee of every spice code, price and change, plus the latest headlines.
+  - **Spot board**: the six spices (EMB, SUN, AZR, VRD, BLS, UMB) with a sparkline, the contract price, the 5-minute change and how many you hold. Prices flash green or red as they tick. Keys 1–6 pick one.
+  - **Chart**: candles or a line over 5, 15 or 30 minutes, with a moving average, a dashed live price with a pulsing dot and an axis tag, and your average cost as a violet line. Each headline that touched the spice is flagged where it hit, with its icon; hover a flag to read it. A crosshair shows the price (or open, high, low and close for a candle) and how long ago.
   - **Stats**: the range high and low, volatility (Calm, Lively, Choppy, 🌪️ Wild), the news mood (🐂 Bullish, 🐻 Bearish, ❓ Rumours, Quiet), and your position with its profit or loss.
-  - **Order ticket**: Buy or Sell (B and S keys), a quantity with 1 / 10 / 100 / Max chips, then the market price, the estimated average after slippage, the 1.5% broker fee, the total cost or what you receive, and the break-even price or the profit on what you sell. Placing an order asks first in a terminal box ("Buy 10 Umbral contracts? About §8,799 each: §89,311 in all…"; a sale also spells out the profit or loss on it), and the market holds still while you decide.
+  - **Order ticket**: Buy or Sell (B and S keys), a quantity with 1 / 10 / 100 / Max chips, then the market price, the estimated average after slippage, the 1.5% broker fee, the total cost or what you receive, and the break-even price or the profit on what you sell. Placing an order asks first ("Buy 10 Umbral contracts? About §8,799 each: §89,311 in all…"; a sale also spells out the profit or loss on it), and the market holds still while you decide.
   - **Contracts** are paper spice: base price × 8 × the index, no hold space, bought and sold only here. Every order moves the price a little against you.
   - **Your contracts**: each holding with its value and profit or loss (tap one to sell it), then totals for value, open P/L and banked P/L.
   - **The back room**: 🕵️ Zix the Whisper sells a tip about the next headline (§15,000 and up, more as your portfolio grows). He names the spice and which way it goes, and he is right three times in four. Once the story breaks, the screen says whether he called it.
@@ -513,9 +512,9 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - Tap an enemy to target it; weapons fire automatically, each at its own rate.
 
 **Interface: the Nav-Boy 3000 and the phosphor screens**
-- Every menu in the space stage is a Fallout-style phosphor screen. The colour is one choice for all of them: green (the default, as in Fallout 3), amber (as in New Vegas), blue or white, picked with the knob on the Nav-Boy (or the ◐ button on phones). It is saved with the game (`SpaceSave.phosphor`).
-  - `ui/phosphor.ts` sets `--ph` CSS variables for screens that colour their own text, and an SVG colour-matrix filter (`#ph-f`) that turns brightness into the phosphor colour. Older screens (the HUD, planet panel, star card, Xeno-Lab and other sheets, dialogs, toasts and the exchange) are drawn in greys and run through that filter, pictures and emoji included. Conversations, barter and loot use the same colour.
-  - The galaxy itself, and the minigames (hangar, terraforming, outbreak, meteor defence), keep their colours.
+- The Nav-Boy and the shipyard terminal are Fallout-style phosphor screens. Their colour is one choice for both: green (the default, as in Fallout 3), amber (as in New Vegas), blue or white, picked with the knob (or the ◐ button on phones) and saved with the game (`SpaceSave.phosphor`).
+  - `ui/phosphor.ts` sets `--ph` CSS variables for the text, and an SVG colour-matrix filter (`#ph-f`) that turns the pictures and emoji on those screens into the phosphor colour.
+  - Every other screen (the HUD, planet panel, star card, sheets, dialogs, the exchange, conversations) keeps its own look; the HUD buttons simply open the Nav-Boy and the shipyard.
 - **The Nav-Boy 3000** (`ui/navboy.ts`) is your wrist computer, after Fallout's Pip-Boy. Tab opens and closes it (M still toggles the map). The HUD's rank badge, money chip, 📜 and 👽 open it on the matching page. The galaxy waits while it is open.
   - **The casing**: worn olive metal with an energy gauge (its needle follows your energy), a ribbed scroll wheel, a "Nav-Boy • Model 3000 •" plate, the display knob, screws, vents and a status light. On phones the casing shrinks to a thin bezel around the screen.
   - **The screen**: a curved CRT with scanlines, a rolling scan bar, vignette and glow. It powers on with a flash of a horizontal line, and flickers when you switch tabs.
@@ -587,7 +586,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
     - The engineer reports: "we have every component for the Cargo Bay III. That is 3 Alloy Plating, 1 Grav Coil."
     - **[Set course]** plots a course to the nearest shop (yours or an ally's). "What will it do for us?" describes the part, and [Leave] closes the call.
 - **Cargo hold**: the Nav-Boy's ITEMS button (`ui/nbItems.ts`), opened from the money / 📦 chip in the HUD. See the Nav-Boy below.
-  - The hold, the Nav-Boy, the shipyard, the exchange and the barter screen share one terminal confirm box (`terminalAsk` in `ui/talk.ts`).
+  - The Nav-Boy, the shipyard and the barter screen share one terminal confirm box (`terminalAsk` in `ui/talk.ts`).
 - **Quick use:** a small ＋ at the end of the HUD's hull and energy bars uses a Repair Pack or an Energy Pack straight from the hold.
   - A badge shows how many you carry.
   - The button greys out when you have none or are already full, and its tooltip says why.

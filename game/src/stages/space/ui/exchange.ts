@@ -3,7 +3,7 @@
 // ticket for spice contracts, your portfolio, a live news wire whose headlines move the prices, jobs the news
 // opens up, and Zix, a broker in the back room who sells tips about the next story. The market keeps running
 // while you watch (and holds still while you confirm an order); the rest of the galaxy waits.
-import { button, h } from '../../../engine/ui';
+import { button, h, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { TAU, clamp } from '../../../engine/math';
 import { SPICE, SPICE_COLORS, type SpiceColor } from '../data';
@@ -13,7 +13,6 @@ import {
 } from '../market';
 import type { SpaceStage } from '../stage';
 import { fmtTime, money } from './common';
-import { terminalAsk } from './talk';
 
 type Side = 'buy' | 'sell';
 /** Chart ranges: how many price ticks each shows, how many ticks make one candle, and the time-axis spacing. */
@@ -108,7 +107,7 @@ export function openExchange(st: SpaceStage, focus?: SpiceColor) {
   const chip = (label: string, f: () => void) => { const b = h('button', { class: 'mkt-chip' }, label); b.addEventListener('click', () => { audio.sfx('tap'); f(); }); return b; };
   const chips = h('div', { class: 'mkt-chips' }, ...[1, 10, 100].map((n) => chip(String(n), () => setQty(n))), chip('Max', () => setQty(side === 'buy' ? maxBuy(w, sel) : m.hold[sel].n)));
   const lines = h('div', { class: 'mkt-lines' });
-  const place = button('', () => placeOrder(), { cls: 'primary mkt-place' });
+  const place = button('', () => void placeOrder(), { cls: 'primary mkt-place' });
   const warn = h('div', { class: 'mkt-warn' });
   const done = h('div', { class: 'mkt-done' });
   const pf = h('div', { class: 'mkt-pf' });
@@ -170,20 +169,22 @@ export function openExchange(st: SpaceStage, focus?: SpiceColor) {
     ticket.append(f);
     setTimeout(() => f.remove(), 1500);
   };
-  /** The terminal box asking you to confirm an order. The market holds still while it is up. */
-  let asking: ReturnType<typeof terminalAsk> | null = null;
-  const placeOrder = () => {
-    if (asking?.open || place.disabled || !alive) return;
+  let busy = false;
+  const placeOrder = async () => {
+    if (busy || place.disabled || !alive) return;
     const n = qty, c = sel, sd = side;
     const q = quote(w, c, n, sd);
     const hd0 = m.hold[c];
     const pl0 = sd === 'sell' && hd0.n ? q.net - hd0.cost * (Math.min(n, hd0.n) / hd0.n) : 0;
-    const text = sd === 'buy'
-      ? `Buy ${n} ${SPICE[c].name} contract${n === 1 ? '' : 's'}? About ${money(q.avg)} each: ${money(q.net)} in all, with the ${money(q.fee)} broker fee. You have ${money(w.s.money)}. The price is held while you decide.`
-      : `Sell ${n} ${SPICE[c].name} contract${n === 1 ? '' : 's'}? About ${money(q.avg)} each: you receive ${money(q.net)} after the ${money(q.fee)} broker fee, ${pl0 >= 0 ? 'a profit of' : 'a loss of'} ${money(Math.abs(pl0))}. The price is held while you decide.`;
-    asking = terminalAsk(root, text, { key: 'Y', label: `${sd === 'buy' ? 'Buy' : 'Sell'} · ${money(q.net)}` }, () => { asking = null; if (alive) fill(n, c, sd, q); }, () => { asking = null; });
-  };
-  const fill = (n: number, c: SpiceColor, sd: Side, q: ReturnType<typeof quote>) => {
+    busy = true;
+    const ok = await ui.confirm(
+      `${sd === 'buy' ? 'Buy' : 'Sell'} ${n} ${SPICE[c].name} contract${n === 1 ? '' : 's'}?`,
+      sd === 'buy'
+        ? `About ${money(q.avg)} each: ${money(q.net)} in all, with the ${money(q.fee)} broker fee. You have ${money(w.s.money)}. The price is held while you decide.`
+        : `About ${money(q.avg)} each: you receive ${money(q.net)} after the ${money(q.fee)} broker fee, ${pl0 >= 0 ? 'a profit of' : 'a loss of'} ${money(Math.abs(pl0))}. The price is held while you decide.`,
+      `${sd === 'buy' ? 'Buy' : 'Sell'} · ${money(q.net)}`, 'Cancel');
+    busy = false;
+    if (!ok || !alive) return;
     const hd = m.hold[c];
     const basis = sd === 'sell' && hd.n ? hd.cost * (n / hd.n) : 0;
     const err = trade(w, c, n, sd);
@@ -665,7 +666,7 @@ export function openExchange(st: SpaceStage, focus?: SpiceColor) {
     last = now;
     time += dt;
     // The market holds still while you confirm an order, so the quote you agree to is the price you get.
-    if (!document.querySelector('.modal-wrap') && !asking?.open) marketTick(w, dt);
+    if (!document.querySelector('.modal-wrap')) marketTick(w, dt);
     if (m.tick !== lastTick) { lastTick = m.tick; onTick(); }
     if ((acc += dt) >= 0.25) { acc = 0; clocks(); }
     draw();
@@ -674,10 +675,9 @@ export function openExchange(st: SpaceStage, focus?: SpiceColor) {
 
   const onKey = (e: KeyboardEvent) => {
     if (document.querySelector('.modal-wrap')) return;
-    if (asking?.open) { asking.key(e.key.toLowerCase()); e.preventDefault(); e.stopPropagation(); return; }
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if ((e.target as HTMLElement)?.tagName === 'INPUT') {
-      if (e.key === 'Enter') { e.preventDefault(); placeOrder(); }
+      if (e.key === 'Enter') { e.preventDefault(); void placeOrder(); }
       return;
     }
     const k = e.key.toLowerCase(), i = ['1', '2', '3', '4', '5', '6'].indexOf(k);
@@ -689,7 +689,6 @@ export function openExchange(st: SpaceStage, focus?: SpiceColor) {
   const close = () => {
     if (!alive) return;
     alive = false;
-    asking?.close();
     m.seen = m.clock;
     window.removeEventListener('keydown', onKey, true);
     root.remove();

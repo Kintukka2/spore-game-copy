@@ -570,7 +570,7 @@ export class SystemView {
     const near = this.combat.crafts.some((c) => c.team === 1 && c.alive && Math.hypot(c.x - p.x, c.y - p.y) < 1300);
     if (near !== this.danger) {
       this.danger = near;
-      if (!this.st.cinematic) audio.music(near ? 'danger' : 'space');
+      if (!this.st.cinematic) audio.music(near ? 'danger' : this.st.music);
       if (near) this.st.game.hint('space-combat', 'Hostiles! Your weapons fire on their own. Tap an enemy to pick your target.', '🎯');
     }
   }

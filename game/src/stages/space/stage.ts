@@ -23,7 +23,10 @@ import { injectStyle } from './ui/style';
 import { StarCard } from './ui/starCard';
 import { PlanetPanel } from './ui/planetPanel';
 import { anySheetOpen, closeAllSheets } from './ui/common';
-import { openEmpires, openMissions, openShip } from './ui/sheets';
+import { closeNavBoy, openNavBoy, toggleNavBoy, type NbTabId } from './ui/navboy';
+import { openShop } from './ui/shopTerm';
+import { applyPhosphor } from './ui/phosphor';
+import { stationMood } from './ui/nbData';
 import { openLab } from './ui/xenoLab';
 import { COMP_IDS, RECIPES } from './salvage';
 import { firstContactTalk, hailTalk, takeoverTalk, tributeTalk } from './ui/diplomacy';
@@ -83,6 +86,8 @@ export class SpaceStage implements Scene, WorldHooks {
     const saved = (game.state?.stageData.space as SpaceSave | undefined) ?? null;
     this.w = new World(game, saved);
     this.w.hooks = this;
+    applyPhosphor(this.w.s.phosphor ?? 'green');
+    this.music = stationMood(this.w.s.radio);
     this.gv = new GalaxyView(this);
     this.sv = new SystemView(this);
     const existing = game.state?.designs.ship;
@@ -97,6 +102,7 @@ export class SpaceStage implements Scene, WorldHooks {
 
   exit() {
     this.alive = false;
+    closeNavBoy();
     document.body.classList.remove('sp-active', 'sp-panel-open');
     closeAllSheets();
     this.panel?.close();
@@ -200,7 +206,7 @@ export class SpaceStage implements Scene, WorldHooks {
   // ------------------------------------------------------------------ loop
   update(dt: number) {
     if (!this.ready || this.cinematic) return;
-    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf, .yard, .mkt')) { this.hud.update(dt); return; }
+    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf, .yard, .mkt, .nb')) { this.hud.update(dt); return; }
     this.w.inWarp = this.mode === 'warp';
     this.w.update(dt);
     this.fx.update(dt);
@@ -237,7 +243,9 @@ export class SpaceStage implements Scene, WorldHooks {
   onWheel(dy: number, x: number, y: number) { if (this.mode === 'galaxy') this.gv.onWheel(dy, x, y); else if (this.mode === 'system') this.sv.onWheel(dy, x, y); }
   onKey(k: string, down: boolean) {
     if (!down || !this.ready) return;
-    if (k === 'm' || k === 'tab') this.toggleView();
+    if (k === 'm') this.toggleView();
+    // Tab opens the Nav-Boy, as it opens the Pip-Boy.
+    if (k === 'tab' && !document.querySelector('.modal-wrap, .sp-focus, .ft, .sp-crate')) toggleNavBoy(this);
     if (k === ' ' && this.mode === 'system') this.sv.combat.firePulse();
     if (k === 'q' && this.mode === 'system' && !this.panel) this.sv.scanNearest();
   }
@@ -487,14 +495,26 @@ export class SpaceStage implements Scene, WorldHooks {
     this.hud.refresh(true);
   }
 
-  // ------------------------------------------------------------------ sheets
-  openShip(tab = 'shop') { openShip(this, tab); }
+  // ------------------------------------------------------------------ menus
+  /** The shipyard terminal, or a page of the Nav-Boy for the old ship-sheet tabs. */
+  openShip(tab = 'shop') {
+    if (tab === 'shop') openShop(this);
+    else if (tab === 'cargo') openNavBoy(this, 'items');
+    else openNavBoy(this, 'stats', tab === 'badges' ? 'badges' : undefined);
+  }
+  /** The Nav-Boy 3000 wrist computer: STATS, ITEMS and DATA. */
+  openNav(tab?: NbTabId, page?: string) { openNavBoy(this, tab, page); }
+  /** Play the radio station picked on the Nav-Boy (combat still brings in the danger music). */
+  tuneRadio() {
+    this.music = stationMood(this.w.s.radio);
+    if (!this.w.inCombat && !this.cinematic) audio.music(this.music);
+  }
   /** The Galactic Spice Exchange: live spice prices, news, contracts, tips and market jobs. */
   openExchange(focus?: SpiceColor) { if (!document.querySelector('.mkt')) openExchange(this, focus); }
   /** The Xeno-Lab on your homeworld (only while you are home). */
   openLab() { openLab(this); }
-  openMissions() { openMissions(this); }
-  openEmpires() { openEmpires(this); }
+  openMissions() { openNavBoy(this, 'data', 'quests'); }
+  openEmpires() { openNavBoy(this, 'data', 'contacts'); }
   /** Hail an empire: a face-to-face conversation. */
   openComm(e: Empire) { this.dialog(() => hailTalk(this, e)); }
 
@@ -759,7 +779,7 @@ export class SpaceStage implements Scene, WorldHooks {
       this.game.history('Reached the heart of the galaxy and received the Genesis Seed', '🌌');
       this.arrive(w.gal.homeStar, 'gate', true);
       this.game.banner('The journey continues', 'Genesis');
-      audio.music('space');
+      audio.music(this.music);
       this.later(2000, () => this.ui.toast('The Genesis Seed is in your terraform tools. Open any planet to use it.', '🌱', 'gold'));
       this.game.save();
     });

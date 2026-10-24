@@ -174,12 +174,14 @@ export function openExchange(st: SpaceStage, focus?: SpiceColor) {
     if (busy || place.disabled || !alive) return;
     const n = qty, c = sel, sd = side;
     const q = quote(w, c, n, sd);
+    const hd0 = m.hold[c];
+    const pl0 = sd === 'sell' && hd0.n ? q.net - hd0.cost * (Math.min(n, hd0.n) / hd0.n) : 0;
     busy = true;
     const ok = await ui.confirm(
       `${sd === 'buy' ? 'Buy' : 'Sell'} ${n} ${SPICE[c].name} contract${n === 1 ? '' : 's'}?`,
       sd === 'buy'
         ? `About ${money(q.avg)} each: ${money(q.net)} in all, with the ${money(q.fee)} broker fee. You have ${money(w.s.money)}. The price is held while you decide.`
-        : `About ${money(q.avg)} each: you receive ${money(q.net)} after the ${money(q.fee)} broker fee. The price is held while you decide.`,
+        : `About ${money(q.avg)} each: you receive ${money(q.net)} after the ${money(q.fee)} broker fee, ${pl0 >= 0 ? 'a profit of' : 'a loss of'} ${money(Math.abs(pl0))}. The price is held while you decide.`,
       `${sd === 'buy' ? 'Buy' : 'Sell'} · ${money(q.net)}`, 'Cancel');
     busy = false;
     if (!ok || !alive) return;

@@ -721,7 +721,7 @@ export function openHangar(st: SpaceStage, t: ToolDef, price: number, commit: ()
 }
 
 /** A blueprint schematic for a kind of part, drawn in white on blue, filling in as parts are fitted. */
-function drawSchematic(c: HTMLCanvasElement, kind: string, fab: boolean, time: number, done: number) {
+export function drawSchematic(c: HTMLCanvasElement, kind: string, fab: boolean, time: number, done: number) {
   if (!c.isConnected) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const cw = c.clientWidth || 200, ch = c.clientHeight || 120;

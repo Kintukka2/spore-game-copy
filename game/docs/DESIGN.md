@@ -412,7 +412,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - **Spot board**: the six spices (EMB, SUN, AZR, VRD, BLS, UMB) with a sparkline, the contract price, the 5-minute change and how many you hold. Prices flash green or red as they tick. Keys 1–6 pick one.
   - **Chart**: candles or a line over 5, 15 or 30 minutes, with a moving average, a dashed live price with a pulsing dot and an axis tag, and your average cost as a violet line. Each headline that touched the spice is flagged where it hit, with its icon; hover a flag to read it. A crosshair shows the price (or open, high, low and close for a candle) and how long ago.
   - **Stats**: the range high and low, volatility (Calm, Lively, Choppy, 🌪️ Wild), the news mood (🐂 Bullish, 🐻 Bearish, ❓ Rumours, Quiet), and your position with its profit or loss.
-  - **Order ticket**: Buy or Sell (B and S keys), a quantity with 1 / 10 / 100 / Max chips, then the market price, the estimated average after slippage, the 1.5% broker fee, the total cost or what you receive, and the break-even price or the profit on what you sell. Placing an order asks first ("Buy 10 Umbral contracts? About §8,799 each: §89,311 in all…"), and the market holds still while you decide.
+  - **Order ticket**: Buy or Sell (B and S keys), a quantity with 1 / 10 / 100 / Max chips, then the market price, the estimated average after slippage, the 1.5% broker fee, the total cost or what you receive, and the break-even price or the profit on what you sell. Placing an order asks first ("Buy 10 Umbral contracts? About §8,799 each: §89,311 in all…"; a sale also spells out the profit or loss on it), and the market holds still while you decide.
   - **Contracts** are paper spice: base price × 8 × the index, no hold space, bought and sold only here. Every order moves the price a little against you.
   - **Your contracts**: each holding with its value and profit or loss (tap one to sell it), then totals for value, open P/L and banked P/L.
   - **The back room**: 🕵️ Zix the Whisper sells a tip about the next headline (§15,000 and up, more as your portfolio grows). He names the spice and which way it goes, and he is right three times in four. Once the story breaks, the screen says whether he called it.
@@ -511,15 +511,43 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - Enemy ships are rendered with `renderDesign` from their ship design at small size.
 - Tap an enemy to target it; weapons fire automatically, each at its own rate.
 
+**Interface: the Nav-Boy 3000 and the phosphor screens**
+- The Nav-Boy and the shipyard terminal are Fallout-style phosphor screens. Their colour is one choice for both: green (the default, as in Fallout 3), amber (as in New Vegas), blue or white, picked with the knob (or the ◐ button on phones) and saved with the game (`SpaceSave.phosphor`).
+  - `ui/phosphor.ts` sets `--ph` CSS variables for the text, and an SVG colour-matrix filter (`#ph-f`) that turns the pictures and emoji on those screens into the phosphor colour. Living things (alien species, your species, specimens) are left in their own colours under the scanlines, as aliens are in a conversation, so the generated variety stands out.
+  - Every other screen (the HUD, planet panel, star card, sheets, dialogs, the exchange, conversations) keeps its own look; the HUD buttons simply open the Nav-Boy and the shipyard.
+- **The Nav-Boy 3000** (`ui/navboy.ts`) is your wrist computer, after Fallout's Pip-Boy. Tab opens and closes it (M still toggles the map). The HUD's rank badge, money chip, 📜 and 👽 open it on the matching page. The galaxy waits while it is open.
+  - **The casing**: worn olive metal with an energy gauge (its needle follows your energy), a ribbed scroll wheel, a "Nav-Boy • Model 3000 •" plate, the display knob, screws, vents and a status light. On phones the casing shrinks to a thin bezel around the screen.
+  - **The screen**: a curved CRT with scanlines, a rolling scan bar, vignette and glow. It powers on with a flash of a horizontal line, and flickers when you switch tabs.
+  - **Three buttons** under the screen, STATS, ITEMS and DATA (F1–F3 or 1–3; ◀ ▶ step through them). The lit one glows orange.
+  - Each button has a header line (its name, then boxed readings) and pages along the bottom, joined by a line with the current one boxed (← → or A / D switch page).
+  - Most pages are a list on the left (↑ ↓ or W / S; a small ■ marks the tracked mission, the station playing, fitted parts) and the highlighted entry on the right: a phosphor picture, its actions as "Label [K]" prompts, stat boxes in Fallout's DAM / WG / VAL style, bars, lines, and a description box. Hovering highlights, a tap on the highlighted entry runs its first action, and anything costly asks first in a terminal box.
+- **STATS** (header: rank, hull, energy, badge points toward the next rank; `ui/nbStats.ts`):
+  - **Status**: Hull (your ship drawn in phosphor, hull and energy bars, [R] Repair Pack), Energy (a bank of cells filling to your charge, [P] Energy Pack), your superpower ([U] Use) and Effects (docked, in combat, allies, trade routes, Menagerie income, systems held, card perks, wars).
+  - **Systems**, the S.P.E.C.I.A.L. page: every ship system with its level (Star Drive, Laser, Missiles, Pulse Ring, Cargo Bay, Energy Cell, Hull Plating, Deflector, Planet Bombs, Rift Key), each with its blueprint drawing, what it does now and the next upgrade's price, rank and blueprint. Then your design's Power, Armour, Speed and Energy ([G] Redesign at home).
+  - **Badges**, the Skills page: your rank (with the whole rank ladder) and each badge's level, count and progress to the next.
+  - **Perks**: your archetype, its superpower and the card perks from earlier stages.
+  - **General**: your reputation (Galactic Hero to Notorious, from how every empire you have met feels about you), with your species standing beside it like Vault Boy (in its own colours), then your record: systems visited, worlds scanned, colonies, spice sold, exchange trades, kills, missions, species catalogued, wrecks salvaged, time in space and credits.
+- **ITEMS** (header: hold, hull, armour, credits; `ui/nbItems.ts`): the cargo hold. Spice (a glowing orb with its exchange code; VAL / HOLD / EXCH), Specimens, Aid, Parts, Blueprints (READY when every component is aboard) and **Contracts**: your exchange holdings with a price line, value, P/L and average, [X] Sell all (it asks first, with the profit or loss) and [O] to open the exchange.
+- **DATA** (header: where you are, and the stardate and time: one game second is a minute; `ui/nbData.ts`):
+  - **Local Map**: this system in phosphor: the star, dotted orbits, worlds (squares for your colonies, rings for empire worlds), a solid ▼ quest marker over mission targets, a blinking ! for alerts, and your ship as a ▲. Pick a world for its T-score, owner, spice and missions; [E] flies there, [O] opens it.
+  - **World Map**: the whole galaxy (drag to pan, wheel or + / − to zoom): visited stars bright, the rest dim, ⌂ home, ■ yours, rings for met empires, × for the Hollow, ✦ the core, ▼ missions and ! alerts. [E] sets course, [H] jumps to home, [C] back to you.
+  - **Quests**: missions (main ones first) and alerts. [E] Track makes a mission the one the HUD follows (`SpaceSave.tracked`), [L] locates it, [X] abandons it (asked first); alerts have [E] Go there.
+  - **Contacts**: every empire you have met, its species in full colour, relation, systems, trade route, the feeling bar and their strongest reasons. [E] Hail, [L] Locate their home.
+  - **Notes**: your species' whole history, from the tide pool on, newest first.
+  - **Radio**: stations that change the music, with a live waveform when one is on air: Deep Space Ambient, Exchange Wire (lounge music and the latest headlines), Primordial Soup FM, Wild Frontier Radio, Drum Circle 104, Civic Broadcast, Victory Hall, or off. The choice is saved (`SpaceSave.radio`); combat still brings in the danger music.
+  - **Market**: the Galactic Spice Index and every spice's contract price and move, with a price line and the latest story about it. [E] opens the trading floor.
+
 **Progression**
 - A **badges and ranks** system: counters for exploring, trading, colonizing, fighting and terraforming. Ranks unlock tools to buy (better weapons, drives 1–5, more cargo, terraform tools, Colony Pack upgrades).
-- The tool shop is at your homeworld and colonies (and allied empires).
-  - Elsewhere the Shop tab shows a "🔒 No shop in this system" banner with a "Set course" button to the nearest shop. Prices show as 🔒 §price, and tapping one explains where to buy and offers the same course.
-  - Toasts show above open sheets, so feedback from inside a sheet is never hidden.
+- The **shipyard** (`ui/shopTerm.ts`, from 🧰 in the HUD or a planet's Tool shop button) is a wall-mounted Fallout terminal: a SHIPYARD plate with the dock's name, the phosphor screen, and "STARCO INDUSTRIES (TM) TERMLINK" with the display knob along the bottom.
+  - One page per category (Ship, Weapons, Colony, Terraform, Social). Each tool shows its price, or [Rank] while locked, OWNED, FULL, 📐 ? (no blueprint) or 🔩 … (short of components).
+  - The highlighted tool shows the part's blueprint drawing (or its icon), PRICE / RANK / OWN boxes, the blueprint and component lines for advanced parts, and its description.
+  - [E] Buy asks first in a terminal box ("Buy 🩹 Repair Pack for §12,000? You have §400,000, and 1 already aboard."). [E] Build in hangar opens the hangar for ship parts, and the terminal comes back when you leave it.
+  - Shipyards are at your homeworld, your colonies and allied empires. Anywhere else the terminal reads DOCK: Browse only, and [C] sets course to the nearest one.
 - **Blueprints and components** (`salvage.ts`): advanced parts need more than rank and credits. You also need the part's 📐 blueprint and the components its recipe lists, which building it uses up.
   - Component rarities are colour-coded wherever the text names them ("uncommon component" in loot, the cargo hold's Rarity line, trader deals): silver for common, green for uncommon, blue for rare (`RARITY_COLOR`, `rarityText`).
 - **Hangar** (`ui/hangar.ts`): every ship part, and anything built from a blueprint, is fitted in the hangar rather than bought outright.
-  - The hangar opens from the shop's 🛠️ / 🔧 price button, once you have the money (and the blueprint and components). Plain consumables are bought after a confirm ("Buy Repair Pack? … Pay §12,000? You have §400,000, and 1 already aboard."). The space stage pauses while it is open.
+  - The hangar opens from the shipyard terminal's [E] Build in hangar, once you have the money (and the blueprint and components). Plain consumables are bought after a confirm. The space stage pauses while it is open.
   - **The bay:**
     - Your own ship hovers on a docking pad between two yellow robot welding arms, floor-mounted with two-bone IK, under ceiling lamps.
     - A hazard-striped bay door looks out on space, with a "BAY 04 · REFIT IN PROGRESS" sign above it.
@@ -557,8 +585,8 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - **Engineering call** (`engineerTalk` in `ui/encounters.ts`): the moment salvage completes a blueprint's recipe, your Chief Engineer, one of your own species, calls in a Fallout-style conversation. It happens once per blueprint.
     - The engineer reports: "we have every component for the Cargo Bay III. That is 3 Alloy Plating, 1 Grav Coil."
     - **[Set course]** plots a course to the nearest shop (yours or an ally's). "What will it do for us?" describes the part, and [Leave] closes the call.
-- **Cargo hold** (`ui/inventory.ts`): a Fallout-style inventory, opened from the 📦 HUD chip or the Ship sheet's Cargo tab. Clicking or tapping outside the frame closes it.
-  - The cargo hold and the barter screen share one terminal confirm box (`terminalAsk` in `ui/talk.ts`).
+- **Cargo hold**: the Nav-Boy's ITEMS button (`ui/nbItems.ts`), opened from the money / 📦 chip in the HUD. See the Nav-Boy below.
+  - The Nav-Boy, the shipyard and the barter screen share one terminal confirm box (`terminalAsk` in `ui/talk.ts`).
 - **Quick use:** a small ＋ at the end of the HUD's hull and energy bars uses a Repair Pack or an Energy Pack straight from the hold.
   - A badge shows how many you carry.
   - The button greys out when you have none or are already full, and its tooltip says why.

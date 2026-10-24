@@ -422,9 +422,10 @@ export function picCanvas(host: HTMLElement, draw: (g: CanvasRenderingContext2D,
   return cv;
 }
 
-/** A creature or ship design in phosphor, gently alive. */
-export function picDesign(host: HTMLElement, d: Design, live = true) {
-  const cv = h('canvas', { class: 'nb-cv mono' }) as HTMLCanvasElement;
+/** A design, gently alive. Ships are drawn in phosphor; living things (`alive`) keep their own colours and
+ *  stand out against the screen, as aliens do in a conversation. */
+export function picDesign(host: HTMLElement, d: Design, live = true, alive = false) {
+  const cv = h('canvas', { class: alive ? 'nb-cv alive' : 'nb-cv mono' }) as HTMLCanvasElement;
   host.append(cv);
   let t = 0, last = performance.now();
   const paint = (now: number) => {

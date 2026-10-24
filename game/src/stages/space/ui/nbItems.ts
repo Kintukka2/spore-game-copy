@@ -68,7 +68,7 @@ export function itemsTab(ctx: NbCtx): NbTab {
   const specimens = page('specimens', 'Specimens', () => w.s.specimens.map((sp, i) => ({
     icon: sp.hybrid ? '🧬' : sp.rare ? '✨' : dietIcon(sp.diet), name: sp.name,
     d: (): NbDetail => ({
-      pic: (el) => { const cv = h('canvas', { class: 'nb-cv mono' }) as HTMLCanvasElement; el.append(cv); requestAnimationFrame(() => paintSpecimen(cv, w, sp)); },
+      pic: (el) => { const cv = h('canvas', { class: 'nb-cv alive' }) as HTMLCanvasElement; el.append(cv); requestAnimationFrame(() => paintSpecimen(cv, w, sp)); },
       boxes: [['KIND', sp.rare ? 'Rare' : sp.hybrid ? 'Hybrid' : sp.diet], ['XENO', inXenopedia(w, sp) ? 'Known' : 'New'], ['HOLD', '1']],
       desc: sp.hybrid ? `Spliced from ${sp.parents?.join(' × ') ?? 'two species'}. Fits any animal slot and draws triple crowds at the Menagerie.`
         : sp.rare ? 'One of a kind. Triple crowds at the Menagerie, and curio collectors pay a fortune.'

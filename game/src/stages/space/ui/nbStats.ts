@@ -34,7 +34,7 @@ export function statsTab(ctx: NbCtx): NbTab {
     return { id, label, empty, rows: () => (cache = rows()), detail: (_r: NbRow, i: number) => cache[i]?.d() ?? {} };
   };
   const ship = (el: HTMLElement) => picDesign(el, st.shipDesign);
-  const species = (el: HTMLElement) => { const d = game.state?.creature; if (d) picDesign(el, d); };
+  const species = (el: HTMLElement) => { const d = game.state?.creature; if (d) picDesign(el, d, true, true); };
 
   // ---------------------------------------------------------------- Status
   const status = page('status', 'Status', () => {

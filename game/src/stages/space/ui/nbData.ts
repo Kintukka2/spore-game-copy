@@ -101,7 +101,7 @@ export function dataTab(ctx: NbCtx): NbTab {
       return {
         icon: e.arch === 'hollow' ? '👁️' : e.allied ? '🤝' : e.war ? '🔥' : '👽', name: e.name, val: s.label,
         d: () => ({
-          pic: (el: HTMLElement) => picDesign(el, e.creature),
+          pic: (el: HTMLElement) => picDesign(el, e.creature, true, true),
           title: `${e.name} · ${e.species}`,
           boxes: [['REL', String(Math.round(relation(e)))], ['SYSTEMS', String(w.countStars(e.id))], ['ROUTE', e.route !== null ? 'Open' : '—']],
           bars: [['FEELING', (relation(e) + 100) / 200, s.label]],

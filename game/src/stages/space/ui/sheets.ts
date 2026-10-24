@@ -162,7 +162,13 @@ export function openShip(st: SpaceStage, tab = 'shop') {
           : !ctx.kind ? button(`🔒 ${money(price)}`, () => { audio.sfx('error'); void whereToBuy(st, sh, t); }, { cls: 'small ghost', title: 'Buy at your homeworld, a colony or an ally' })
           : button(craft ? `🔧 ${money(price)}` : inHangar(t) ? `🛠️ ${money(price)}` : money(price), () => {
             // Ship parts (and anything built from a blueprint) are fitted in the hangar.
-            if (!inHangar(t)) { if (buyTool(st, t, ctx.kind!)) render(); return; }
+            if (!inHangar(t)) {
+              if (w.s.money < price) { st.ui.toast('Not enough money.', '💸'); audio.sfx('error'); return; }
+              const n = t.id === 'seeds' ? 3 : 1;
+              void ui.confirm(`Buy ${n > 1 ? n + ' × ' : ''}${t.name}?`, `${t.icon} ${t.desc} Pay ${money(price)}? You have ${money(w.s.money)}${w.count(t.id) ? `, and ${w.count(t.id)} already aboard` : ''}.`, `Buy · ${money(price)}`, 'Cancel')
+                .then((ok) => { if (ok && buyTool(st, t, ctx.kind!)) render(); });
+              return;
+            }
             if (w.s.money < price) { st.ui.toast('Not enough money.', '💸'); audio.sfx('error'); return; }
             if (craft && (!craft.bp || craft.missing.length)) { void needParts(st, t); return; }
             openHangar(st, t, price, () => buyTool(st, t, ctx.kind!, true), () => render());
@@ -222,7 +228,7 @@ export function openMissions(st: SpaceStage) {
     if (cur === 'active') {
       if (!w.s.missions.length) B.append(h('p', { class: 'dim' }, 'No missions. Hail an empire (👽) and ask for work, or simply explore.'));
       for (const m of w.s.missions) {
-        const giver = m.giver === 'home' ? 'Homeworld' : w.emap.get(m.giver)?.name ?? '';
+        const giver = m.giver === 'home' ? 'Homeworld' : m.giver === 'exchange' ? '📈 Spice Exchange' : w.emap.get(m.giver)?.name ?? '';
         const acts = h('div', { class: 'sp-actions' });
         if (m.star !== undefined) acts.append(button('🧭 Locate', () => { sh.close(); st.showMissionTarget(m); }, { cls: 'small' }));
         if (!m.main) acts.append(button('Abandon', async () => { if (await ui.confirm('Abandon mission?', 'The empire that asked will be disappointed.', 'Abandon', 'Keep')) { abandon(w, m); render(); } }, { cls: 'small ghost' }));

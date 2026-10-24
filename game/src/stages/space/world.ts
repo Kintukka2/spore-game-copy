@@ -15,6 +15,7 @@ import type { Empire, GEvent, Mission, Planet, PlanetState, SpaceSave, Specimen,
 import { createEmpires, empireTick, relation } from './empires';
 import { colonyTick, ecoDriftTick, routeTick } from './economy';
 import { zooTick } from './xenolab';
+import { initMarket, marketTick, type MarketNews } from './market';
 import { eventsTick } from './events';
 import { checkMainMissions, missionsTick, startTutorial } from './missions';
 
@@ -33,6 +34,8 @@ export interface WorldHooks {
   loot?(title: string, items: { icon: string; text: string }[], icon?: string): void;
   /** You now hold a blueprint and every component it lists. */
   blueprintReady?(toolId: string): void;
+  /** A headline ran on the Spice Exchange. */
+  marketNews?(n: MarketNews): void;
 }
 
 const CARGO_CAP = [0, 20, 35, 60, 99];
@@ -113,6 +116,7 @@ export class World {
     this.s.hp = this.maxHp;
     this.s.energy = this.maxEnergy;
     this.ps(home, 1);
+    this.s.market = initMarket();
     startTutorial(this);
   }
 
@@ -120,6 +124,7 @@ export class World {
     this.s = saved;
     // Fill in fields added later.
     this.s.offers ??= {};
+    this.s.market ??= initMarket();
     this.s.knownTwins ??= [];
     this.s.counters ??= {};
     for (const e of this.empires) {
@@ -447,6 +452,7 @@ export class World {
       colonyTick(this, d);
       zooTick(this, d);
       routeTick(this, d);
+      marketTick(this, d);
       for (const e of this.empires) empireTick(this, e, d);
       eventsTick(this, d);
       missionsTick(this, d);

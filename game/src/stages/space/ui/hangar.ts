@@ -3,7 +3,7 @@
 // you drag each component (or, for a plain upgrade, the part's module crate) onto a glowing socket on the hull.
 // The arms seat and weld every piece; once all are in, you pay, the whole bay finishes the job, and the new
 // part gets a test run. Consumables built from a blueprint (Bio Shield, Embassy) are fabricated in a cradle.
-import { button, h } from '../../../engine/ui';
+import { button, h, ui } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { TAU, clamp } from '../../../engine/math';
 import { TOOLS, type ToolDef } from '../data';
@@ -259,8 +259,13 @@ export function openHangar(st: SpaceStage, t: ToolDef, price: number, commit: ()
   };
 
   // ---------------------------------------------------------------- the build
-  const build = () => {
-    if (finale || !sockets.every((s) => s.state === 'done')) return;
+  let asking = false;
+  const build = async () => {
+    if (finale || asking || !sockets.every((s) => s.state === 'done')) return;
+    asking = true;
+    const ok = await ui.confirm(`${fab ? 'Fabricate' : 'Build'} ${t.name}?`, `Every part is seated. Pay ${money(price)} to ${fab ? 'fabricate' : 'finish and fit'} ${t.icon} ${t.name}. You have ${money(w.s.money)}.`, `🔧 Pay ${money(price)}`, 'Not yet');
+    asking = false;
+    if (!ok || !alive || finale) return;
     if (!commit()) { refresh(); return; }
     finale = { t: 0, fired: false, done: false };
     pay.disabled = true;

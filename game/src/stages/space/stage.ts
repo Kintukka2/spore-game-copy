@@ -10,7 +10,7 @@ import { openEditor } from '../../editor/editor';
 import { cloneDesign, generateShip } from '../../design/generate';
 import { shade } from '../../design/color';
 import type { Design } from '../../design/types';
-import { RANKS, STAR_INFO, TOOLS } from './data';
+import { RANKS, STAR_INFO, TOOLS, type SpiceColor } from './data';
 import type { Empire, GEvent, Mission, SpaceSave } from './types';
 import { World, type WorldHooks } from './world';
 import { Fx } from './art/fx';
@@ -40,6 +40,8 @@ import { EVENT_INFO, randomEvent, start as startEvent } from './events';
 import { scanPlanet } from './scan';
 import { showScan } from './ui/scanCard';
 import { openMeteorDefense } from './ui/meteorDefense';
+import { openExchange } from './ui/exchange';
+import type { MarketNews } from './market';
 import { playEnding } from './ending';
 
 export type ViewMode = 'galaxy' | 'system' | 'warp';
@@ -198,7 +200,7 @@ export class SpaceStage implements Scene, WorldHooks {
   // ------------------------------------------------------------------ loop
   update(dt: number) {
     if (!this.ready || this.cinematic) return;
-    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf, .yard')) { this.hud.update(dt); return; }
+    if (this.halted || anySheetOpen() || document.querySelector('.modal-wrap, .ft, .tf, .yard, .mkt')) { this.hud.update(dt); return; }
     this.w.inWarp = this.mode === 'warp';
     this.w.update(dt);
     this.fx.update(dt);
@@ -487,6 +489,8 @@ export class SpaceStage implements Scene, WorldHooks {
 
   // ------------------------------------------------------------------ sheets
   openShip(tab = 'shop') { openShip(this, tab); }
+  /** The Galactic Spice Exchange: live spice prices, news, contracts, tips and market jobs. */
+  openExchange(focus?: SpiceColor) { if (!document.querySelector('.mkt')) openExchange(this, focus); }
   /** The Xeno-Lab on your homeworld (only while you are home). */
   openLab() { openLab(this); }
   openMissions() { openMissions(this); }
@@ -547,6 +551,19 @@ export class SpaceStage implements Scene, WorldHooks {
     this.game.history(`Promoted to ${r.name}`, r.icon);
   }
   missionDone() { this.hud.refresh(true); }
+  /** A headline hits the exchange. Big ones (and any touching what you hold) reach you wherever you are. */
+  marketNews(n: MarketNews) {
+    this.hud.refresh(true);
+    if (!this.ready || document.querySelector('.mkt')) return;
+    const m = this.w.s.market!;
+    const mine = n.fx.some((f) => m.hold[f.c].n > 0 || this.w.s.spice[f.c] > 0);
+    const big = n.fx.length > 1 || n.fx.some((f) => Math.abs(f.shock) >= 0.2);
+    if (!(mine || big || n.opp || n.tag === 'YOU')) return;
+    const f = n.fx.find((x) => x.shock) ?? n.fx[0];
+    const arrow = !f || !f.shock ? '' : f.shock > 0 ? ' 📈' : ' 📉';
+    this.ui.toast(`${n.tag === 'RUMOUR' ? 'Rumour: ' : ''}${n.head}${arrow}${n.opp ? ' · a job is up on the 📈 exchange' : ''}`, n.icon, n.opp ? 'gold' : 'info');
+    this.game.hint('exchange-news', 'Headlines move spice prices everywhere. Open the 📈 Spice Exchange in the top bar to see the charts, trade contracts and take jobs from the news.', '📈');
+  }
 
   floatText(x: number, y: number, text: string, color: string) { this.sv.floatText(x, y, text, color); }
 

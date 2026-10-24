@@ -172,6 +172,8 @@ export interface Mission {
   haggled?: boolean;
   /** A rare extra reward: a blueprint, components or a finished tool (see salvage.ts). */
   bonus?: import('./salvage').Salvage;
+  /** A Spice Exchange job: finishing it moves this spice's price (see market.ts). */
+  market?: { c: SpiceColor; shock: number };
 }
 
 export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow' | 'meteor' | 'distress' | 'relic' | 'rare' | 'trader' | 'refugees' | 'wreck';
@@ -234,4 +236,6 @@ export interface SpaceSave {
   zooAcc?: number;
   /** Alien zoos you sold specimens to: their appetite (0..1) at time t; it recovers over a few minutes. */
   specDemand?: Record<string, { d: number; t: number }>;
+  /** The Galactic Spice Exchange: price indexes, history, news and your contracts (see market.ts). */
+  market?: import('./market').MarketState;
 }

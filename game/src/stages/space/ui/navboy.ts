@@ -10,6 +10,7 @@ import { drawThumb } from '../../../design/render';
 import type { Design } from '../../../design/types';
 import type { SpaceStage } from '../stage';
 import { terminalAsk } from './talk';
+import { tierAura, type Aura } from './aura';
 import { applyPhosphor, PH, PH_ORDER, phColor } from './phosphor';
 import { statsTab } from './nbStats';
 import { itemsTab } from './nbItems';
@@ -20,6 +21,8 @@ export type NbTabId = 'stats' | 'items' | 'data' | 'term';
 export interface NbAct { key: string; label: string; run: () => void; ask?: string; off?: string }
 export interface NbRow {
   icon?: string;
+  /** A colour for a text icon, like a spice's ●. */
+  tint?: string;
   name: string;
   val?: string;
   /** A tag shown instead of the value, e.g. READY. */
@@ -36,6 +39,8 @@ export interface NbDetail {
   pic?: (host: HTMLElement) => void;
   /** A big icon when there is no picture. */
   big?: string;
+  /** For a part in a line of tiers: the aura around the big icon. */
+  aura?: Aura;
   title?: string;
   /** Stat boxes, Fallout's DAM / WG / VAL row. */
   boxes?: [string, string][];
@@ -232,7 +237,11 @@ function device(st: SpaceStage, tab?: NbTabId, page?: string, term?: NbTerm) {
     if (!d) return;
     const pic = h('div', { class: 'nb-pic' });
     if (d.pic) d.pic(pic);
-    else if (d.big ?? rows[i].icon) pic.append(h('span', { class: 'nb-big' }, d.big ?? rows[i].icon!));
+    else if (d.big ?? rows[i].icon) {
+      const big = h('span', { class: 'nb-big' }, d.big ?? rows[i].icon!);
+      pic.append(big);
+      if (d.aura) tierAura(pic, big, d.aura);
+    }
     const actEl = h('div', { class: 'nb-acts' }, ...(d.acts ?? []).map((a) => {
       const b = h('button', { class: 'nb-act' + (a.off ? ' off' : ''), title: a.off ?? '' }, a.label, h('kbd', null, a.key));
       b.addEventListener('click', (e) => { e.stopPropagation(); runAct(a); });
@@ -257,7 +266,7 @@ function device(st: SpaceStage, tab?: NbTabId, page?: string, term?: NbTerm) {
       if (r.head) return h('div', { class: 'nb-hrow' }, r.name);
       const el = h('div', { class: 'nb-row' + (j === i ? ' on' : '') + (r.dim ? ' dim' : ''), role: 'option' },
         h('i', { class: 'nb-mk' + (r.mark ? ' on' : '') }),
-        r.icon ? h('span', { class: 'nb-ic' }, r.icon) : null,
+        r.icon ? h('span', { class: 'nb-ic', style: r.tint ? `color:${r.tint}` : undefined }, r.icon) : null,
         h('span', { class: 'nb-nm' }, r.name),
         r.tag ? h('em', { class: 'nb-tag' }, r.tag) : r.val !== undefined ? h('span', { class: 'nb-v' }, r.val) : null);
       // Hover highlights; a tap on the highlighted entry runs its first action, as in the hold.
@@ -283,6 +292,8 @@ function device(st: SpaceStage, tab?: NbTabId, page?: string, term?: NbTerm) {
   const render = (fresh = false) => {
     if (!alive) return;
     btns.forEach((b, i) => b.classList.toggle('on', TAB_IDS[i] === tabId));
+    // ITEMS, DATA and the shipyard show their icons in colour; STATS keeps them in phosphor.
+    dev.classList.toggle('color', tabId !== 'stats');
     renderHead();
     renderFoot();
     const p = pageDef();

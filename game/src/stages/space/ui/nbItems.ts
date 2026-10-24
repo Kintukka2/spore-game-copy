@@ -7,6 +7,7 @@ import { SPICE, SPICE_COLORS, TOOL_MAP, TOOLS, type SpiceColor } from '../data';
 import { COMP_IDS, COMPONENTS, craftState, hasBlueprint, owned, RECIPES, type CompId } from '../salvage';
 import { inXenopedia } from '../xenolab';
 import { change, CODE, contractPrice, marketFactor, quote, trade } from '../market';
+import { toolAura } from './aura';
 import { dietIcon, money, paintSpecimen, rarityText } from './common';
 import { openCrate } from './crateOpen';
 import { picCanvas, type NbAct, type NbCtx, type NbDetail, type NbPage, type NbRow, type NbTab } from './navboy';
@@ -14,19 +15,22 @@ import { ph } from './phosphor';
 
 const signed = (n: number) => (n >= 0 ? '+' : '−') + money(Math.abs(n));
 
-/** A glowing spice orb with its exchange code. */
+/** A glowing orb in the spice's own colour, with its exchange code. */
 export function spiceOrb(host: HTMLElement, c: SpiceColor) {
+  const v = parseInt(SPICE[c].hex.slice(1), 16);
+  const col = (a: number) => `rgba(${v >> 16},${(v >> 8) & 255},${v & 255},${a})`;
   picCanvas(host, (g, w, hh, t) => {
     const x = w / 2, y = hh / 2, r = Math.min(w, hh) * 0.3 * (1 + Math.sin(t * 2) * 0.02);
     const grad = g.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
-    grad.addColorStop(0, ph(1));
-    grad.addColorStop(1, ph(0.25));
-    g.shadowColor = ph(0.8);
+    grad.addColorStop(0, 'rgba(255,255,255,.95)');
+    grad.addColorStop(0.35, col(1));
+    grad.addColorStop(1, col(0.35));
+    g.shadowColor = col(0.8);
     g.shadowBlur = 24;
     g.fillStyle = grad;
     g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
     g.shadowBlur = 0;
-    g.strokeStyle = ph(0.5);
+    g.strokeStyle = col(0.6);
     g.setLineDash([3, 5]);
     g.beginPath(); g.arc(x, y, r * 1.35, t * 0.4, t * 0.4 + TAU); g.stroke();
     g.setLineDash([]);
@@ -50,7 +54,7 @@ export function itemsTab(ctx: NbCtx): NbTab {
   };
 
   const spice = page('spice', 'Spice', () => SPICE_COLORS.filter((c) => w.s.spice[c] > 0).map((c) => ({
-    icon: '●', name: SPICE[c].name, val: `×${w.s.spice[c]}`,
+    icon: '●', tint: SPICE[c].hex, name: SPICE[c].name, val: `×${w.s.spice[c]}`,
     d: (): NbDetail => {
       const mk = marketFactor(w, c) - 1;
       return {
@@ -117,6 +121,7 @@ export function itemsTab(ctx: NbCtx): NbTab {
         const got = rec.filter(([c, n]) => (w.s.comps?.[c] ?? 0) >= n).length;
         return {
           big: t.icon,
+          aura: toolAura(t),
           boxes: [['PARTS', `${got}/${rec.length}`], ['BUILD', money(t.price)], ['STATUS', cs.missing.length ? 'Short' : 'Ready']],
           lines: rec.map(([c, n]) => { const have = w.s.comps?.[c] ?? 0; return [`${COMPONENTS[c].icon} ${COMPONENTS[c].name}`, `${Math.min(n, have)} / ${n}${have >= n ? ' ✓' : ''}`, have >= n]; }),
           desc: `${t.desc} ${cs.missing.length ? 'Collect the components, then build it at a shipyard.' : 'All components ready! Build it at your homeworld, a colony or an ally\'s shipyard.'}`,

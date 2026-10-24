@@ -513,7 +513,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 
 **Interface: the Nav-Boy 3000 and the phosphor screens**
 - The Nav-Boy and the shipyard terminal are Fallout-style phosphor screens. Their colour is one choice for both: green (the default, as in Fallout 3), amber (as in New Vegas), blue or white, picked with the knob (or the ◐ button on phones) and saved with the game (`SpaceSave.phosphor`).
-  - `ui/phosphor.ts` sets `--ph` CSS variables for the text, and an SVG colour-matrix filter (`#ph-f`) that turns the pictures and emoji on those screens into the phosphor colour. Living things (alien species, your species, specimens) are left in their own colours under the scanlines, as aliens are in a conversation, so the generated variety stands out.
+  - `ui/phosphor.ts` sets `--ph` CSS variables for the text, and an SVG colour-matrix filter (`#ph-f`) that turns the pictures and emoji on those screens into the phosphor colour. Living things (alien species, your species, specimens) are left in their own colours under the scanlines, as aliens are in a conversation, so the generated variety stands out. The shipyard's tool icons are in colour too.
   - Every other screen (the HUD, planet panel, star card, sheets, dialogs, the exchange, conversations) keeps its own look; the HUD buttons simply open the Nav-Boy and the shipyard.
 - **The Nav-Boy 3000** (`ui/navboy.ts`) is your wrist computer, after Fallout's Pip-Boy. Tab opens and closes it (M still toggles the map). The HUD's rank badge, money chip, 📜 and 👽 open it on the matching page. The galaxy waits while it is open.
   - **The casing**: worn olive metal with an energy gauge (its needle follows your energy), a ribbed scroll wheel, a "Nav-Boy • Model 3000 •" plate, the display knob, screws, vents and a status light. On phones the casing shrinks to a thin bezel around the screen.
@@ -540,8 +540,8 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 **Progression**
 - A **badges and ranks** system: counters for exploring, trading, colonizing, fighting and terraforming. Ranks unlock tools to buy (better weapons, drives 1–5, more cargo, terraform tools, Colony Pack upgrades).
 - The **shipyard** (`ui/shopTerm.ts`, from 🧰 in the HUD or a planet's Tool shop button) is a wall-mounted Fallout terminal: a SHIPYARD plate with the dock's name, the phosphor screen, and "STARCO INDUSTRIES (TM) TERMLINK" with the display knob along the bottom.
-  - One page per category (Ship, Weapons, Colony, Terraform, Social). Each tool shows its price, or [Rank] while locked, OWNED, FULL, 📐 ? (no blueprint) or 🔩 … (short of components).
-  - The highlighted tool shows the part's blueprint drawing (or its icon), PRICE / RANK / OWN boxes, the blueprint and component lines for advanced parts, and its description.
+  - One page per category (Ship, Weapons, Colony, Terraform, Social). Each tool shows its icon in colour (faded once owned or while locked), its price, or [Rank] while locked, OWNED, FULL, 📐 ? (no blueprint) or 🔩 … (short of components).
+  - The highlighted tool shows its icon large, PRICE / RANK / OWN boxes, the blueprint and component lines for advanced parts, and its description.
   - [E] Buy asks first in a terminal box ("Buy 🩹 Repair Pack for §12,000? You have §400,000, and 1 already aboard."). [E] Build in hangar opens the hangar for ship parts, and the terminal comes back when you leave it.
   - Shipyards are at your homeworld, your colonies and allied empires. Anywhere else the terminal reads DOCK: Browse only, and [C] sets course to the nearest one.
 - **Blueprints and components** (`salvage.ts`): advanced parts need more than rank and credits. You also need the part's 📐 blueprint and the components its recipe lists, which building it uses up.

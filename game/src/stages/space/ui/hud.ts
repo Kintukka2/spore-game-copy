@@ -7,6 +7,7 @@ import { pauseMenu } from '../../common';
 import { RANKS } from '../data';
 import { EVENT_INFO } from '../events';
 import { gsi } from '../market';
+import { trackedMission } from './nbData';
 import type { SpaceStage } from '../stage';
 import { fmtTime } from './common';
 
@@ -59,14 +60,14 @@ export class SpaceHud {
     const pause = button('⏸', () => pauseMenu(game, { onPause: () => { st.halted = true; }, onResume: () => { st.halted = false; } }), { cls: 'icon', title: 'Pause' });
     this.rankIcon = h('span', null, '🔰');
     this.rankName = h('span', { class: 'sp-rk' }, 'Cadet');
-    this.rankBtn = h('button', { class: 'sp-rank', title: 'Rank and badges', 'aria-label': 'Rank and badges' }, this.rankIcon, this.rankName) as HTMLButtonElement;
-    this.rankBtn.addEventListener('click', () => st.openShip('badges'));
+    this.rankBtn = h('button', { class: 'sp-rank', title: 'Nav-Boy: STATS (Tab)', 'aria-label': 'Nav-Boy stats' }, this.rankIcon, this.rankName) as HTMLButtonElement;
+    this.rankBtn.addEventListener('click', () => st.openNav('stats'));
     this.moneyEl = h('span', null, '§0');
     this.cargoEl = h('span', { class: 'sp-cargo' }, '📦 0/20');
-    const moneyBtn = button([this.moneyEl, this.cargoEl], () => st.openShip('cargo'), { cls: 'sp-money', title: 'Cargo' });
-    const missions = button('📜', () => st.openMissions(), { cls: 'icon', title: 'Missions' });
-    const ship = button('🧰', () => st.openShip('shop'), { cls: 'icon', title: 'Ship and tool shop' });
-    const emp = button('👽', () => st.openEmpires(), { cls: 'icon', title: 'Empires' });
+    const moneyBtn = button([this.moneyEl, this.cargoEl], () => st.openNav('items'), { cls: 'sp-money', title: 'Nav-Boy: ITEMS (cargo hold)' });
+    const missions = button('📜', () => st.openNav('data', 'quests'), { cls: 'icon', title: 'Nav-Boy: quests' });
+    const ship = button('🧰', () => st.openShip('shop'), { cls: 'icon', title: 'Shipyard terminal' });
+    const emp = button('👽', () => st.openNav('data', 'contacts'), { cls: 'icon', title: 'Nav-Boy: contacts' });
     this.mktIcon = h('span', null, '📈');
     const mkt = button([this.mktIcon, this.mktDot], () => st.openExchange(), { cls: 'icon sp-mktbtn', title: 'Galactic Spice Exchange' });
     const row1 = h('div', { class: 'sp-row' }, pause, this.rankBtn, moneyBtn, missions, ship, emp, mkt);
@@ -81,7 +82,7 @@ export class SpaceHud {
     this.trackTitle = h('b', null, '');
     this.trackDesc = h('span', { class: 'sp-tdesc' }, '');
     this.track = h('div', { class: 'sp-track', role: 'button', title: 'Missions' }, h('span', null, '📜'), this.trackTitle, this.trackDesc);
-    this.track.addEventListener('click', () => st.openMissions());
+    this.track.addEventListener('click', () => st.openNav('data', 'quests'));
     this.alerts = h('div', { class: 'sp-alerts' });
     const top = h('div', { class: 'sp-top' }, row1, bars, this.track, this.alerts);
     // Bottom-left view toggle
@@ -216,8 +217,8 @@ export class SpaceHud {
     });
     const rk = w.rank();
     this.set('rank', String(rk), () => { this.rankIcon.textContent = RANKS[rk].icon; this.rankName.textContent = RANKS[rk].name; });
-    // Mission tracker: the first main mission, else the first mission.
-    const m = s.missions.find((x) => x.main) ?? s.missions[0];
+    // Mission tracker: the one you track on the Nav-Boy, else the first main mission, else the first.
+    const m = trackedMission(w);
     const tkey = m ? m.id + ':' + (m.deadline ? Math.ceil(m.deadline - s.t) : '') : 'none';
     this.set('track', tkey, () => {
       if (!m) { this.trackTitle.textContent = 'Free flight'; this.trackDesc.textContent = 'Explore, trade, or ask empires for work.'; return; }

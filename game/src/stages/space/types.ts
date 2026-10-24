@@ -238,4 +238,8 @@ export interface SpaceSave {
   specDemand?: Record<string, { d: number; t: number }>;
   /** The Galactic Spice Exchange: price indexes, history, news and your contracts (see market.ts). */
   market?: import('./market').MarketState;
+  /** Nav-Boy display colour, radio station and the mission you chose to track on the HUD. */
+  phosphor?: import('./ui/phosphor').PhColor;
+  radio?: string;
+  tracked?: number;
 }

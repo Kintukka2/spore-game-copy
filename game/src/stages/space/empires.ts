@@ -6,9 +6,10 @@ import { generateCreature, generateShip } from '../../design/generate';
 import { hsl, shade } from '../../design/color';
 import { empireName } from '../../game/names';
 import type { Palette } from '../../design/types';
-import { AI_ARCHES, PERSONALITY, SPICE_COLORS, STANCES, type AiArch, type SpiceColor, type StanceId } from './data';
+import { AI_ARCHES, PERSONALITY, SPICE, SPICE_COLORS, STANCES, type AiArch, type SpiceColor, type StanceId } from './data';
 import type { Empire, Star } from './types';
 import type { World } from './world';
+import { marketStory } from './market';
 
 const PATTERNS: Palette['pattern'][] = ['bands', 'stripes', 'none', 'gradient', 'dots'];
 
@@ -242,7 +243,11 @@ export function declareWar(w: World, e: Empire, reason = 'You declared war on us
     w.hooks?.toast(`${e.name} cancelled the ${jobs.length === 1 ? 'job they gave you' : `${jobs.length} jobs they gave you`}.`, '📜', 'bad');
   }
   delete w.s.offers[e.id];
-  if (e.arch !== 'hollow') w.game.history(`War with ${e.name}`, '⚔️');
+  if (e.arch !== 'hollow') {
+    w.game.history(`War with ${e.name}`, '⚔️');
+    const sp = e.produces[0];
+    if (sp) marketStory(w, '⚔️', `War with ${e.name} rattles the ${SPICE[sp].name} market`, `${e.name} makes most of the galaxy's ${SPICE[sp].name}, and nobody expects their freighters to fly for a while.`, [{ c: sp, shock: 0.12 }]);
+  }
 }
 
 export function peacePrice(w: World, e: Empire): number {

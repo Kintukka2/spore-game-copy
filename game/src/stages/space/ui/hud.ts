@@ -6,6 +6,7 @@ import { fmt } from '../../../engine/math';
 import { pauseMenu } from '../../common';
 import { RANKS } from '../data';
 import { EVENT_INFO } from '../events';
+import { gsi } from '../market';
 import type { SpaceStage } from '../stage';
 import { fmtTime } from './common';
 
@@ -33,6 +34,9 @@ export class SpaceHud {
   /** The Xeno-Lab on your homeworld: shown only while you are home. */
   private labBtn: HTMLButtonElement;
   private labBadge = h('i', { class: 'sp-labn' });
+  /** The Spice Exchange button: its icon follows the market, and a dot means unread headlines. */
+  private mktIcon: HTMLElement;
+  private mktDot = h('i', { class: 'sp-mktdot' });
   private viewLabel: HTMLElement;
   private exploreEl: HTMLElement;
   private ctx: HTMLElement;
@@ -63,7 +67,9 @@ export class SpaceHud {
     const missions = button('📜', () => st.openMissions(), { cls: 'icon', title: 'Missions' });
     const ship = button('🧰', () => st.openShip('shop'), { cls: 'icon', title: 'Ship and tool shop' });
     const emp = button('👽', () => st.openEmpires(), { cls: 'icon', title: 'Empires' });
-    const row1 = h('div', { class: 'sp-row' }, pause, this.rankBtn, moneyBtn, missions, ship, emp);
+    this.mktIcon = h('span', null, '📈');
+    const mkt = button([this.mktIcon, this.mktDot], () => st.openExchange(), { cls: 'icon sp-mktbtn', title: 'Galactic Spice Exchange' });
+    const row1 = h('div', { class: 'sp-row' }, pause, this.rankBtn, moneyBtn, missions, ship, emp, mkt);
     const plus = (cls: string, n: HTMLElement, use: () => void) => {
       const b = h('button', { class: 'sp-plus ' + cls }, '+', n) as HTMLButtonElement;
       b.addEventListener('click', (e) => { e.stopPropagation(); audio.unlock(); use(); this.refresh(true); });
@@ -230,6 +236,18 @@ export class SpaceHud {
         this.alerts.append(chip);
       }
     });
+    // The exchange: 📈 or 📉 with the index over the last five minutes, and a dot for news you have not read.
+    const mk = s.market;
+    if (mk) {
+      const up = gsi(w) >= gsi(w, 60);
+      const unread = mk.news.filter((n) => n.at > mk.seen).length;
+      this.set('mkt', `${up}/${unread}/${mk.opps.some((o) => !o.taken)}`, () => {
+        this.mktIcon.textContent = up ? '📈' : '📉';
+        this.mktDot.textContent = unread ? String(Math.min(9, unread)) : '';
+        this.mktDot.style.display = unread ? '' : 'none';
+        this.mktDot.classList.toggle('job', mk.opps.some((o) => !o.taken));
+      });
+    }
     // The Xeno-Lab building: its button appears in the home system.
     const home = s.loc === w.gal.homeStar && st.mode !== 'warp';
     this.set('lab', `${home}/${s.specimens.length}`, () => {

@@ -7,6 +7,7 @@ import type { Empire, PlanetState, Specimen } from './types';
 import { addMod, relation, strength, systemPrice } from './empires';
 import { onTerraformed } from './missions';
 import type { World } from './world';
+import { marketFactor, marketPress, marketStory } from './market';
 
 // ------------------------------------------------------------------ colonies
 export const BUILDINGS = {
@@ -132,6 +133,8 @@ export function foundColony(w: World, star: number, idx: number): boolean {
     w.counter('colonies');
     w.game.unlock('colonist');
     w.game.history(`Founded a colony on ${w.planet(star, idx).name}`, '🏠');
+    const sp = w.planet(star, idx).spice;
+    if (sp) marketStory(w, '🏗️', `New ${SPICE[sp].name} colony founded on ${w.planet(star, idx).name}`, 'Fresh supply is on the way, and traders are marking prices down.', [{ c: sp, shock: -0.05 }]);
   }
   audio.sfx('build');
   w.hooks?.changed();
@@ -157,10 +160,12 @@ export function demolish(w: World, star: number, idx: number, b: BuildingId) {
 export function sellPrice(w: World, e: Empire, c: SpiceColor): number {
   const easy = w.game.diff(1.25, 1, 1);
   const relBonus = 1 + Math.max(0, relation(e)) / 400;
-  return Math.max(SPICE[c].base, Math.round(SPICE[c].base * e.mult[c] * e.demand[c] * easy * relBonus));
+  // Every empire's prices follow the Spice Exchange index.
+  const mk = marketFactor(w, c);
+  return Math.max(Math.round(SPICE[c].base * mk), Math.round(SPICE[c].base * e.mult[c] * e.demand[c] * easy * relBonus * mk));
 }
 export function buyPrice(w: World, e: Empire, c: SpiceColor): number {
-  return Math.round(SPICE[c].base * 9 / Math.max(0.3, e.demand[c]));
+  return Math.round(SPICE[c].base * 9 / Math.max(0.3, e.demand[c]) * marketFactor(w, c));
 }
 export function canTrade(w: World, e: Empire): string | null {
   if (e.arch === 'hollow') return 'The Hollow do not trade.';
@@ -199,6 +204,7 @@ export function sell(w: World, e: Empire, c: SpiceColor, n: number, star: number
     if (w.s.tradeEarned >= 1000000) w.game.unlock('tycoon');
     audio.sfx('coin');
     checkTakeover(w, e, star);
+    marketPress(w, c, n);
   }
   return earned;
 }
@@ -213,7 +219,7 @@ export function buy(w: World, e: Empire, c: SpiceColor, n: number): number {
     e.demand[c] = Math.max(0.3, e.demand[c] * 0.97);
     bought++;
   }
-  if (bought) audio.sfx('coin');
+  if (bought) { audio.sfx('coin'); marketPress(w, c, -bought); }
   return bought;
 }
 

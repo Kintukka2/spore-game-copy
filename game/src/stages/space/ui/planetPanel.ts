@@ -12,6 +12,7 @@ import {
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
 import { deliver, deliverables, tutorialEvent } from '../missions';
+import { marketFactor } from '../market';
 import { scanPlanet } from '../scan';
 import { EVENT_INFO } from '../events';
 import type { Empire, GEvent, Planet, Specimen } from '../types';
@@ -669,22 +670,27 @@ export class PlanetPanel {
       B.append(h('div', { class: 'sp-offer' }, h('b', null, `📦 ${m.title}`), button(`Deliver for ${money(m.reward)}`, () => { deliver(w, m); this.render(); }, { cls: 'gold' })));
     }
     B.append(h('div', { class: 'sp-section' }, 'Spice market'),
-      h('div', { class: 'sp-mini' }, 'Each sale or purchase moves that spice\'s price. It drifts back to normal over a few minutes.'));
+      h('div', { class: 'sp-mini' }, 'Each sale or purchase moves that spice\'s price. It drifts back to normal over a few minutes. Every price also follows the Galactic Spice Exchange, where the news moves the market.'),
+      h('div', { style: 'margin:2px 0 6px' }, button('📈 Open the Spice Exchange', () => this.st.openExchange(), { cls: 'small ghost' })));
     for (const c of SPICE_COLORS) {
       const have = w.s.spice[c];
       const prod = e.produces.includes(c);
       // Prices tick live, so their recovery shows as time passes rather than only when the tab is redrawn.
-      const priceEl = h('span', { class: 'sp-price' }), restEl = h('span');
+      const priceEl = h('span', { class: 'sp-price' }), restEl = h('span'), mktEl = h('span', { class: 'sp-mkt' });
       const upd = () => {
         const d = e.demand[c];
         priceEl.textContent = `sells ${money(sellPrice(w, e, c))}`;
         restEl.textContent = (prod ? ` · buy ${money(buyPrice(w, e, c))}` : demandLabel(d)) + (d < 0.97 ? ' · ↗ recovering' : '');
+        // How far the exchange has pushed this spice from normal.
+        const mk = marketFactor(w, c) - 1;
+        mktEl.textContent = Math.abs(mk) > 0.05 ? ` · ${mk > 0 ? '📈' : '📉'} exchange ${mk > 0 ? '+' : ''}${Math.round(mk * 100)}%` : '';
+        mktEl.className = 'sp-mkt ' + (mk > 0 ? 'up' : 'down');
       };
       upd();
       this.dynamic.push(upd);
       const row = h('div', { class: 'sp-item', style: 'padding:8px' },
         h('span', { class: 'sp-dot', style: `background:${SPICE[c].hex};width:16px;height:16px` }),
-        h('div', { class: 'sp-txt' }, h('b', null, `${SPICE[c].name} ×${have}`), priceEl, restEl));
+        h('div', { class: 'sp-txt' }, h('b', null, `${SPICE[c].name} ×${have}`), priceEl, restEl, mktEl));
       row.append(button('Sell', () => this.doSell(e, c, 1), { cls: 'small', disabled: have <= 0 }));
       row.append(button('All', () => this.doSell(e, c, have), { cls: 'small primary', disabled: have <= 0 }));
       if (prod) row.append(button('Buy', () => { const n = buy(w, e, c, 1); if (!n) { audio.sfx('error'); this.st.ui.toast(w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'Not enough money.', '💱'); } this.render(); }, { cls: 'small' }));

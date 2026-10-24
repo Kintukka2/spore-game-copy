@@ -394,6 +394,33 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Selling asks first. "Sell 5 × Verdance?" quotes the total (about §X, with the average each, since every sale lowers the price); [Keep it] backs out.
   - Each sale lowers that spice's demand (×0.955) and each purchase lowers it too (×0.97), so selling pays less and buying costs more. Demand drifts back toward normal over a few minutes (about 10% of the gap a minute), never past it.
   - The Trade tab's prices tick live. A spice still recovering shows "↗ recovering", so the change is plainly the clock and not the tab being reopened.
+  - Every empire's spice prices also follow the **Galactic Spice Exchange** index for that spice. A trade row shows "📈 exchange +12%" when the exchange has pushed it more than 5% from normal, and the tab has an **Open the Spice Exchange** button.
+
+**Galactic Spice Exchange** (`market.ts`, screen in `ui/exchange.ts`)
+- A live price index per spice (around 1.0, held between 0.35 and 3). Every 5 seconds of market time it moves by momentum, noise (rarer spices swing harder) and a pull back to normal. 30 minutes of history are kept (360 ticks), and a new game starts with 30 minutes of made-up history so the charts have a past.
+- **What moves prices:**
+  - **News**: a headline every 60–120 s, built from real names nearby (worlds that grow the spice, met empires, nearby systems). It jumps the price at once, then pulls it toward a new level that fades over about 2½–4 minutes.
+    - Up: crop blight, pirates seizing a convoy, a craze among an empire's nobles, an empire running short, an empire stockpiling, Hollow drones cutting the lanes.
+    - Down: huge new seams, lab-grown spice, an import ban, a bumper harvest.
+    - Market-wide: the Festival of Lights (everything up), a credit crunch (everything down).
+    - **Rumours** ("Unconfirmed: … reserves near exhaustion?") move the price, then fall apart 50–90 s later with a "Rumour debunked" headline that snaps it back.
+  - **You**: selling physical spice at an empire drags its index down and buying lifts it. Dump enough of one spice in a short time and "A mystery trader floods the market with Ember" makes the news.
+  - Founding a colony on a new world ("New Ember colony founded on …") and declaring war on an empire ("War with … rattles the Ember market", for the spice they make most of) make headlines that move prices too.
+- **The screen** opens from the 📈 button at the end of the HUD's top row. The icon turns 📉 when the index is down over five minutes, and a badge counts unread headlines (gold when a job is waiting). The galaxy waits while it is open, but the market keeps running.
+  - **Header**: the Galactic Spice Index (GSI, every spice weighted by value, around 1,000) with its 5-minute change, a 🐂 Bull / 🐻 Bear / 😐 Steady mood pill, and your cash.
+  - **Ticker tape**: an amber LED marquee of every spice code, price and change, plus the latest headlines.
+  - **Spot board**: the six spices (EMB, SUN, AZR, VRD, BLS, UMB) with a sparkline, the contract price, the 5-minute change and how many you hold. Prices flash green or red as they tick. Keys 1–6 pick one.
+  - **Chart**: candles or a line over 5, 15 or 30 minutes, with a moving average, a dashed live price with a pulsing dot and an axis tag, and your average cost as a violet line. Each headline that touched the spice is flagged where it hit, with its icon; hover a flag to read it. A crosshair shows the price (or open, high, low and close for a candle) and how long ago.
+  - **Stats**: the range high and low, volatility (Calm, Lively, Choppy, 🌪️ Wild), the news mood (🐂 Bullish, 🐻 Bearish, ❓ Rumours, Quiet), and your position with its profit or loss.
+  - **Order ticket**: Buy or Sell (B and S keys), a quantity with 1 / 10 / 100 / Max chips, then the market price, the estimated average after slippage, the 1.5% broker fee, the total cost or what you receive, and the break-even price or the profit on what you sell. Placing an order asks first ("Buy 10 Umbral contracts? About §8,799 each: §89,311 in all…"), and the market holds still while you decide.
+  - **Contracts** are paper spice: base price × 8 × the index, no hold space, bought and sold only here. Every order moves the price a little against you.
+  - **Your contracts**: each holding with its value and profit or loss (tap one to sell it), then totals for value, open P/L and banked P/L.
+  - **The back room**: 🕵️ Zix the Whisper sells a tip about the next headline (§15,000 and up, more as your portfolio grows). He names the spice and which way it goes, and he is right three times in four. Once the story breaks, the screen says whether he called it.
+  - **News wire**: every headline with a BREAKING / RUMOUR / MARKET / YOU tag, how long ago, its impact (EMB ▲▲, ALL ▼, a ? for rumours, ↺ for a debunk) and the countdown to the next story. New ones flash in. Tap one to chart its spice.
+  - **Jobs from the news**: shortages and pirate raids open a job for 5 minutes. Taking one adds a mission, and finishing it makes the news and pushes that spice's price back down.
+    - Relief run: deliver N of the spice to any world of the empire that is short of it (7 minutes; pays about 30 × base a unit).
+    - Break the hoard: destroy the pirates sitting on the stolen cargo in a nearby system (9 minutes). The mission sheet lists the giver as 📈 Spice Exchange.
+- While the exchange is closed, big headlines reach you as toasts: anything that touches a spice you hold (as contracts or in the hold), a move of 20% or more, market-wide news, stories about you, and stories that open a job.
 - **Threats:**
   - Pirate raids: an event that is "your colony is under attack" with a timer. Fly there and fight, or lose spice.
   - Eco-disasters: a timer; fix it or lose species.
@@ -492,7 +519,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - **Blueprints and components** (`salvage.ts`): advanced parts need more than rank and credits. You also need the part's 📐 blueprint and the components its recipe lists, which building it uses up.
   - Component rarities are colour-coded wherever the text names them ("uncommon component" in loot, the cargo hold's Rarity line, trader deals): silver for common, green for uncommon, blue for rare (`RARITY_COLOR`, `rarityText`).
 - **Hangar** (`ui/hangar.ts`): every ship part, and anything built from a blueprint, is fitted in the hangar rather than bought outright.
-  - The hangar opens from the shop's 🛠️ / 🔧 price button, once you have the money (and the blueprint and components). Plain consumables are still bought instantly. The space stage pauses while it is open.
+  - The hangar opens from the shop's 🛠️ / 🔧 price button, once you have the money (and the blueprint and components). Plain consumables are bought after a confirm ("Buy Repair Pack? … Pay §12,000? You have §400,000, and 1 already aboard."). The space stage pauses while it is open.
   - **The bay:**
     - Your own ship hovers on a docking pad between two yellow robot welding arms, floor-mounted with two-bone IK, under ceiling lamps.
     - A hazard-striped bay door looks out on space, with a "BAY 04 · REFIT IN PROGRESS" sign above it.
@@ -510,7 +537,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - **Fitting parts:**
     - Drag a component chip from the tray onto the ship, and it snaps into the nearest free socket for it. You can also tap a chip, or use ⚙️ Auto-install.
     - The part arcs into its socket with a clunk. The arm with less work queued swings over and welds it in, with sparks that bounce on the floor, and the socket turns green.
-  - **Build · §price** unlocks once every socket is done. Paying:
+  - **Build · §price** unlocks once every socket is done, and asks first ("Build Cargo Bay II? Every part is seated. Pay §9,000…"; Not yet keeps you in the bay). Paying:
     - takes the money and uses up the components;
     - makes the whole bay go to work, with both arms welding everywhere, electric arcs crawling over the hull and the ship flashing;
     - gives the part a test run: a long blue test burn for drives, a beam for lasers, missiles launched off the nose, a shockwave ring, a deflector bubble, fireworks for the beacon, or rings for cargo, cells and plating;

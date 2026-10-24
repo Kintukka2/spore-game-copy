@@ -7,6 +7,7 @@ import type { Empire, Mission } from './types';
 import { addMod, strength } from './empires';
 import { giveSalvage, rollSalvage, salvageLine } from './salvage';
 import type { World } from './world';
+import { marketJobDone } from './market';
 
 // ------------------------------------------------------------------ onboarding
 export const TUTORIAL: { step: string; title: string; desc: string; reward: number }[] = [
@@ -157,6 +158,7 @@ export function complete(w: World, m: Mission) {
   const extra = m.bonus ? giveSalvage(w, m.bonus) : [];
   if (extra.length && w.hooks?.loot) w.hooks.loot(`Mission complete: ${m.title}`, [...(m.reward ? [{ icon: '💰', text: `+§${fmt(m.reward)}` }] : []), ...extra], '✅');
   else w.hooks?.toast(`Mission complete: ${m.title}${m.reward ? ' · +§' + fmt(m.reward) : ''}${extra.length ? ` · ${salvageLine(extra)}` : ''}`, '✅', 'good');
+  if (m.market) marketJobDone(w, m);
   w.hooks?.missionDone(m);
 }
 

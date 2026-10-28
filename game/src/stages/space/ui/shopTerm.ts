@@ -4,7 +4,7 @@
 // from a blueprint) go to the hangar. Away from a shipyard you can browse, and set course to the nearest one.
 import { audio } from '../../../engine/audio';
 import { RANKS, TOOL_CATS, TOOLS, type ToolDef } from '../data';
-import { COMPONENTS, consumeRecipe, craftState, needsBlueprint, RECIPES, type CompId } from '../salvage';
+import { COMPONENTS, consumeRecipe, craftState, needsBlueprint, needsTier, RECIPES, type CompId } from '../salvage';
 import type { SpaceStage } from '../stage';
 import { toolAura } from './aura';
 import { money } from './common';
@@ -34,6 +34,9 @@ export function nearestShop(st: SpaceStage): number | null {
   return best;
 }
 
+/** "III" for Hull Plating III, or the whole name for a part without a numeral (Lance Laser). */
+const tierName = (t: ToolDef) => / (I{1,3}|IV|V)$/.exec(t.name)?.[1] ?? t.name;
+
 /** Ship parts, and anything built from a blueprint, are assembled in the hangar rather than bought outright. */
 const inHangar = (t: ToolDef) => t.kind !== 'consumable' || needsBlueprint(t);
 
@@ -52,6 +55,8 @@ function ownedState(st: SpaceStage, t: ToolDef): { owned: boolean; note: string 
 function buyTool(st: SpaceStage, t: ToolDef, seller: 'own' | 'ally'): string | null {
   const w = st.w;
   const price = w.toolPrice(t, seller);
+  const prev = needsTier(w, t);
+  if (prev) return `Fit ${prev.name} first.`;
   if (w.s.money < price) return 'Not enough credits.';
   if (needsBlueprint(t)) {
     const cs = craftState(w, t);
@@ -94,10 +99,11 @@ function shopTab(ctx: NbCtx): NbTab {
       rows: () => (cache = TOOLS.filter((t) => t.cat === c.id && !t.special).map((t) => {
         const locked = w.rank() < t.rank, own = ownedState(st, t);
         const craft = needsBlueprint(t) && !own.owned ? craftState(w, t) : null;
+        const prev = needsTier(w, t);
         const sc = shopContext(st);
         return {
-          t, icon: t.icon, name: t.name, mark: own.owned && t.kind !== 'consumable', dim: locked || (own.owned && t.kind !== 'consumable'),
-          val: locked ? `[${RANKS[Math.min(t.rank, RANKS.length - 1)].name}]` : own.owned ? (t.kind === 'consumable' ? 'FULL' : 'OWNED') : craft && !craft.bp ? '📐 ?' : craft && craft.missing.length ? '🔩 …' : money(w.toolPrice(t, sc.kind ?? 'own')),
+          t, icon: t.icon, name: t.name, mark: own.owned && t.kind !== 'consumable', dim: locked || !!prev || (own.owned && t.kind !== 'consumable'),
+          val: locked ? `[${RANKS[Math.min(t.rank, RANKS.length - 1)].name}]` : own.owned ? (t.kind === 'consumable' ? 'FULL' : 'OWNED') : prev ? `🔒 ${tierName(prev)}` : craft && !craft.bp ? '📐 ?' : craft && craft.missing.length ? '🔩 …' : money(w.toolPrice(t, sc.kind ?? 'own')),
         };
       })),
       detail: (_r: NbRow, i: number) => detail(cache[i].t),
@@ -109,7 +115,9 @@ function shopTab(ctx: NbCtx): NbTab {
     const price = w.toolPrice(t, sc.kind ?? 'own');
     const locked = w.rank() < t.rank, own = ownedState(st, t);
     const craft = needsBlueprint(t) && !own.owned ? craftState(w, t) : null;
+    const prev = own.owned ? undefined : needsTier(w, t);
     const lines: [string, string, boolean?][] = [];
+    if (prev) lines.push([`${prev.icon} ${prev.name}`, 'Fit it first']);
     if (needsBlueprint(t)) {
       const cs = craftState(w, t);
       lines.push(['📐 Blueprint', cs.bp ? 'Held' : 'Missing', cs.bp]);
@@ -123,6 +131,7 @@ function shopTab(ctx: NbCtx): NbTab {
     let note = '';
     if (locked) note = `Reach the rank of ${RANKS[t.rank].name} to unlock it.`;
     else if (own.owned) note = t.kind === 'consumable' ? 'You are carrying as many as you can.' : 'Already fitted to your ship.';
+    else if (prev) note = `Upgrades go in order: fit ${prev.name} before this one.`;
     else if (craft && (!craft.bp || craft.missing.length)) note = 'Blueprints and components turn up in derelict wrecks, crashed ships and ruins you scan, ancient signals, mystery crates and wandering traders. Empires sometimes add them to mission rewards.';
     else if (!sc.kind) {
       const shop = nearestShop(st);

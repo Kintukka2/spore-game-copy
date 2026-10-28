@@ -4,7 +4,7 @@ import { h } from '../../../engine/ui';
 import { audio } from '../../../engine/audio';
 import { TAU } from '../../../engine/math';
 import { SPICE, SPICE_COLORS, TOOL_MAP, TOOLS, type SpiceColor } from '../data';
-import { COMP_IDS, COMPONENTS, craftState, hasBlueprint, owned, RECIPES, type CompId } from '../salvage';
+import { COMP_IDS, COMPONENTS, craftState, hasBlueprint, needsTier, owned, RECIPES, type CompId } from '../salvage';
 import { inXenopedia } from '../xenolab';
 import { change, CODE, contractPrice, marketFactor, quote, trade } from '../market';
 import { toolAura } from './aura';
@@ -115,16 +115,17 @@ export function itemsTab(ctx: NbCtx): NbTab {
   const plans = page('plans', 'Blueprints', () => (w.s.blueprints ?? []).map((id) => TOOL_MAP[id]).filter((t) => !!t && (t.kind === 'consumable' || !owned(w, t))).map((t) => {
     const cs = craftState(w, t);
     return {
-      icon: '📐', name: t.name, tag: cs.missing.length ? undefined : 'READY',
+      icon: '📐', name: t.name, tag: cs.missing.length || needsTier(w, t) ? undefined : 'READY',
       d: (): NbDetail => {
         const rec = Object.entries(RECIPES[t.id] ?? {}) as [CompId, number][];
         const got = rec.filter(([c, n]) => (w.s.comps?.[c] ?? 0) >= n).length;
+        const prev = needsTier(w, t);
         return {
           big: t.icon,
           aura: toolAura(t),
-          boxes: [['PARTS', `${got}/${rec.length}`], ['BUILD', money(t.price)], ['STATUS', cs.missing.length ? 'Short' : 'Ready']],
+          boxes: [['PARTS', `${got}/${rec.length}`], ['BUILD', money(t.price)], ['STATUS', prev ? 'Locked' : cs.missing.length ? 'Short' : 'Ready']],
           lines: rec.map(([c, n]) => { const have = w.s.comps?.[c] ?? 0; return [`${COMPONENTS[c].icon} ${COMPONENTS[c].name}`, `${Math.min(n, have)} / ${n}${have >= n ? ' ✓' : ''}`, have >= n]; }),
-          desc: `${t.desc} ${cs.missing.length ? 'Collect the components, then build it at a shipyard.' : 'All components ready! Build it at your homeworld, a colony or an ally\'s shipyard.'}`,
+          desc: `${t.desc} ${prev ? `Upgrades go in order: fit ${prev.name} first, then build this at a shipyard.` : cs.missing.length ? 'Collect the components, then build it at a shipyard.' : 'All components ready! Build it at your homeworld, a colony or an ally\'s shipyard.'}`,
         };
       },
     };

@@ -111,6 +111,15 @@ export function pickFoundTool(w: World): { id: string; n: number } | null {
   return { id: t.id, n: t.kind === 'consumable' ? (t.id === 'seeds' ? 6 : 2) : 1 };
 }
 
+/** Upgrades go in order: the tier you must fit before this one (Hull Plating III before IV), or undefined if
+ *  nothing is in the way. */
+export function needsTier(w: World, t: ToolDef): ToolDef | undefined {
+  if (t.kind !== 'upgrade' || !t.group) return undefined;
+  const lv = t.level ?? 0;
+  if (lv <= w.groupLevel(t.group, t.group === 'pulse' ? 0 : 1) + 1) return undefined;
+  return TOOLS.filter((o) => o.group === t.group && (o.level ?? 0) < lv).sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0];
+}
+
 export function owned(w: World, t: ToolDef): boolean {
   if (t.kind === 'upgrade') return w.groupLevel(t.group!, t.group === 'pulse' ? 0 : 1) >= (t.level ?? 0);
   if (t.kind === 'unique') return w.has(t.id);
@@ -163,7 +172,7 @@ export function previewSalvage(s: Salvage): { icon: string; text: string; desc: 
 export function readyBlueprints(w: World): string[] {
   return (w.s.blueprints ?? []).filter((id) => {
     const t = TOOL_MAP[id];
-    return t && (t.kind === 'consumable' || !owned(w, t)) && !craftState(w, t).missing.length;
+    return t && (t.kind === 'consumable' || !owned(w, t)) && !needsTier(w, t) && !craftState(w, t).missing.length;
   });
 }
 

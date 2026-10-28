@@ -34,7 +34,11 @@ export interface Speaker {
   name: string;
   /** Small text next to the name, e.g. "Merchant · 6 systems". */
   sub?: string;
-  design: Design;
+  /** Who is talking: a design, or `paint` for someone drawn by hand (the voice in the static). */
+  design?: Design;
+  paint?: SceneOpts['paint'];
+  /** 0..1: static over the scene, for a call from far away. */
+  noise?: () => number;
   /** Glow behind the speaker. */
   color: string;
   /** Amber for living things, green for machines. */
@@ -124,7 +128,11 @@ function rgbOf(c: string): [number, number, number] {
 const rgba = (c: [number, number, number], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`;
 
 export interface SceneOpts {
-  design: Design;
+  design?: Design;
+  /** Draws the speaker instead of a design, centred on (x, y) and about `size` pixels across. */
+  paint?: (g: CanvasRenderingContext2D, x: number, y: number, size: number, t: number, speaking: boolean) => void;
+  /** 0..1: signal static over the scene. */
+  noise?: () => number;
   color: string;
   /** Screen area to frame the face in. */
   region: () => { top: number; height: number };
@@ -139,8 +147,8 @@ export interface SceneOpts {
  * mouth moving while they speak, and signal noise as the channel opens. */
 export function faceScene(cv: HTMLCanvasElement, o: SceneOpts) {
   const base = rgbOf(o.color), angry: [number, number, number] = [255, 70, 50];
-  const face = faceOf(o.design);
-  const L = layoutDesign(o.design);
+  const face = o.design ? faceOf(o.design) : { x: 0, y: 0, r: 1 };
+  const L = o.design ? layoutDesign(o.design) : null;
   const motes: Mote[] = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random(), z: 0.3 + Math.random() * 0.7, s: Math.random() }));
   let t = 0, last = performance.now(), moodK = 0, talkT = 0;
   const frame = (now: number) => {
@@ -184,11 +192,34 @@ export function faceScene(cv: HTMLCanvasElement, o: SceneOpts) {
     g.save();
     g.globalAlpha = sig;
     const jx = speaking && moodK > 0.5 ? (Math.random() - 0.5) * 2.4 : 0;
-    try {
-      renderDesign(g, o.design, fx - (face.x - L.cx) * size + jx, fy - (face.y - L.groundY) * size, size,
-        { t, action: speaking ? 'talk' : undefined, actionT: talkT * 3.2 }, { shadow: false });
-    } catch { /* a broken design still lets you talk */ }
+    if (o.paint) o.paint(g, fx + jx, fy, facePx, t, speaking);
+    else if (o.design && L) {
+      try {
+        renderDesign(g, o.design, fx - (face.x - L.cx) * size + jx, fy - (face.y - L.groundY) * size, size,
+          { t, action: speaking ? 'talk' : undefined, actionT: talkT * 3.2 }, { shadow: false });
+      } catch { /* a broken design still lets you talk */ }
+    }
     g.restore();
+    // Static on a weak signal: snow, torn bands and a slow rolling bar.
+    const nz = o.noise?.() ?? 0;
+    if (nz > 0) {
+      for (let i = 0; i < 160 * nz; i++) {
+        g.fillStyle = rgba(col, Math.random() * 0.5 * nz);
+        g.fillRect(Math.random() * W, Math.random() * H, 1 + Math.random() * 3, 1 + Math.random() * 2);
+      }
+      for (let i = 0; i < 4; i++) {
+        if (Math.random() > nz * 0.5) continue;
+        g.fillStyle = rgba(col, 0.06 + Math.random() * 0.14 * nz);
+        g.fillRect(0, Math.random() * H, W, 1 + Math.random() * 7);
+      }
+      const roll = ((t * 0.18) % 1.4 - 0.2) * H;
+      const rb = g.createLinearGradient(0, roll - 40, 0, roll + 40);
+      rb.addColorStop(0, 'rgba(0,0,0,0)');
+      rb.addColorStop(0.5, rgba(col, 0.07 * nz));
+      rb.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rb;
+      g.fillRect(0, roll - 40, W, 80);
+    }
     if (sig < 1) {
       for (let i = 0; i < 9; i++) {
         g.fillStyle = rgba(col, (1 - sig) * 0.5 * Math.random());
@@ -340,7 +371,7 @@ export function openTalk(sp: Speaker, first: Line): Promise<void> {
     };
     // The free space between the line and the reply box frames the face.
     faceScene(cv, {
-      design: sp.design, color: sp.color,
+      design: sp.design, paint: sp.paint, noise: sp.noise, color: sp.color,
       region: () => mid.getBoundingClientRect(),
       speaking: () => shown < text.length,
       angry: () => line.mood === 'angry',

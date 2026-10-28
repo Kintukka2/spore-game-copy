@@ -10,6 +10,7 @@ import { landingBlock } from '../surface/look';
 import { BUYERS, buyerAt, inXenopedia } from '../xenolab';
 import type { World } from '../world';
 import { money } from './common';
+import { sealedHollow } from '../story';
 
 function airWord(a: number) { return a < 0.2 ? 'Thin air' : a > 0.8 ? 'Dense air' : 'Fair air'; }
 function heatWord(t: number) { return t < 0.2 ? 'Frozen' : t < 0.38 ? 'Cold' : t > 0.8 ? 'Scorching' : t > 0.62 ? 'Hot' : 'Mild'; }
@@ -58,7 +59,7 @@ function single(w: World, r: ScanResult): HTMLElement {
   else chips.append(h('span', { class: 'sc-chip dim' }, 'No spice'));
   if (pl.kind !== 'gas') {
     if (canColonize(w, r.star, r.idx) === null) chips.append(h('span', { class: 'sc-chip ok' }, ps.owner === 'player' ? '🏗️ Room for a city' : '🏗️ Can colonise'));
-    if (!landingBlock(pl, ps, !!w.star(r.star).hollow)) chips.append(h('span', { class: 'sc-chip ok' }, '🛬 Landable'));
+    if (!landingBlock(pl, ps, sealedHollow(w, r.star, r.idx))) chips.append(h('span', { class: 'sc-chip ok' }, '🛬 Landable'));
   }
   const zoo = buyerAt(w, r.star, r.idx);
   if (zoo) chips.append(h('span', { class: 'sc-chip' }, `${BUYERS[zoo].icon} Zoo buys ${BUYERS[zoo].wants}`));

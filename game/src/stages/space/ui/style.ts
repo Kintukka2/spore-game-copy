@@ -27,6 +27,7 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sp-alerts { display:flex; gap:6px; flex-wrap:wrap; }
 .sp-alert { display:inline-flex; gap:6px; align-items:center; background:rgba(120,10,16,.75); border:1px solid rgba(255,90,90,.8); color:#fff; border-radius:999px; padding:0 14px; font-size:13px; font-weight:600; min-height:44px; cursor:pointer; animation: spPulse 1.2s ease-in-out infinite; }
 .sp-alert.eco { background:rgba(20,80,30,.8); border-color:rgba(120,240,140,.8); }
+.sp-alert.sig { background:rgba(40,22,70,.86); border-color:rgba(255,194,122,.95); box-shadow:0 0 14px rgba(255,194,122,.45); letter-spacing:.02em; }
 .sp-tools .sp-wide { grid-column:1 / -1; }
 .btn.sp-toxic { background:linear-gradient(180deg, #8dff6a, #3fbf3a); color:#062006; border-color:transparent; box-shadow:0 0 18px rgba(125,255,106,.35); }
 /* Focused full-screen views (outbreak, trader) */

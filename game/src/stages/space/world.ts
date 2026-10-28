@@ -18,6 +18,7 @@ import { zooTick } from './xenolab';
 import { initMarket, marketTick, type MarketNews } from './market';
 import { eventsTick } from './events';
 import { checkMainMissions, missionsTick, startTutorial } from './missions';
+import { storyTick } from './story';
 
 export interface WorldHooks {
   toast(msg: string, icon?: string, kind?: 'info' | 'good' | 'bad' | 'gold'): void;
@@ -36,6 +37,10 @@ export interface WorldHooks {
   blueprintReady?(toolId: string): void;
   /** A headline ran on the Spice Exchange. */
   marketNews?(n: MarketNews): void;
+  /** A story call is waiting to be answered (story.ts). */
+  storyCall?(): void;
+  /** The Hollow struck one of your worlds in the story. */
+  storyStrike?(star: number, idx: number): void;
 }
 
 const CARGO_CAP = [0, 20, 35, 60, 99];
@@ -456,6 +461,7 @@ export class World {
       for (const e of this.empires) empireTick(this, e, d);
       eventsTick(this, d);
       missionsTick(this, d);
+      storyTick(this);
       const rk = this.rank();
       if (rk !== this.rankCache) {
         const up = rk > this.rankCache;

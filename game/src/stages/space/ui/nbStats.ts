@@ -9,6 +9,7 @@ import { fmtTime, money } from './common';
 import { drawSchematic } from './hangar';
 import { picCanvas, picDesign, type NbCtx, type NbDetail, type NbRow, type NbTab } from './navboy';
 import { ph } from './phosphor';
+import { VEILS } from '../story';
 
 type Row = NbRow & { d: () => NbDetail };
 
@@ -141,6 +142,19 @@ export function statsTab(ctx: NbCtx): NbTab {
       if (!t) continue;
       const has = w.has(id);
       rows.push({ icon: t.icon, name: t.name, val: has ? '1' : '0', dim: !has, d: () => ({ pic: (el) => schematic(el, kind), boxes: [['FITTED', has ? 'Yes' : 'No'], ['PRICE', money(w.toolPrice(t, 'own'))], ['RANK', RANKS[Math.min(t.rank, RANKS.length - 1)].name]], desc: t.desc }) });
+    }
+    // The gear the story hands you, one piece for each veil around the core.
+    rows.push({ name: 'CORE GEAR', head: true, d: () => ({}) });
+    for (const v of VEILS) {
+      const t = TOOLS.find((x) => x.id === v.gear)!, has = w.has(v.gear);
+      rows.push({
+        icon: has ? t.icon : '❔', name: has ? t.name : '???', val: has ? 'Fitted' : '—', dim: !has,
+        d: () => ({
+          big: has ? t.icon : '❔',
+          boxes: [['PASSES', v.name.replace(/^The /, '')], ['FITTED', has ? 'Yes' : 'No']],
+          desc: has ? t.desc : `${v.name} bars the way to the core. ${v.desc} It is not sold anywhere: follow the signals.`,
+        }),
+      });
     }
     rows.push({ name: 'DESIGN', head: true, d: () => ({}) });
     const design = (name: string, key: 'power' | 'armor' | 'move' | 'energy', what: string) => rows.push({

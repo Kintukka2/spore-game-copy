@@ -147,7 +147,7 @@ export interface Empire extends EmpireSave {
   seed: number;
 }
 
-export type MissionKind = 'deliver' | 'scan' | 'pirates' | 'terraform' | 'explore' | 'tutorial' | 'colonize' | 'ally' | 'contact' | 'hollow' | 'core';
+export type MissionKind = 'deliver' | 'scan' | 'pirates' | 'terraform' | 'explore' | 'tutorial' | 'colonize' | 'ally' | 'contact' | 'hollow' | 'core' | 'story';
 
 export interface Mission {
   id: number;
@@ -174,6 +174,8 @@ export interface Mission {
   bonus?: import('./salvage').Salvage;
   /** A Spice Exchange job: finishing it moves this spice's price (see market.ts). */
   market?: { c: SpiceColor; shock: number };
+  /** A goal of the main story (story.ts): what finishes it, and for fights, what guards it. */
+  story?: StoryGoal;
 }
 
 export type EventKind = 'raid' | 'invasion' | 'eco' | 'hollow' | 'meteor' | 'distress' | 'relic' | 'rare' | 'trader' | 'refugees' | 'wreck';
@@ -199,6 +201,45 @@ export interface GEvent {
   seed?: number;
   /** Wandering trader: the blueprint, components and finished part rolled for its stall. */
   stock?: { bp?: string; comp?: string; compN?: number; gear?: string };
+  /** The story mission this event belongs to (a relic it hides, a strike it is). */
+  storyGoal?: number;
+  /** A story strike that unmakes the whole colony if it is not stopped. */
+  unmaking?: boolean;
+  /** A name for the relic, e.g. "Choir Bell", shown instead of the event's usual label. */
+  label?: string;
+}
+
+export type StoryGoalType = 'visit' | 'scan' | 'terraform' | 'fight' | 'relic' | 'core';
+
+export interface StoryGoal {
+  type: StoryGoalType;
+  /** Chapter index. */
+  ch: number;
+  /** Fights: how many Hollow ships, their hull and damage, and an optional boss (the thing to break). */
+  foes?: { n: number; hp: number; dmg: number; boss?: { name: string; hp: number; dmg: number } };
+  /** Relics: what is buried there. */
+  label?: string;
+  /** A friend flies with you in this fight (Echo). */
+  ally?: boolean;
+}
+
+/** Progress through the main story. */
+export interface StoryState {
+  /** The chapter being told (CHAPTERS index); CHAPTERS.length once it is over. */
+  ch: number;
+  /** wait: for the chapter's signal. signal: a call is waiting to be answered. active: its missions run.
+   *  debrief: they are done and the closing call waits. done: the story is over. */
+  phase: 'wait' | 'signal' | 'active' | 'debrief' | 'done';
+  /** World time the next signal can come. */
+  at: number;
+  /** Step within the chapter, and the missions of that step. */
+  step: number;
+  goals: number[];
+  /** Targets picked for the chapters, by name: [star, planet?, ...]. */
+  tg: Record<string, number[]>;
+  /** The voice went silent (chapter 5) and has not come back; Echo stayed at the gate (chapter 9). */
+  oriLost?: boolean;
+  echoLost?: boolean;
 }
 
 export interface SpaceSave {
@@ -242,4 +283,5 @@ export interface SpaceSave {
   phosphor?: import('./ui/phosphor').PhColor;
   radio?: string;
   tracked?: number;
+  story?: StoryState;
 }

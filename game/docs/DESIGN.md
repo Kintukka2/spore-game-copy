@@ -300,12 +300,18 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - The **galactic core** is surrounded by a dense ring of **Hollow** systems (the cybernetic antagonist, an original stand-in for the Grox):
   - They live only on dead (T0) worlds, distrust everyone (−70), and attack intruders.
   - They are extremely hard to ally (allying them angers everyone else).
+- **The veils** (`VEILS` in `story.ts`): four barriers ring the core, and each needs a piece of core gear from the story before you can enter a system inside it. Travel and routes refuse them, the star card reads 🔒 Sealed with what is needed, and the galaxy map draws each veil as a crackling violet ring with its name (a faint gold one once you can pass).
+  - **The Static** (inside 262 ly of the centre, the inner half of the Hollow ring): Hollow jamming. Needs the 🔭 Static Lens.
+  - **The Shear** (inside 150 ly, the inner bastions): a gravity storm. Needs the ⚓ Null Anchor.
+  - **The Silent Gate** (inside 105 ly, the last bastions): opens only to the Choir's song. Needs the 🎶 Choir Key.
+  - **The Lamp** (the core itself): too bright to fly into. Needs the 🕯️ Lampwick Sail.
+  - The gear is not sold anywhere (`special` tools). STATS → Systems lists it under CORE GEAR, as ??? until you have it.
 - **AI empires (12–20):**
   - Each has a procedural species (`generateCreature`), a ship (`generateShip`), a colour, an archetype personality, a home system, and colonies spreading over time.
   - Contact them by entering their space.
 
 **Views (all touch)**
-1. **Galaxy map:** pan, pinch, tap a star → info card (owner, planets, spice) → **Travel**. Travel range is limited by the drive level; longer jumps need multiple hops (show the range ring). Travelling costs energy.
+1. **Galaxy map:** pan, pinch, tap a star → info card (owner, planets, spice) → **Travel**. Travel range is limited by the drive level; longer jumps need multiple hops (show the range ring). Travelling costs energy. Systems behind a veil around the core are sealed until you have its gear.
    - Energy only recharges at a friendly dock: your homeworld and colony systems, or an ally's systems (`World.atDock`). The energy bar shows ▲ while it charges. Elsewhere, Energy Packs ⚡ top it up, and hops without energy strain the hull. A one-time hint explains this when energy drops below 30% away from a dock.
 2. **System view:** the star with orbiting planets; your ship flies around (joystick, or tap to move). Tap a planet → planet panel.
    - A world you have not explored yet is drawn greyscale, dimmed and out of focus under a drifting grey haze, beside its "?" label, until you scan it or land. Where canvas filters are missing (older Safari), a thicker haze does the greying.
@@ -612,12 +618,34 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - This covers relics, mission bonuses, wreck salvage, a trader deal and the finds from a crashed-ship or ruin scan.
   - It stays up a little longer for each extra item, and a tap dismisses it.
 
+**The story: "The Lamplight"** (`story.ts`, calls in `ui/storyTalk.ts`)
+- Ten chapters, told over signals that break through your comms as you play. Each chapter waits for a pause after the last one and a rank, then its signal comes in: a 📡 **Incoming signal** alert at the top of the alerts, and the call opens by itself a moment later once things are calm (no fight, no warp, no planet open). [Not now] puts it off for four minutes; the alert stays, so you can answer whenever you like.
+- Accepting a chapter turns its goals into main missions (⭐, kind `story`, tracked on the HUD): scan a world, terraform one, beat a Hollow fight, recover a buried relic, or reach the core. When the last one is done, a closing call pays out, often with a twist, and the next signal starts waiting.
+- **The voice in the static** is Ori, but you never know it until the end. In every call the name reads **??????** and the speaker is a dark silhouette, backlit and behind static (`drawOri` with `silhouette`, in `art/ori.ts`). Only the antenna tips glow, very faintly. DATA → Contacts lists it as ?????? under SIGNALS.
+- **Echo** is a Hollow unit who remembered she was someone when you broke the Null Engine. Her lights have turned from red to teal. She takes over when the voice goes silent, and flies with you in the later fights (an allied ship).
+- **The Conductor** is the Hollow Prime, the first of the Choir to go hollow. It threatens you twice.
+- The lore: the Hollow were once the Choir, who sang with the light at the middle of everything (the Lamp). Afraid it would go out, they walled it in to keep it, and emptied themselves of every feeling that could be afraid. Their siphons drain light from the galaxy, which is why worlds are fading.
+- The chapters:
+  1. **A Voice in the Static** (rank Captain): ?????? asks you to scan a fading world a few jumps from home. Pays §15,000.
+  2. **Something to Hold On To**: raise that world one T-level with terraform tools. Its species come back; §30,000 and 6 seed pods.
+  3. **The Siphon** (Commander): break three Hollow ships draining light at the edge of their ring. Empires near it see brighter skies (+10). Gives the 🔭 Static Lens and §40,000.
+  4. **The Choir's Tomb**: behind the Static, land on a dead world the Hollow will not go near (its seal is lifted for the relic) and beam up the Choir Bell. The voice explains who the Hollow were. §60,000, a Warp Crystal and a Quantum Core.
+  5. **The Null Engine** (Commodore): break the Engine and its guards. The light reaches every empire (+8, §80,000 from them), then the call breaks up and goes dead: the Hollow traced it. **The Severance**: a lance of nothing destroys two cities on your homeworld (never the last), and the Conductor calls to gloat.
+  6. **An Echo**: Hollow Unit 0-7 begs for help. Fight off the hunters at a quiet star outside the ring, with her ship beside you. She names herself Echo and gives the ⚓ Null Anchor.
+  7. **What the Hollow Took** (Admiral): inside the Shear, break the Hollowing Vat; the peoples it took wake up and go home (+15 with every empire, §120,000). **The Unmaking**: the Conductor strikes your colony nearest the core. Beat off the fleet within 4 minutes (§40,000) or the whole colony is unmade. With no colonies, it hits the homeworld instead (one city).
+  8. **The Silent Gate**: recover three fragments of the Choir's hymn from three worlds far apart on the rim. Echo weaves them into the 🎶 Choir Key. Then a whisper gets through: the voice is still alive.
+  9. **The Conductor** (Luminary): the Conductor warns you off (its bluff check is 0%), then break the Null Spire at the Silent Gate. Echo stays behind to keep singing the gate open. The voice comes back loud and clear and sends the 🕯️ Lampwick Sail.
+  10. **The Middle of Everything**: fly to the core.
+- Fights: their Hollow ships are tagged with the mission and take the place of the system's usual defenders; a boss (Null Engine, Hollowing Vat, Null Spire) is big, slow and tough. Leaving and coming back starts the fight over.
+- Relics are ordinary ancient-signal events with the relic's name and no timer: land, sweep with life scans and beam it up. They leave room for the usual random happenings.
+
 **Endgame**
-1. A mission chain: "Contact the Hollow" (at rank 4 or so) → "Reach the core".
+1. The story's last chapter takes you through the four veils to the core.
 2. The core cinematic:
-   - The camera dives into the light. A tiny, friendly cosmic being, "Ori", greets you and gives the **Genesis Seed**: 12 charges, turning any planet into T3 with a random full ecosystem.
+   - The camera dives into the light. A tiny, friendly cosmic being greets you: "There you are! Hello! It's me. The voice in the static." It is Ori, and it apologises for the question marks: the Hollow listen to everything. If Echo stayed at the gate, she is there too, caught by the light. Ori gives the **Genesis Seed**: 12 charges, turning any planet into T3 with a random full ecosystem.
+   - The Lamp sings again: the Hollow lay down their arms (no more war or Hollow strikes).
    - `core` achievement. Using the seed gives `genesis`.
-3. Then credits (a short scrolling list), and play continues.
+3. Then credits (a short scrolling list, thanking Echo and the Choir too), and play continues.
 
 **Saves:** serialize the galaxy delta (owned systems, colonies, relations, money, tools, ship position, missions) into `state.stageData.space`.
 

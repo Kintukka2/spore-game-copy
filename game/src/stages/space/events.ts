@@ -12,6 +12,7 @@ import { BUILDINGS, isHomeworld, maxCities, slots, used } from './economy';
 import { addMod } from './empires';
 import { landingBlock } from './surface/look';
 import type { World } from './world';
+import { complete } from './missions';
 
 export const EVENT_INFO: Record<EventKind, { icon: string; label: string; how: string; good?: boolean }> = {
   raid: { icon: '🏴‍☠️', label: 'Pirate raid', how: 'Destroy the raiders.' },
@@ -26,6 +27,14 @@ export const EVENT_INFO: Record<EventKind, { icon: string; label: string; how: s
   refugees: { icon: '🚀', label: 'Refugee fleet', how: 'Open your colony to take them in.', good: true },
   wreck: { icon: '🛰️', label: 'Derelict wreck', how: 'Fly to the wreck near the planet and salvage it.', good: true },
 };
+
+/** An event's icon, label and how-to, with a story relic's own name. */
+export function eventInfo(ev: GEvent): { icon: string; label: string; how: string; good?: boolean } {
+  const info = EVENT_INFO[ev.kind];
+  if (ev.label) return { ...info, label: ev.label, how: `Land, sweep with 📡 life scans and beam up the ${ev.label}.` };
+  if (ev.unmaking) return { ...info, label: 'Hollow strike', how: 'Destroy the Hollow fleet, or lose the whole colony.' };
+  return info;
+}
 
 /** Seconds each random happening lasts. */
 const DURATION: Partial<Record<EventKind, number>> = { meteor: 160, distress: 210, relic: 420, rare: 330, trader: 300, refugees: 260, wreck: 300 };
@@ -68,7 +77,8 @@ export function eventsTick(w: World, dt: number) {
     }
   }
   // Hollow incursions after contact
-  if (f.hollowContact) {
+  // (Once the Lamp is lit at the end of the story, the Hollow strike no more.)
+  if (f.hollowContact && !f.lampLit) {
     const hollow = w.emap.get('hollow')!;
     if (f.nextHollow === undefined) f.nextHollow = s.t + 600;
     if (s.t >= Number(f.nextHollow)) {
@@ -99,9 +109,11 @@ export function eventsTick(w: World, dt: number) {
 /** Start a random happening on a world near the ship. `force` picks the kind (debug) and prefers this system. */
 export function randomEvent(w: World, force?: EventKind): GEvent | null {
   const s = w.s;
-  if (!force && s.events.length >= 4) return null;
+  // Story relics wait as long as they need to, so they leave room for the usual happenings.
+  const running = s.events.filter((e) => e.storyGoal === undefined);
+  if (!force && running.length >= 4) return null;
   const busy = (sid: number) => s.events.some((e) => e.star === sid);
-  const goodNow = s.events.filter((e) => EVENT_INFO[e.kind].good).length;
+  const goodNow = running.filter((e) => EVENT_INFO[e.kind].good).length;
   const reach = w.rangeFrom(s.loc) * 2.2;
   const near = [s.loc, ...w.gal.within(s.loc, reach)].filter((id) => {
     const st = w.star(id);
@@ -189,7 +201,7 @@ export function start(w: World, ev: GEvent) {
 }
 
 /** Knock down one building (works first, then domes, then towers). Returns its name. */
-function knockBuilding(ps: PlanetState): string {
+export function knockBuilding(ps: PlanetState): string {
   if (!used(ps)) return '';
   const b = ps.bld.factory ? 'factory' : ps.bld.leisure ? 'leisure' : 'turret';
   ps.bld[b]--;
@@ -208,6 +220,23 @@ export function meteorImpact(w: World, ev: GEvent): string {
 export function resolve(w: World, ev: GEvent) {
   w.s.events = w.s.events.filter((x) => x !== ev);
   const pl = w.planet(ev.star, ev.planet);
+  // A story relic finishes its mission instead of going to collectors.
+  if (ev.storyGoal !== undefined) {
+    const m = w.s.missions.find((x) => x.id === ev.storyGoal);
+    w.hooks?.toast(`Recovered: ${ev.label ?? 'the relic'} from ${pl.name}.`, '🗿', 'gold');
+    if (m) complete(w, m);
+    audio.sfx('success');
+    w.hooks?.eventEnded(ev, true);
+    return;
+  }
+  if (ev.unmaking) {
+    w.hooks?.toast(`You held ${pl.name}! The Hollow strike broke on its defences. Grateful colonists raise ${'§'}${fmt(40000)}.`, '🛡️', 'gold');
+    w.addMoney(40000);
+    w.counter('events');
+    audio.sfx('success');
+    w.hooks?.eventEnded(ev, true);
+    return;
+  }
   const pay = (n: number) => { w.addMoney(n); return `+§${fmt(n)}`; };
   switch (ev.kind) {
     case 'eco':
@@ -283,7 +312,16 @@ export function fail(w: World, ev: GEvent) {
     w.hooks?.eventEnded(ev, false);
     return;
   }
-  if (ev.kind === 'raid') {
+  if (ev.unmaking) {
+    // The story's strike: the whole colony is unmade.
+    ps.cities = 0;
+    ps.owner = undefined;
+    ps.bld = { factory: 0, leisure: 0, turret: 0 };
+    ps.stored = 0;
+    if (!w.gal.planets(ev.star).some((p) => w.peekPS(ev.star, p.idx).owner === 'player')) w.setOwner(ev.star, null);
+    w.hooks?.toast(`The Hollow unmade ${pl.name}. Its cities are dust, and the world is nobody's now.`, '🏚️', 'bad');
+    w.game.history(`The Hollow unmade ${pl.name}`, '🏚️');
+  } else if (ev.kind === 'raid') {
     ps.stored = 0;
     knockBuilding(ps);
     w.hooks?.toast(`Pirates looted ${pl.name}: its spice and a building are gone.`, '🏴‍☠️', 'bad');

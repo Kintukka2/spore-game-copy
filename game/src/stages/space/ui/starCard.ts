@@ -2,7 +2,8 @@
 import { button, h } from '../../../engine/ui';
 import { SPICE, STAR_INFO } from '../data';
 import { stanceInfo } from '../empires';
-import { EVENT_INFO } from '../events';
+import { eventInfo } from '../events';
+import { veilBlock } from '../story';
 import type { SpaceStage } from '../stage';
 
 const TYPE_ICON: Record<string, string> = { red: '🔴', yellow: '🟡', white: '⚪', blue: '🔵', binary: '♊', proto: '💫', blackhole: '⚫', core: '✦' };
@@ -37,6 +38,8 @@ export class StarCard {
     const e = w.empireOf(this.id);
     const visited = w.visited(this.id);
     const isCore = this.id === w.gal.coreId;
+    // The veils around the core (story.ts) keep you out until you carry the right gear.
+    const veil = veilBlock(w, this.id);
     el.append(h('h3', null, TYPE_ICON[s.type] ?? '⭐', s.name, this.id === w.gal.homeStar ? h('span', { class: 'chip', style: 'font-size:11px' }, '🏠 Home') : null));
     el.append(h('div', { class: 'sp-sub' }, isCore ? 'The heart of the galaxy. Something bright waits inside.' : STAR_INFO[s.type].name + (s.hollow ? ' · Hollow space' : '')));
     const kv = h('div', { class: 'sp-kv' });
@@ -71,7 +74,7 @@ export class StarCard {
     }
     // Events / missions here
     const ev = w.s.events.find((x) => x.star === this.id);
-    if (ev) kv.append(h('span', null, EVENT_INFO[ev.kind].good ? 'Opportunity' : 'Alert'), h('b', { style: `color:${EVENT_INFO[ev.kind].good ? '#ffd166' : '#ff8a8a'}` }, `${EVENT_INFO[ev.kind].icon} ${EVENT_INFO[ev.kind].label}`));
+    if (ev) { const info = eventInfo(ev); kv.append(h('span', null, info.good ? 'Opportunity' : 'Alert'), h('b', { style: `color:${info.good ? '#ffd166' : '#ff8a8a'}` }, `${info.icon} ${info.label}`)); }
     const ms = w.s.missions.filter((m) => m.star === this.id);
     if (ms.length) kv.append(h('span', null, 'Mission'), h('b', { style: 'color:#ffd166' }, ms.map((m) => m.title).join(', ')));
     // Distance
@@ -80,7 +83,7 @@ export class StarCard {
       kv.append(h('span', null, 'Status'), h('b', null, 'You are here'));
       actions.append(button('🪐 Enter system', () => st.showSystem(), { cls: 'primary' }));
     } else {
-      const route = st.planRoute(this.id);
+      const route = veil ? null : st.planRoute(this.id);
       const d = w.gal.dist(here, this.id);
       kv.append(h('span', null, 'Distance'), h('b', null, `${Math.round(d)} ly`));
       if (route) {
@@ -88,16 +91,15 @@ export class StarCard {
         for (let i = 1; i < route.length; i++) cost += st.hopCost(route[i - 1], route[i]);
         st.gv.route = route;
         kv.append(h('span', null, 'Trip'), h('b', null, `${route.length - 1} jump${route.length > 2 ? 's' : ''} · ⚡ ${cost}${cost > w.s.energy ? ' (not enough!)' : ''}`));
-        const locked = isCore && !w.s.flags.hollowContact;
-        actions.append(button(locked ? '🔒 Sealed' : route.length > 2 ? `🚀 Travel (${route.length - 1} jumps)` : '🚀 Travel', () => st.travelTo(this.id), { cls: 'primary', disabled: locked }));
+        actions.append(button(veil ? '🔒 Sealed' : route.length > 2 ? `🚀 Travel (${route.length - 1} jumps)` : '🚀 Travel', () => st.travelTo(this.id), { cls: 'primary', disabled: !!veil }));
       } else {
-        kv.append(h('span', null, 'Trip'), h('b', { style: 'color:#ff8a7a' }, isCore ? 'Gravity too strong for your drive' : 'Out of reach for your drive'));
+        kv.append(h('span', null, 'Trip'), h('b', { style: 'color:#ff8a7a' }, veil ? `Behind ${veil.name}` : isCore ? 'Gravity too strong for your drive' : 'Out of reach for your drive'));
       }
     }
     if (e && e.met && e.arch !== 'hollow') actions.append(button('📡 Hail', () => st.openComm(e), {}));
     if (e && e.arch === 'hollow' && e.met) actions.append(button('📡 Hail', () => st.openComm(e), {}));
     actions.append(button('Close', () => { st.selectStar(null); }, { cls: 'ghost' }));
     el.append(kv, actions);
-    if (isCore && !w.s.flags.hollowContact) el.append(h('div', { class: 'sp-mini' }, 'A wall of gravity seals the core. Contact the Hollow first.'));
+    if (veil) el.append(h('div', { class: 'sp-mini' }, `🔒 ${veil.name}. ${veil.desc}`));
   }
 }

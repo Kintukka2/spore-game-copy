@@ -1,5 +1,5 @@
-// Missions: the homeworld onboarding chain, the main line (Hollow, then the Core) and
-// randomly generated empire missions (deliver, scan, pirates, terraform, explore).
+// Missions: the homeworld onboarding chain, the main goals (contact, grow, ally, the Hollow) and randomly
+// generated empire missions (deliver, scan, pirates, terraform, explore). The story's missions are in story.ts.
 import { audio } from '../../engine/audio';
 import { fmt } from '../../engine/math';
 import { HOLLOW_RANK, SPICE, SPICE_COLORS, type SpiceColor } from './data';
@@ -8,6 +8,7 @@ import { addMod, strength } from './empires';
 import { giveSalvage, rollSalvage, salvageLine } from './salvage';
 import type { World } from './world';
 import { marketJobDone } from './market';
+import { storyArrive, storyCleared, storyScan, storyTerraformed } from './story';
 
 // ------------------------------------------------------------------ onboarding
 export const TUTORIAL: { step: string; title: string; desc: string; reward: number }[] = [
@@ -62,7 +63,6 @@ export function checkMainMissions(w: World) {
   if (rank >= 2 && !has('colonize')) add({ kind: 'colonize', title: 'Grow the empire', desc: 'Hold 4 star systems (colonise, buy or conquer).', reward: 75000, amount: 4 });
   if (rank >= 3 && !has('ally')) add({ kind: 'ally', title: 'Find a friend', desc: 'Form an alliance with another empire.', reward: 120000 });
   if (rank >= HOLLOW_RANK && !has('hollow')) add({ kind: 'hollow', title: 'Contact the Hollow', desc: 'Something cold rings the galactic core. Travel into the Hollow\'s grey worlds and hail them.', reward: 200000 });
-  if (w.s.flags.hollowContact && !has('core')) add({ kind: 'core', title: 'Reach the Core', desc: 'Beyond the Hollow, the heart of the galaxy is calling. You need a Star Drive III or better to fight its gravity.', reward: 0, star: 0 });
 }
 
 // ------------------------------------------------------------------ empire missions
@@ -168,18 +168,23 @@ export function onArrive(w: World, star: number) {
     if (m.kind === 'explore' && m.star === star) complete(w, m);
     if (m.kind === 'explore' && m.star === undefined && !w.visited(star)) complete(w, m);
   }
+  storyArrive(w, star);
 }
 
 export function onScan(w: World, star: number, idx: number) {
   for (const m of [...w.s.missions]) if (m.kind === 'scan' && m.star === star && m.planet === idx) complete(w, m);
+  storyScan(w, star, idx);
 }
 
 export function onTerraformed(w: World, star: number, idx: number, t: number) {
   for (const m of [...w.s.missions]) if (m.kind === 'terraform' && m.star === star && m.planet === idx && t >= (m.tscore ?? 3)) complete(w, m);
+  storyTerraformed(w, star, idx, t);
 }
 
-export function onPiratesCleared(w: World, star: number) {
-  for (const m of [...w.s.missions]) if (m.kind === 'pirates' && m.star === star) complete(w, m);
+/** A mission's group of ships was destroyed here (`id`: which mission's). */
+export function onPiratesCleared(w: World, star: number, id?: number) {
+  for (const m of [...w.s.missions]) if (m.kind === 'pirates' && m.star === star && (id === undefined || m.id === id)) complete(w, m);
+  storyCleared(w, star, id);
 }
 
 /** Deliverable missions for an empire with what's in the hold. */

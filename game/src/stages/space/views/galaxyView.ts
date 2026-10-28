@@ -6,6 +6,7 @@ import type { PointerInfo } from '../../../engine/input';
 import { hexToRgb } from '../../../design/color';
 import { GALAXY_R, RING_IN, RING_OUT } from '../data';
 import { EVENT_INFO } from '../events';
+import { VEILS } from '../story';
 import { blit, canvas, glow, starSprite } from '../art/sprites';
 import type { SpaceStage } from '../stage';
 import type { Star } from '../types';
@@ -219,6 +220,7 @@ export class GalaxyView {
       this.drawCore(g);
       this.drawOverlays(g, vis, pr, z);
     }
+    this.drawVeils(g, px);
     // Markers: alerts, missions, home
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 5);
     for (const ev of w.s.events) {
@@ -228,7 +230,7 @@ export class GalaxyView {
       g.beginPath(); g.arc(s.x, s.y, (16 + pulse * 6) * px, 0, TAU); g.stroke();
     }
     for (const m of w.s.missions) {
-      if (m.star === undefined || m.star === w.gal.coreId && !w.s.flags.hollowContact) continue;
+      if (m.star === undefined) continue;
       const s = w.star(m.star);
       g.save();
       g.translate(s.x, s.y - 18 * px);
@@ -308,6 +310,32 @@ export class GalaxyView {
       g.beginPath(); g.arc(s.x, s.y, 6.5, 0, TAU); g.stroke();
     }
     this.starLayer = c;
+  }
+
+  /** The veils around the core (story.ts): a crackling ring while it bars you, a faint one once you can pass. */
+  private drawVeils(g: CanvasRenderingContext2D, px: number) {
+    const w = this.st.w;
+    for (const v of VEILS) {
+      const shut = !w.has(v.gear);
+      if (!shut) {
+        g.strokeStyle = 'rgba(255,214,150,0.16)';
+        g.lineWidth = 1.2 * px;
+        g.setLineDash([2 * px, 9 * px]);
+        g.beginPath(); g.arc(0, 0, v.r, 0, TAU); g.stroke();
+        g.setLineDash([]);
+        continue;
+      }
+      const f = 0.55 + 0.25 * Math.sin(this.t * 2.3 + v.r);
+      g.strokeStyle = `rgba(190,120,255,${0.3 * f})`;
+      g.lineWidth = 9 * px;
+      g.beginPath(); g.arc(0, 0, v.r, 0, TAU); g.stroke();
+      g.strokeStyle = `rgba(230,200,255,${0.75 * f})`;
+      g.lineWidth = 1.6 * px;
+      g.setLineDash([14 * px, 5 * px, 3 * px, 5 * px]);
+      g.lineDashOffset = -this.t * 26 * px * (v.r % 2 ? 1 : -1);
+      g.beginPath(); g.arc(0, 0, v.r, 0, TAU); g.stroke();
+      g.setLineDash([]);
+    }
   }
 
   private drawCore(g: CanvasRenderingContext2D) {
@@ -402,6 +430,20 @@ export class GalaxyView {
     g.font = '600 11px Fredoka, system-ui, sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'top';
+    // The veils that still bar you, named along their tops.
+    if (z > 0.35) {
+      for (const v of VEILS) {
+        if (w.has(v.gear)) continue;
+        const p = this.cam.worldToScreen(0, -v.r);
+        if (p.x < -80 || p.x > W + 80 || p.y < -20 || p.y > H + 20) continue;
+        const name = `🔒 ${v.name}`;
+        const tw = g.measureText(name).width;
+        g.fillStyle = 'rgba(20,8,36,0.75)';
+        g.fillRect(p.x - tw / 2 - 5, p.y - 8, tw + 10, 15);
+        g.fillStyle = 'rgba(230,200,255,0.95)';
+        g.fillText(name, p.x, p.y - 7);
+      }
+    }
     for (const id of ids) {
       const s = w.star(id);
       const p = this.cam.worldToScreen(s.x, s.y);

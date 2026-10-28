@@ -12,6 +12,7 @@ import { Combat, type Craft } from '../combat';
 import { strength } from '../empires';
 import { EVENT_INFO } from '../events';
 import { tutorialEvent } from '../missions';
+import { echoShip, storyFightsAt } from '../story';
 import type { GEvent, Planet } from '../types';
 import type { Design } from '../../../design/types';
 import { generateShip } from '../../../design/generate';
@@ -147,8 +148,11 @@ export class SystemView {
       if (!a.allied || a.dead || slot >= 3) continue;
       c.spawnAlly(a.ship, a.id, 260 * strength(w, a), slot++);
     }
+    // A story fight here takes the place of the usual defenders.
+    const story = this.spawnStory(slot);
+    slot += story.length;
     // Hostile owners defend their space.
-    if (e && e.war && e.serenade <= 0) {
+    if (e && e.war && e.serenade <= 0 && !story.length) {
       const n = e.arch === 'hollow' ? 2 + Math.floor(Math.random() * 2) + (w.star(star).r < 200 ? 1 : 0) : 2 + Math.floor(Math.random() * 2);
       const a = Math.random() * TAU;
       c.spawnEmpire(e.id, n, this.ship.x + Math.cos(a) * 700, this.ship.y + Math.sin(a) * 700);
@@ -172,6 +176,20 @@ export class SystemView {
         this.st.ui.toast('Pirates! It\'s an ambush!', '🏴‍☠️', 'bad');
       }
     }
+  }
+
+  /** Story fights in this system (story.ts) that have not started yet: their Hollow, and Echo flying with you. */
+  spawnStory(slot = 0) {
+    const w = this.st.w, c = this.combat;
+    const story = storyFightsAt(w, this.star).filter((m) => !c.crafts.some((x) => x.alive && x.mission === m.id));
+    for (const m of story) {
+      const a = Math.random() * TAU;
+      c.spawnStory(m, this.ship.x + Math.cos(a) * 650, this.ship.y + Math.sin(a) * 650);
+      const ally = echoShip(w);
+      if (m.story?.ally && ally) c.spawnAlly(ally, 'echo', 900, slot++);
+    }
+    if (story.length) { this.st.ui.toast(`${story[0].title}: the Hollow are here.`, '⭐', 'gold'); this.updateMusic(); }
+    return story;
   }
 
   /** How many belt rocks are still missing here (mined ones re-form at one a minute). */

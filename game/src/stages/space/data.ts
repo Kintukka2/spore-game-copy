@@ -131,6 +131,11 @@ export const TOOLS: ToolDef[] = [
   { id: 'beacon', name: 'Goodwill Beacon', icon: '🎆', cat: 'social', price: 200000, rank: 2, kind: 'unique', desc: 'A dazzling light show over an empire\'s world. Improves relations (once a minute).' },
   { id: 'embassy', name: 'Embassy', icon: '🏛️', cat: 'social', price: 400000, rank: 4, kind: 'consumable', max: 5, desc: 'Build an embassy on an empire\'s world: a large, permanent relations boost.' },
   // Special reward
+  // Core gear from the main story (story.ts): each one lets you through the next veil around the core.
+  { id: 'lens', name: 'Static Lens', icon: '🔭', cat: 'standard', price: 0, rank: 99, kind: 'unique', special: true, desc: 'A lens ground from starlight. Hold it up to the Static, the Hollow jamming over the inner ring, and you see a way through.' },
+  { id: 'anchor', name: 'Null Anchor', icon: '⚓', cat: 'standard', price: 0, rank: 99, kind: 'unique', special: true, desc: 'Every Hollow ship carries one. It holds your course through the Shear, the gravity storm around the inner bastions.' },
+  { id: 'choirkey', name: 'Choir Key', icon: '🎶', cat: 'standard', price: 0, rank: 99, kind: 'unique', special: true, desc: 'The Choir\'s morning hymn, woven into a key. When it sings, the Silent Gate remembers it was a door.' },
+  { id: 'lampwick', name: 'Lampwick Sail', icon: '🕯️', cat: 'standard', price: 0, rank: 99, kind: 'unique', special: true, desc: 'Catches the light at the middle of everything and rides it in, all the way to the core.' },
   { id: 'genesis', name: 'Genesis Seed', icon: '🌱', cat: 'terraform', price: 0, rank: 99, kind: 'consumable', max: 12, special: true, desc: 'Ori\'s gift. Turns any planet into a thriving T3 world with a full ecosystem.' },
   { id: 'crate', name: 'Mystery Crate', icon: '📦', cat: 'standard', price: 0, rank: 99, kind: 'consumable', max: 9, special: true, desc: 'A sealed crate from a wandering trader. Open it from your Cargo.' },
 ];

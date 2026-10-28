@@ -238,7 +238,7 @@ export class SurfaceScene implements Scene {
     if (this.sites.length) setTimeout(() => this.scan(true), 700);
     else if (!this.relic) this.st.ui.toast(`No life signs on ${pl.name}. Fly around, or head back to orbit.`, '📡');
     if (rare) setTimeout(() => this.st.ui.toast(`The ${rare.name} is down here somewhere. It bolts at the sight of your ship: chase it down!`, '✨', 'gold'), 1600);
-    if (this.relic) setTimeout(() => this.st.ui.toast('The ancient signal is faint. Sweep the surface with 📡 Life scan to pin it down.', '🗿', 'gold'), rare ? 4200 : 1600);
+    if (this.relic) setTimeout(() => this.st.ui.toast(sig?.label ? `The ${sig.label} is buried down here somewhere. Sweep the surface with 📡 Life scan to pin it down.` : 'The ancient signal is faint. Sweep the surface with 📡 Life scan to pin it down.', '🗿', 'gold'), rare ? 4200 : 1600);
     game.hint('landing', 'Drag anywhere to fly. Fly over a creature and tap 🛸 Beam up, or just tap the creature.', '🛸');
     if (this.hostile && this.cities.length) {
       const e = w.emap.get(ps.owner!);
@@ -358,7 +358,7 @@ export class SurfaceScene implements Scene {
       t.el.className = `sf-sp ${state}` + (t.sp ? (t.sp.rare ? ' rare' : t.sp.diet === 'plant' ? ' pl' : ' an') : ' relic') + (was && !hid && t.state ? ' pop' : '');
       t.badge.textContent = hid ? '?' : state.startsWith('new') ? 'NEW' : '✓';
       const what = t.sp ? (t.sp.diet === 'plant' ? 'plant' : 'creature') : 'relic';
-      t.el.title = hid ? `Unknown ${what}` : t.sp ? t.sp.name : 'Ancient relic';
+      t.el.title = hid ? `Unknown ${what}` : t.sp ? t.sp.name : this.event('relic')?.label ?? 'Ancient relic';
       if (t.cv && t.sp && (force || hid !== was)) paintSpecimen(t.cv, this.w, t.sp, hid);
       t.state = state;
     }

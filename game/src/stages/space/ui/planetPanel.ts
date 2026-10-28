@@ -14,7 +14,7 @@ import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires'
 import { deliver, deliverables, tutorialEvent } from '../missions';
 import { marketFactor } from '../market';
 import { scanPlanet } from '../scan';
-import { EVENT_INFO } from '../events';
+import { eventInfo } from '../events';
 import type { Empire, GEvent, Planet, Specimen } from '../types';
 import type { SpaceStage } from '../stage';
 import { BUYERS, buyerAt, buyerWants, inXenopedia, sellSpecimen, specimenPrice, zooAppetite, zooFull } from '../xenolab';
@@ -24,6 +24,7 @@ import { showScan } from './scanCard';
 import { openOutbreak } from './outbreak';
 import { greetTrader, refugeeTalk } from './encounters';
 import { drawClimate, openTerraform, TERRA_TOOLS, terraState, terraTag, terraTarget, type TerraDef } from './terraformView';
+import { sealedHollow } from '../story';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
 
@@ -235,11 +236,12 @@ export class PlanetPanel {
   private eventBanner() {
     const w = this.w;
     for (const ev of w.s.events.filter((e) => e.star === this.star && e.planet === this.idx)) {
-      const info = EVENT_INFO[ev.kind];
+      const info = eventInfo(ev);
       const timer = h('span', { class: 'sp-ev-t' });
       const tick = () => {
         if (!w.s.events.includes(ev)) { this.render(); return; }
-        timer.textContent = `⏱ ${fmtTime(ev.until - w.s.t)}`;
+        // A story relic waits for you; it has no timer.
+        timer.textContent = ev.storyGoal !== undefined ? '⭐ Story' : `⏱ ${fmtTime(ev.until - w.s.t)}`;
       };
       tick();
       this.dynamic.push(tick);
@@ -250,7 +252,7 @@ export class PlanetPanel {
       if (ev.kind === 'eco') acts.append(button(`☣️ Contain the outbreak (${(ev.marks?.length ?? 0) / 2})`, () => this.contain(ev), { cls: 'sp-wide sp-toxic' }));
       if (ev.kind === 'meteor') acts.append(button('☄️ Man the planetary gun', () => this.st.defend(ev), { cls: 'sp-wide danger' }));
       if (ev.kind === 'refugees') acts.append(button('📡 Hear their plea', () => refugeeTalk(this.st, ev, () => { if (this.el.isConnected) this.render(); }), { cls: 'gold sp-wide' }));
-      if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, !!w.star(this.star).hollow)) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' }));
+      if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, sealedHollow(w, this.star, this.idx))) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' }));
       if (acts.childElementCount) box.append(acts);
       this.body.append(box);
     }
@@ -261,7 +263,7 @@ export class PlanetPanel {
     switch (ev.kind) {
       case 'meteor': return 'Rocks are falling toward this world. Take the planetary gun and shoot them down: each one that lands cracks the spice stores, and every second one flattens a building.';
       case 'distress': return 'A stranded ship drifts near this planet, its beacon blinking. Fly to the 🆘 marker to answer the call.';
-      case 'relic': return 'Something ancient is buried down there. Land, sweep the surface with 📡 Life scan, and beam the relic up.';
+      case 'relic': return ev.label ? `The ${ev.label} is buried down there. Land, sweep the surface with 📡 Life scan, and beam it up.` : 'Something ancient is buried down there. Land, sweep the surface with 📡 Life scan, and beam the relic up.';
       case 'rare': return 'A one-of-a-kind creature has been spotted on the surface. It bolts at the sight of your ship: land, chase it down and beam it aboard.';
       case 'trader': return 'A wandering trader has set up shop in orbit. Each deal can be taken once.';
       case 'refugees': return ps.cities < maxCities(this.w, this.star, this.idx) ? 'Refugees from a dying world ask to settle here. They would found a whole new city.' : 'Refugees from a dying world ask to settle here. There is no room for a new city, but they would pay their way.';
@@ -325,7 +327,7 @@ export class PlanetPanel {
       const cc = canColonize(w, this.star, this.idx);
       if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
       acts.append(button('🌍 Terraform', () => { this.tab = 'terra'; this.render(); this.terraView(); }));
-      if (!landingBlock(pl, ps, !!w.star(this.star).hollow)) acts.append(button(pl.life ? '🛬 Land & find life' : '🛬 Land', () => this.land(), { cls: pl.life ? 'primary' : '' }));
+      if (!landingBlock(pl, ps, sealedHollow(w, this.star, this.idx))) acts.append(button(pl.life ? '🛬 Land & find life' : '🛬 Land', () => this.land(), { cls: pl.life ? 'primary' : '' }));
     }
     if (e && e.arch !== 'hollow') acts.append(button('💱 Trade', () => { this.tab = 'trade'; this.render(); }));
     if (e) acts.append(button('📡 Hail', () => this.st.openComm(e)));

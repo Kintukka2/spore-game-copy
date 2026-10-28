@@ -8,6 +8,7 @@ import { aggression, addMod, razeCity, strength } from './empires';
 import { onPiratesCleared } from './missions';
 import { resolve as resolveEvent } from './events';
 import type { SpaceStage } from './stage';
+import type { Mission } from './types';
 
 export type CraftKind = 'player' | 'ally' | 'squire' | 'pirate' | 'empire' | 'hollow' | 'turret';
 
@@ -137,6 +138,24 @@ export class Combat {
         hp: [160, 220, 320, 450, 600][s - 1] * k, speed: 240, dmg: (9 + s * 3) * k, range: 400, rate: 1.2, size: 0.55, empire: empireId, color: e.color, engine: e.color,
       });
       Object.assign(c, extra);
+    }
+  }
+
+  /** A story fight (story.ts): Hollow ships, and the thing they guard, tagged with the mission. */
+  spawnStory(m: Mission, x: number, y: number) {
+    const g = m.story?.foes;
+    if (!g) return;
+    const k = this.st.game.diff(0.7, 1, 1.35);
+    const ship = this.st.w.emap.get('hollow')?.ship ?? null;
+    const o = { speed: 205, range: 450, rate: 1.35, size: 0.62, empire: 'hollow', color: '#ff3b4a', engine: '#ff3b4a' };
+    for (let i = 0; i < g.n; i++) {
+      const a = Math.random() * TAU, d = 90 + Math.random() * 160;
+      this.make('hollow', 1, ship, x + Math.cos(a) * d, y + Math.sin(a) * d, { ...o, hp: g.hp * k, dmg: g.dmg * k }).mission = m.id;
+    }
+    if (g.boss) {
+      const c = this.make('hollow', 1, ship, x, y, { ...o, hp: g.boss.hp * k, dmg: g.boss.dmg * k, speed: 80, range: 540, rate: 1.05, size: 1.1 });
+      c.mission = m.id;
+      c.boss = true;
     }
   }
 
@@ -280,7 +299,7 @@ export class Combat {
       if (ev) resolveEvent(w, ev);
     }
     if (dead.mission !== undefined && !this.crafts.some((c) => c.alive && c.mission === dead.mission)) {
-      onPiratesCleared(w, w.s.loc);
+      onPiratesCleared(w, w.s.loc, dead.mission);
     }
   }
 

@@ -1,11 +1,13 @@
 // The core ending: a dive into the galactic heart, a meeting with Ori (a tiny, friendly
 // cosmic being), the gift of the Genesis Seed, and a short credits roll. Play continues after.
+// At the end of the story (story.ts) Ori owns up: it was the voice in the static all along.
 import type { Game, Scene } from '../../game/game';
 import { audio } from '../../engine/audio';
 import { button, h } from '../../engine/ui';
 import { TAU, clamp } from '../../engine/math';
 import { blit, glow, starSprite } from './art/sprites';
 import { drawShip } from './art/shipArt';
+import { drawOri } from './art/ori';
 import type { SpaceStage } from './stage';
 
 const LINES = [
@@ -17,8 +19,22 @@ const LINES = [
   'Now off you go. The galaxy is big, and it\'s yours to fill. Come back and visit. I mean it!',
 ];
 
-export function playEnding(st: SpaceStage, done: () => void) {
-  st.game.push(new CoreCinematic(st, done));
+/** The reveal at the end of the story. `echo`: Echo stayed behind at the Silent Gate. */
+function revealLines(echo: boolean): string[] {
+  return [
+    'There you are! Hello! It\'s me. The voice in the static.',
+    'I\'m Ori. Sorry about all the question marks. The Hollow listen to everything, and if they\'d known who was calling, they\'d have come for me sooner. Well. They came anyway.',
+    'I keep the light on in here. The Choir and I kept it together once, before they forgot how to sing.',
+    ...(echo ? ['Echo is here, you know. The light caught her when the gate closed behind you. She\'s very sleepy, and humming.'] : []),
+    'You started as a speck of goo in a tide pool, didn\'t you? I can always tell. It\'s the best way to start.',
+    'Here: a Genesis Seed. Plant it on any world and it blooms: air, oceans, forests, creatures, the works. Twelve charges. Use them kindly. Or wildly! Both are allowed.',
+    'Listen. The ring has gone quiet. I think some of the Hollow are humming the hymn again. The galaxy is brighter because of you. Come back and visit. I mean it!',
+  ];
+}
+
+export function playEnding(st: SpaceStage, done: () => void, o: { reveal?: boolean; echo?: boolean } = {}) {
+  const lines = o.reveal ? revealLines(!!o.echo) : LINES;
+  st.game.push(new CoreCinematic(st, done, lines, lines.findIndex((l) => l.includes('Genesis Seed')), !!o.reveal));
 }
 
 interface Mote { x: number; y: number; vx: number; vy: number; r: number; hue: number }
@@ -39,7 +55,7 @@ class CoreCinematic implements Scene {
   private gift = -1;
   private finished = false;
 
-  constructor(private st: SpaceStage, private done: () => void) {}
+  constructor(private st: SpaceStage, private done: () => void, private lines: string[], private giftAt: number, private reveal: boolean) {}
 
   enter(game: Game) {
     this.game = game;
@@ -59,7 +75,7 @@ class CoreCinematic implements Scene {
     if (this.phase === 'ori') {
       this.oriT += dt;
       if (this.line >= 0 && this.textEl) {
-        const full = LINES[this.line];
+        const full = this.lines[this.line];
         if (this.typed < full.length) {
           const before = Math.floor(this.typed);
           this.typed = Math.min(full.length, this.typed + dt * 38);
@@ -91,17 +107,17 @@ class CoreCinematic implements Scene {
     if (this.phase !== 'ori' || this.finished) return;
     this.line++;
     this.typed = 0;
-    if (this.line === 3) {
+    if (this.line === this.giftAt) {
       this.gift = 0;
       audio.sfx('unlock');
       setTimeout(() => audio.sfx('levelup'), 600);
     }
-    if (this.line >= LINES.length) { this.startCredits(); return; }
+    if (this.line >= this.lines.length) { this.startCredits(); return; }
   }
 
   private advance() {
     if (this.phase !== 'ori' || this.line < 0) return;
-    const full = LINES[this.line];
+    const full = this.lines[this.line];
     if (this.typed < full.length) { this.typed = full.length; if (this.textEl) this.textEl.textContent = full; return; }
     audio.sfx('click');
     this.nextLine();
@@ -132,6 +148,7 @@ class CoreCinematic implements Scene {
       h('p', null, 'and many, many tiny creatures'),
       h('h3', null, 'Special thanks'),
       h('p', null, 'Ori, keeper of the light'),
+      ...(this.reveal ? [h('p', null, 'Echo, who remembered'), h('p', null, 'and the Choir, who will sing again')] : []),
       h('p', null, 'Every species that ever crawled out of a tide pool'),
       h('h3', null, 'And you'),
       h('p', null, 'for playing.'),
@@ -244,80 +261,6 @@ class CoreCinematic implements Scene {
     }
     if (!credits && t < 1.2) { g.fillStyle = `rgba(255,252,240,${1 - t / 1.2})`; g.fillRect(0, 0, W, H); }
   }
-}
-
-/** Ori: a tiny glowing being with big eyes, two antennae and fluttering fins, riding a halo. */
-function drawOri(g: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, appear: number) {
-  if (appear <= 0) appear = 1;
-  const R = 34 * s * (0.6 + 0.4 * appear);
-  g.save();
-  g.globalCompositeOperation = 'lighter';
-  blit(g, glow('#ffe2a8', 64), x, y, R * 3.6);
-  g.globalCompositeOperation = 'source-over';
-  // Halo ring it rides on
-  g.strokeStyle = 'rgba(255,240,200,0.9)';
-  g.lineWidth = 4 * s;
-  g.beginPath(); g.ellipse(x, y + R * 1.05, R * 1.4, R * 0.3, 0, 0, TAU); g.stroke();
-  g.strokeStyle = 'rgba(255,200,120,0.6)';
-  g.lineWidth = 9 * s;
-  g.beginPath(); g.ellipse(x, y + R * 1.05, R * 1.4, R * 0.3, 0, 0.1, Math.PI - 0.1); g.stroke();
-  // Fins
-  const flap = Math.sin(t * 9) * 0.5;
-  for (const side of [-1, 1]) {
-    g.save();
-    g.translate(x + side * R * 0.85, y + R * 0.1);
-    g.rotate(side * (0.6 + flap));
-    g.fillStyle = 'rgba(255,190,220,0.85)';
-    g.strokeStyle = '#b8507a';
-    g.lineWidth = 2 * s;
-    g.beginPath(); g.ellipse(side * R * 0.35, 0, R * 0.45, R * 0.2, 0, 0, TAU); g.fill(); g.stroke();
-    g.restore();
-  }
-  // Antennae
-  for (const side of [-1, 1]) {
-    const tipX = x + side * R * 0.75 + Math.sin(t * 2 + side) * 5 * s, tipY = y - R * 1.55 + Math.cos(t * 2.4 + side) * 4 * s;
-    g.strokeStyle = '#a0603a';
-    g.lineWidth = 3 * s;
-    g.lineCap = 'round';
-    g.beginPath(); g.moveTo(x + side * R * 0.3, y - R * 0.8); g.quadraticCurveTo(x + side * R * 0.2, y - R * 1.4, tipX, tipY); g.stroke();
-    g.globalCompositeOperation = 'lighter';
-    blit(g, glow('#9fe3ff', 24), tipX, tipY, 12 * s);
-    g.globalCompositeOperation = 'source-over';
-    g.fillStyle = '#e9fbff';
-    g.beginPath(); g.arc(tipX, tipY, 4.5 * s, 0, TAU); g.fill();
-  }
-  // Body
-  const bg = g.createRadialGradient(x - R * 0.3, y - R * 0.4, R * 0.1, x, y, R);
-  bg.addColorStop(0, '#fffdf2');
-  bg.addColorStop(0.5, '#ffd98a');
-  bg.addColorStop(1, '#ff9e5c');
-  g.fillStyle = bg;
-  g.strokeStyle = '#8a4a20';
-  g.lineWidth = 3 * s;
-  g.beginPath(); g.ellipse(x, y, R, R * 0.95, 0, 0, TAU); g.fill(); g.stroke();
-  // Cheeks
-  g.fillStyle = 'rgba(255,120,140,0.35)';
-  for (const side of [-1, 1]) { g.beginPath(); g.ellipse(x + side * R * 0.55, y + R * 0.25, R * 0.16, R * 0.1, 0, 0, TAU); g.fill(); }
-  // Eyes (with blinks)
-  const blink = (t % 3.4) > 3.25 ? 0.12 : 1;
-  for (const side of [-1, 1]) {
-    const ex = x + side * R * 0.32, ey = y - R * 0.12;
-    g.fillStyle = '#ffffff';
-    g.strokeStyle = '#5a3018';
-    g.lineWidth = 2 * s;
-    g.beginPath(); g.ellipse(ex, ey, R * 0.22, R * 0.27 * blink, 0, 0, TAU); g.fill(); g.stroke();
-    if (blink > 0.5) {
-      g.fillStyle = '#2a1a3a';
-      g.beginPath(); g.ellipse(ex + R * 0.03, ey + R * 0.04, R * 0.13, R * 0.16, 0, 0, TAU); g.fill();
-      g.fillStyle = '#ffffff';
-      g.beginPath(); g.arc(ex - R * 0.03, ey - R * 0.05, R * 0.05, 0, TAU); g.fill();
-    }
-  }
-  // Smile
-  g.strokeStyle = '#5a3018';
-  g.lineWidth = 2.5 * s;
-  g.beginPath(); g.arc(x, y + R * 0.22, R * 0.2, 0.2, Math.PI - 0.2); g.stroke();
-  g.restore();
 }
 
 function drawSeed(g: CanvasRenderingContext2D, x: number, y: number, s: number, t: number) {

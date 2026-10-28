@@ -8,7 +8,9 @@ import { TAU } from '../../../engine/math';
 import { SPICE, SPICE_COLORS, STAR_INFO, type SpiceColor } from '../data';
 import { archName, relation, stanceInfo } from '../empires';
 import { abandon } from '../missions';
-import { EVENT_INFO } from '../events';
+import { EVENT_INFO, eventInfo } from '../events';
+import { chapterIndex, storyGiver } from '../story';
+import { drawOri } from '../art/ori';
 import { change, CODE, contractPrice, gsi, nextIn } from '../market';
 import type { Mission } from '../types';
 import { fmtTime, money } from './common';
@@ -49,7 +51,7 @@ export function dataTab(ctx: NbCtx): NbTab {
   const world = { id: 'world', label: 'World Map', custom: (host: HTMLElement): NbCustom => worldMap(host, ctx) };
 
   // ---------------------------------------------------------------- Quests
-  const giverName = (m: Mission) => (m.giver === 'home' ? 'Homeworld' : m.giver === 'exchange' ? 'Spice Exchange' : w.emap.get(m.giver)?.name ?? 'Unknown');
+  const giverName = (m: Mission) => (m.giver === 'home' ? 'Homeworld' : m.giver === 'exchange' ? 'Spice Exchange' : m.giver === 'story' ? storyGiver(w) : w.emap.get(m.giver)?.name ?? 'Unknown');
   const quests = page('quests', 'Quests', () => {
     const rows: Row[] = [];
     const tracked = trackedMission(w);
@@ -78,13 +80,14 @@ export function dataTab(ctx: NbCtx): NbTab {
     }
     if (w.s.events.length) rows.push({ name: 'ALERTS', head: true, d: () => ({}) });
     for (const ev of w.s.events) {
-      const pl = w.planet(ev.star, ev.planet), info = EVENT_INFO[ev.kind];
+      const pl = w.planet(ev.star, ev.planet), info = eventInfo(ev);
+      const time = () => (ev.storyGoal !== undefined ? '∞' : fmtTime(ev.until - w.s.t));
       rows.push({
-        icon: info.icon, name: `${info.label}: ${pl.name}`, val: fmtTime(ev.until - w.s.t),
+        icon: info.icon, name: `${info.label}: ${pl.name}`, val: time(),
         d: () => ({
           big: info.icon,
           title: `${info.label}: ${pl.name}`,
-          boxes: [['KIND', info.good ? 'Opportunity' : 'Threat'], ['SYSTEM', w.star(ev.star).name], ['TIME', fmtTime(ev.until - w.s.t)]],
+          boxes: [['KIND', ev.storyGoal !== undefined ? 'Story' : info.good ? 'Opportunity' : 'Threat'], ['SYSTEM', w.star(ev.star).name], ['TIME', time()]],
           desc: info.how,
           acts: [{ key: 'E', label: 'Go there', run: () => { ctx.close(); st.gotoEvent(ev); } }],
         }),
@@ -94,9 +97,43 @@ export function dataTab(ctx: NbCtx): NbTab {
   }, 'No missions. Hail an empire and ask for work, take a job from the Spice Exchange, or simply explore.', () => w.s.missions.length + w.s.events.length);
 
   // ---------------------------------------------------------------- Contacts
+  /** The story's voices: the one in the static (until you meet it), and Echo. */
+  const storySignals = (): Row[] => {
+    const sto = w.s.story;
+    if (!sto || (sto.ch === 0 && (sto.phase === 'wait' || sto.phase === 'signal'))) return [];
+    const rows: Row[] = [{ name: 'SIGNALS', head: true, d: () => ({}) }];
+    const known = sto.phase === 'done';
+    rows.push({
+      icon: known ? '🕯️' : '📡', name: known ? 'Ori' : '??????', val: known ? 'Friend' : sto.oriLost ? 'Silent' : 'Signal',
+      d: () => ({
+        pic: (el: HTMLElement) => picCanvas(el, (g, cw, chh, t) => drawOri(g, cw / 2, chh * 0.55, Math.min(cw, chh) / 150, t, 1, { silhouette: !known }), true, 'alive'),
+        title: known ? 'Ori · keeper of the light' : '?????? · unknown signal',
+        boxes: [['STATUS', known ? 'Met' : sto.oriLost ? 'Lost' : 'Calling'], ['CHAPTER', `${Math.min(sto.ch + 1, 10)}/10`]],
+        desc: known ? 'The tiny keeper of the light at the middle of everything. It was the voice in the static all along.'
+          : sto.oriLost ? 'The voice in the static went silent when the Hollow traced its signal. Somewhere coreward, it is still waiting.'
+          : 'A voice in the static. It has never said who it is, or where it is calling from. It asks you to make the galaxy brighter.',
+      }),
+    });
+    if (sto.ch > chapterIndex('echo')) {
+      const h = w.emap.get('hollow')!.creature;
+      const face = { ...h, colors: { ...h.colors, detail: '#5af0c8', base: '#b4c6d0', coat: '#5d7382' } };
+      rows.push({
+        icon: '🤖', name: 'Echo', val: sto.echoLost ? 'At the gate' : 'Ally',
+        d: () => ({
+          pic: (el: HTMLElement) => picDesign(el, face, true, true),
+          title: 'Echo · former Hollow',
+          boxes: [['STATUS', sto.echoLost ? 'Lost' : 'Ally'], ['LIGHTS', 'Teal']],
+          desc: sto.echoLost ? 'Echo stayed behind at the Silent Gate, singing the Choir\'s hymn so it would stay open for you.'
+            : 'A Hollow unit that remembered who it was when you broke the Null Engine. Its red lights have turned teal.',
+        }),
+      });
+    }
+    return rows;
+  };
+
   const contacts = page('contacts', 'Contacts', () => {
     const met = w.empires.filter((e) => e.met && !e.dead).sort((a, b) => relation(b) - relation(a));
-    return met.map((e) => {
+    return met.map((e): Row => {
       const s = stanceInfo(e);
       return {
         icon: e.arch === 'hollow' ? '👁️' : e.allied ? '🤝' : e.war ? '🔥' : '👽', name: e.name, val: s.label,
@@ -113,7 +150,7 @@ export function dataTab(ctx: NbCtx): NbTab {
           ],
         }),
       };
-    });
+    }).concat(storySignals());
   }, 'You have not met anyone yet. Fly into another empire\'s territory to make contact.');
 
   // ---------------------------------------------------------------- Notes

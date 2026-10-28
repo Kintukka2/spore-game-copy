@@ -5,7 +5,8 @@ import { audio } from '../../../engine/audio';
 import { fmt } from '../../../engine/math';
 import { pauseMenu } from '../../common';
 import { RANKS } from '../data';
-import { EVENT_INFO } from '../events';
+import { EVENT_INFO, eventInfo } from '../events';
+import { storyPending } from '../story';
 import { gsi } from '../market';
 import { trackedMission } from './nbData';
 import type { SpaceStage } from '../stage';
@@ -30,6 +31,7 @@ export class SpaceHud {
   private track: HTMLElement;
   private trackTitle: HTMLElement;
   private trackDesc: HTMLElement;
+  private trackIcon!: HTMLElement;
   private alerts: HTMLElement;
   private viewBtn: HTMLButtonElement;
   /** The Xeno-Lab on your homeworld: shown only while you are home. */
@@ -81,7 +83,8 @@ export class SpaceHud {
     const bars = h('div', { class: 'sp-bars' }, h('div', { class: 'sp-barw' }, this.hpBar.el, this.hpPlus), h('div', { class: 'sp-barw' }, this.enBar.el, this.enPlus));
     this.trackTitle = h('b', null, '');
     this.trackDesc = h('span', { class: 'sp-tdesc' }, '');
-    this.track = h('div', { class: 'sp-track', role: 'button', title: 'Missions' }, h('span', null, '📜'), this.trackTitle, this.trackDesc);
+    this.trackIcon = h('span', null, '📜');
+    this.track = h('div', { class: 'sp-track', role: 'button', title: 'Missions' }, this.trackIcon, this.trackTitle, this.trackDesc);
     this.track.addEventListener('click', () => st.openNav('data', 'quests'));
     this.alerts = h('div', { class: 'sp-alerts' });
     const top = h('div', { class: 'sp-top' }, row1, bars, this.track, this.alerts);
@@ -164,6 +167,9 @@ export class SpaceHud {
       button('Eco now', () => st.debug('eco'), { cls: 'small' }),
       ...(['meteor', 'distress', 'relic', 'rare', 'trader', 'refugees'] as const).map((k) => button(`${EVENT_INFO[k].icon} ${k}`, () => st.debug(k), { cls: 'small' })),
       button('Jump near core', () => st.debug('core'), { cls: 'small' }),
+      button('Story signal', () => st.debug('signal'), { cls: 'small' }),
+      button('Story ▶', () => st.debug('story'), { cls: 'small' }),
+      button('Core gear', () => st.debug('gear'), { cls: 'small' }),
     );
     this.debugEl = h('div', { class: 'sp-debug' }, toggle, list);
     this.root.append(this.debugEl);
@@ -221,18 +227,25 @@ export class SpaceHud {
     const m = trackedMission(w);
     const tkey = m ? m.id + ':' + (m.deadline ? Math.ceil(m.deadline - s.t) : '') : 'none';
     this.set('track', tkey, () => {
-      if (!m) { this.trackTitle.textContent = 'Free flight'; this.trackDesc.textContent = 'Explore, trade, or ask empires for work.'; return; }
+      if (!m) { this.trackIcon.textContent = '📜'; this.trackTitle.textContent = 'Free flight'; this.trackDesc.textContent = 'Explore, trade, or ask empires for work.'; return; }
+      this.trackIcon.textContent = m.kind === 'story' ? '⭐' : '📜';
       this.trackTitle.textContent = m.title;
       const tl = m.deadline ? ` · ⏱ ${fmtTime(m.deadline - s.t)}` : '';
       this.trackDesc.textContent = m.desc + tl;
     });
-    // Alerts
-    const akey = s.events.map((e) => e.id + ':' + Math.ceil(e.until - s.t)).join(',');
+    // Alerts, after a story call waiting to be answered (📡)
+    const call = storyPending(w);
+    const akey = (call ?? '') + '|' + s.events.map((e) => e.id + ':' + (e.storyGoal !== undefined ? '' : Math.ceil(e.until - s.t))).join(',');
     this.set('alerts', akey, () => {
       this.alerts.innerHTML = '';
-      for (const ev of s.events.slice(0, 3)) {
-        const pl = w.planet(ev.star, ev.planet);
-        const chip = h('div', { class: 'sp-alert' + (ev.kind === 'eco' ? ' eco' : EVENT_INFO[ev.kind].good ? ' good' : ''), role: 'button', title: `${EVENT_INFO[ev.kind].label}: ${EVENT_INFO[ev.kind].how}` }, EVENT_INFO[ev.kind].icon, ` ${pl.name} ${fmtTime(ev.until - s.t)}`);
+      if (call) {
+        const chip = h('div', { class: 'sp-alert sig', role: 'button', title: 'A signal is breaking through the static. Tap to answer.' }, '📡', ' Incoming signal');
+        chip.addEventListener('click', () => st.answerStory());
+        this.alerts.append(chip);
+      }
+      for (const ev of s.events.slice(0, call ? 2 : 3)) {
+        const pl = w.planet(ev.star, ev.planet), info = eventInfo(ev);
+        const chip = h('div', { class: 'sp-alert' + (ev.kind === 'eco' ? ' eco' : info.good ? ' good' : ''), role: 'button', title: `${info.label}: ${info.how}` }, info.icon, ` ${pl.name} ${ev.storyGoal !== undefined ? '⭐' : fmtTime(ev.until - s.t)}`);
         chip.addEventListener('click', () => st.gotoEvent(ev));
         this.alerts.append(chip);
       }

@@ -46,6 +46,9 @@ import { openMeteorDefense } from './ui/meteorDefense';
 import { openExchange } from './ui/exchange';
 import type { MarketNews } from './market';
 import { playEnding } from './ending';
+import { finishChapter, sealedHollow, storyAtCore, storyDebug, storyPending, veilBlock } from './story';
+import { storyCall } from './ui/storyTalk';
+import { TOOL_MAP } from './data';
 
 export type ViewMode = 'galaxy' | 'system' | 'warp';
 
@@ -146,7 +149,7 @@ export class SpaceStage implements Scene, WorldHooks {
   /** Fly down to a planet's surface (a pushed scene; the galaxy waits in orbit). */
   land(star: number, idx: number) {
     const w = this.w;
-    const err = landingBlock(w.planet(star, idx), w.peekPS(star, idx), !!w.star(star).hollow);
+    const err = landingBlock(w.planet(star, idx), w.peekPS(star, idx), sealedHollow(w, star, idx));
     if (err) { this.ui.toast(err, '🛬'); audio.sfx('error'); return; }
     closeAllSheets();
     // Hold position in orbit so the ship does not wander into another panel during the fade.
@@ -219,6 +222,49 @@ export class SpaceStage implements Scene, WorldHooks {
     this.card?.update(dt);
     this.panel?.update(dt);
     if (this.w.s.hp <= 0 && !this.dead) this.playerDestroyed();
+    this.maybeStoryCall();
+  }
+
+  // ------------------------------------------------------------------ the story's calls
+  /** When a waiting story call opens by itself (ms clock): soon after it comes in, or a while after you put it off. */
+  private callAt = 0;
+  private calling = false;
+  /** A waiting call opens once things are calm: no fight, no warp, no planet open. */
+  private maybeStoryCall() {
+    if (this.calling || !storyPending(this.w) || performance.now() < this.callAt) return;
+    if (this.mode === 'warp' || this.w.inCombat || this.panel || this.dead) return;
+    this.answerStory();
+  }
+  /** Answer the story call that is waiting (the 📡 alert). */
+  answerStory() {
+    if (this.calling || !storyPending(this.w)) return;
+    this.calling = true;
+    void this.dialog(async () => {
+      const answered = await storyCall(this);
+      this.calling = false;
+      // A fight that starts where you already are begins now.
+      if (this.mode !== 'warp') this.sv.spawnStory(3);
+      // Put off: it calls again in four minutes (or answer it from the alert).
+      this.callAt = performance.now() + (answered ? 2500 : 240000);
+      this.hud.refresh(true);
+    });
+  }
+  storyCall() {
+    this.callAt = performance.now() + 2500;
+    if (!this.w.s.flags.storyHint) {
+      this.w.s.flags.storyHint = true;
+      this.game.hint('signal', 'A signal is breaking through the static. Answer it from the 📡 alert under your mission.', '📡');
+    }
+    this.hud.refresh(true);
+  }
+  /** The Hollow strike one of your worlds in the story: you see it if you are there. */
+  storyStrike(star: number, idx: number) {
+    if (this.mode === 'system' && this.sv.star === star) {
+      const p = this.sv.planetPos(idx);
+      this.fx.explosion(p.x, p.y, 2.4, '#ff3b4a');
+      this.fx.screenFlash('#ff3b4a', 0.6);
+      audio.sfx('explode');
+    } else audio.sfx('alarm');
   }
 
   render(g: CanvasRenderingContext2D, W: number, H: number) {
@@ -292,14 +338,16 @@ export class SpaceStage implements Scene, WorldHooks {
   }
 
   planRoute(target: number): number[] | null {
-    return this.w.gal.route(this.w.s.loc, target, this.w.driveRange);
+    // The veils around the core: no route passes through a system you cannot enter.
+    return this.w.gal.route(this.w.s.loc, target, this.w.driveRange, (id) => !!veilBlock(this.w, id));
   }
 
   async travelTo(target: number) {
     const w = this.w;
     if (target === w.s.loc) { this.showSystem(); return; }
-    if (target === w.gal.coreId && !w.s.flags.hollowContact) {
-      this.ui.toast('A wall of gravity turns you back. Perhaps the Hollow know the way in.', '🌀', 'bad');
+    const veil = veilBlock(w, target);
+    if (veil) {
+      this.ui.toast(`${veil.name}: ${veil.desc}`, '🌀', 'bad');
       audio.sfx('error');
       return;
     }
@@ -542,10 +590,12 @@ export class SpaceStage implements Scene, WorldHooks {
   eventStarted(ev: GEvent) {
     const pl = this.w.planet(ev.star, ev.planet);
     const sys = this.w.star(ev.star).name;
+    // A story relic was announced with its mission.
+    if (ev.storyGoal !== undefined) { if (ev.star === this.w.s.loc) this.sv.setupEvent(ev, false); return; }
     const msg: Record<GEvent['kind'], string> = {
       raid: `Pirates are raiding ${pl.name}!`,
       eco: `Eco-disaster on ${pl.name}! A plague is spreading.`,
-      hollow: `The Hollow strike ${pl.name}!`,
+      hollow: ev.unmaking ? `The Hollow strike ${pl.name}! Destroy their fleet in time, or the whole colony is unmade.` : `The Hollow strike ${pl.name}!`,
       invasion: `${this.w.emap.get(ev.empire ?? '')?.name ?? 'Enemies'} invade ${pl.name}!`,
       meteor: `A meteor storm is bearing down on ${pl.name}! Man the planetary gun.`,
       distress: `Distress call from a stranded ship near ${pl.name} (${sys}).`,
@@ -769,7 +819,13 @@ export class SpaceStage implements Scene, WorldHooks {
     w.s.flags.coreReached = true;
     w.s.missions = w.s.missions.filter((m) => m.kind !== 'core');
     w.s.flags['done-core'] = true;
+    // At the end of the story, the voice in the static owns up.
+    const story = storyAtCore(w);
     playEnding(this, () => {
+      if (story) {
+        const items = finishChapter(w);
+        this.later(1200, () => this.loot('⭐ The Middle of Everything', items, '🕯️'));
+      }
       this.cinematic = false;
       this.hud.setVisible(true);
       w.give('genesis', 12);
@@ -782,7 +838,7 @@ export class SpaceStage implements Scene, WorldHooks {
       audio.music(this.music);
       this.later(2000, () => this.ui.toast('The Genesis Seed is in your terraform tools. Open any planet to use it.', '🌱', 'gold'));
       this.game.save();
-    });
+    }, { reveal: story, echo: !!w.s.story?.echoLost });
   }
 
   // ------------------------------------------------------------------ debug
@@ -819,6 +875,12 @@ export class SpaceStage implements Scene, WorldHooks {
         startEvent(w, { id: w.nid(), kind: 'raid', star: col[0], planet: col[1], until: w.s.t + 150 });
         break;
       }
+      case 'story': storyDebug(w, 'skip'); break;
+      case 'signal': storyDebug(w, 'signal'); break;
+      case 'gear':
+        for (const g of ['lens', 'anchor', 'choirkey', 'lampwick']) w.s.tools[g] = 1;
+        this.ui.toast(`Core gear: ${['lens', 'anchor', 'choirkey', 'lampwick'].map((g) => TOOL_MAP[g].icon).join(' ')}`, '🐞');
+        break;
       case 'salvage':
         for (const c of COMP_IDS) (w.s.comps ??= {})[c] = (w.s.comps[c] ?? 0) + 5;
         w.s.blueprints = Object.keys(RECIPES);
@@ -845,6 +907,7 @@ export class SpaceStage implements Scene, WorldHooks {
           this.game.unlock('hollow-contact');
         }
         w.s.tools.drive5 = 1;
+        for (const g of ['lens', 'anchor', 'choirkey', 'lampwick']) w.s.tools[g] = 1;
         w.s.energy = w.maxEnergy;
         checkMainMissions(w);
         // The innermost bastion, a single hop from the core.

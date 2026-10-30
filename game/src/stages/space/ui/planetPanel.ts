@@ -296,7 +296,12 @@ export class PlanetPanel {
   private statRow(label: string, v: number, text: string, cls = ''): HTMLElement {
     const b = progressBar(cls);
     b.set(v);
-    return h('div', { class: 'sp-stat' }, h('span', null, label), b.el, h('b', { style: 'text-align:right;color:var(--ink)' }, text));
+    return h('div', { class: 'sp-stat' }, h('span', null, label), b.el, h('b', null, text));
+  }
+
+  /** A card: a small heading (with something on its right, if given) over its contents. */
+  private box(title: string, right: Node | string | null, ...kids: (Node | null)[]): HTMLElement {
+    return h('div', { class: 'pp-box' }, h('div', { class: 'pp-box-h' }, h('span', null, title), right), ...kids);
   }
 
   // ------------------------------------------------------------------ overview
@@ -306,11 +311,12 @@ export class PlanetPanel {
     const pl = this.pl;
     const B = this.body;
     if (ps.destroyed) { B.append(h('p', { class: 'dim' }, 'Only rubble remains of this world.')); this.genesisButton(B); return; }
+    const card = this.box('World', null);
     if (pl.kind !== 'gas') {
-      B.append(this.statRow('💨 Atmosphere', ps.atm, ps.atm < 0.2 ? 'Thin' : ps.atm > 0.8 ? 'Dense' : 'Fair'));
-      B.append(this.statRow('🌡️ Temperature', ps.temp, ps.temp < 0.2 ? 'Frozen' : ps.temp < 0.38 ? 'Cold' : ps.temp > 0.8 ? 'Scorching' : ps.temp > 0.62 ? 'Hot' : 'Mild', 'hunger'));
+      card.append(this.statRow('💨 Atmosphere', ps.atm, ps.atm < 0.2 ? 'Thin' : ps.atm > 0.8 ? 'Dense' : 'Fair'));
+      card.append(this.statRow('🌡️ Temperature', ps.temp, ps.temp < 0.2 ? 'Frozen' : ps.temp < 0.38 ? 'Cold' : ps.temp > 0.8 ? 'Scorching' : ps.temp > 0.62 ? 'Hot' : 'Mild', 'hunger'));
     }
-    const info = h('div', { class: 'sp-kv', style: 'margin:0' });
+    const info = h('div', { class: 'pp-kv' });
     if (pl.spice) info.append(h('span', null, 'Spice'), h('span', null, h('span', { class: 'sp-dot', style: `background:${SPICE[pl.spice].hex}` }), ' ', h('b', null, SPICE[pl.spice].name), ` · richness ${'●'.repeat(Math.round(pl.richness * 2))}`));
     else info.append(h('span', null, 'Spice'), h('span', null, 'none'));
     const o = ps.owner;
@@ -319,7 +325,8 @@ export class PlanetPanel {
     if (pl.kind !== 'gas') info.append(h('span', null, 'Life'), h('span', null, pl.life ? `${w.ecoRows(ps)} of 3 ecosystem rows full` : 'None'));
     if (pl.feature === 'wreck') info.append(h('span', null, 'Signal'), h('b', { style: 'color:#ffd166' }, ps.scanned ? 'A scanned wreck' : 'A crashed ship! Scan it.'));
     if (pl.feature === 'ruin') info.append(h('span', null, 'Signal'), h('b', { style: 'color:#ffd166' }, ps.scanned ? 'Ancient ruins (scanned)' : 'Ancient ruins. Scan them.'));
-    B.append(info);
+    card.append(info);
+    B.append(card);
     const acts = h('div', { class: 'sp-tools' });
     const wanted = w.s.missions.some((m) => (m.kind === 'scan' || (m.kind === 'tutorial' && m.step === 'scan')) && m.star === this.star && m.planet === this.idx);
     acts.append(button(`${ps.scanned && !wanted ? '🔍 Re-scan' : '🔍 Scan'} ⚡${SCAN_ENERGY}`, () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary', title: `Scanning costs ⚡${SCAN_ENERGY} energy` }));
@@ -353,8 +360,8 @@ export class PlanetPanel {
     B.append(acts);
     this.genesisButton(acts);
     if (w.count('cracker') > 0 && !isHomeworld(w, this.star, this.idx)) acts.append(button(`☄️ World Cracker (${w.count('cracker')})`, () => this.crack(), { cls: 'danger' }));
-    if (pl.feature === 'home') B.append(h('div', { class: 'sp-mini' }, 'Your homeworld: the shop sells every tool you have unlocked, and your ship repairs itself here for free.'));
-    else if (ps.owner === 'player') B.append(h('div', { class: 'sp-mini' }, 'Your colony: a shipyard like home. Buy tools, redesign your ship, and your hull repairs itself here. The Xeno-Lab is on your homeworld.'));
+    if (pl.feature === 'home') B.append(h('div', { class: 'pp-note' }, 'Your homeworld: the shop sells every tool you have unlocked, and your ship repairs itself here for free.'));
+    else if (ps.owner === 'player') B.append(h('div', { class: 'pp-note' }, 'Your colony: a shipyard like home. Buy tools, redesign your ship, and your hull repairs itself here. The Xeno-Lab is on your homeworld.'));
   }
 
   private genesisButton(parent: HTMLElement) {
@@ -482,10 +489,11 @@ export class PlanetPanel {
     }
     const t = tScoreOf(ps.atm, ps.temp);
     const foreign = !!this.owner();
-    B.append(h('div', { class: 'sp-section' }, 'Ecosystem'));
+    const full = w.ecoRows(ps);
     const eco = h('div', { class: 'sp-eco' });
     for (let row = 0; row < 3; row++) {
-      const r = h('div', { class: 'sp-eco-row' }, h('span', { class: 'sp-rl' }, `T${row + 1}`));
+      const done = ps.eco.slice(row * 4, row * 4 + 4).every((x) => !!x);
+      const r = h('div', { class: 'sp-eco-row' }, h('span', { class: 'sp-rl' + (done ? ' ok' : '') }, `T${row + 1}`, done ? h('i', null, '✓') : null));
       for (let k = 0; k < 4; k++) {
         const i = row * 4 + k;
         const sp = ps.eco[i];
@@ -503,13 +511,10 @@ export class PlanetPanel {
       }
       eco.append(r);
     }
-    B.append(eco);
-    B.append(h('div', { class: 'sp-mini' }, 'Each row needs two plants, a herbivore and a predator. A full row keeps that T-level stable.'));
+    B.append(this.box('Ecosystem', h('span', { class: 'pp-tag' + (full >= 3 ? ' ok' : '') }, `${full} / 3 rows full`), eco,
+      h('div', { class: 'pp-note' }, 'Each row needs two plants, a herbivore and a predator. A full row keeps that T-level stable.')));
     if (pl.life) {
       // Life is collected on the surface: land, find the herds and flora, and beam them up.
-      B.append(h('div', { class: 'sp-section' }, 'Native life'));
-      B.append(button('🛬 Land and search for life', () => this.land(), { cls: 'primary block' }));
-      B.append(h('div', { class: 'sp-mini' }, foreign ? 'This world is not yours: its owners will notice abductions.' : 'Fly low over the surface to find them. Tap a creature to beam it up; fly over flora to gather seeds.'));
       const grid = h('div', { class: 'sp-species' });
       const nat = w.natives(pl).slice(0, Math.max(1, tScoreOf(pl.atm, pl.temp)) * 4);
       for (const sp of nat) {
@@ -517,14 +522,18 @@ export class PlanetPanel {
         cell.addEventListener('click', () => this.land());
         grid.append(cell);
       }
-      B.append(grid);
+      B.append(this.box('Native life', button('🛬 Land and search', () => this.land(), { cls: 'primary small' }), grid,
+        h('div', { class: 'pp-note' }, foreign ? 'This world is not yours: its owners will notice abductions.' : 'Fly low over the surface to find them. Tap a creature to beam it up; fly over flora to gather seeds.')));
     }
-    B.append(h('div', { class: 'sp-mini' }, `Cargo: ${w.s.specimens.length} specimens · ${w.count('seeds')} seed pods · hold ${w.cargoUsed}/${w.cargoCap}`));
+    B.append(h('div', { class: 'pp-chips' },
+      h('span', { class: 'pp-tag' }, `📦 Hold ${w.cargoUsed} / ${w.cargoCap}`),
+      h('span', { class: 'pp-tag' }, `🧬 ${w.s.specimens.length} specimen${w.s.specimens.length === 1 ? '' : 's'}`),
+      h('span', { class: 'pp-tag' }, `🌱 ${w.count('seeds')} seed pods`)));
   }
 
   /** Marks species the Xenopedia has not seen yet (worth a research grant). */
   private xenoTag(sp: Specimen): HTMLElement {
-    return inXenopedia(this.w, sp) ? h('span', { class: 'xl-known', title: 'Already in your Xenopedia' }, '📖') : h('span', { class: 'xl-new', title: 'New species: research grant on first collection' }, 'NEW');
+    return inXenopedia(this.w, sp) ? h('span', { class: 'xl-known', title: 'Already in your Xenopedia' }, '✓') : h('span', { class: 'xl-new', title: 'New species: research grant on first collection' }, 'NEW');
   }
 
   private land() {
@@ -586,17 +595,15 @@ export class PlanetPanel {
     // Your colony
     const home = isHomeworld(w, this.star, this.idx);
     const maxC = home ? ps.cities : maxCities(w, this.star, this.idx);
-    const kv = h('div', { class: 'sp-kv', style: 'margin:0' });
-    kv.append(h('span', null, 'Cities'), h('b', null, `${ps.cities} / ${maxC}`));
     const prodEl = h('b', null, '');
     const happyEl = h('b', null, '');
-    kv.append(h('span', null, 'Spice'), prodEl, h('span', null, 'Mood'), happyEl);
-    B.append(kv);
+    const tile = (k: string, v: Node) => h('div', { class: 'pp-tile' }, h('span', null, k), v);
+    const tiles = h('div', { class: 'pp-tiles' }, tile('Cities', h('b', null, `${ps.cities} / ${maxC}`)), tile('Spice', prodEl), tile('Mood', happyEl));
     const store = progressBar('gold');
-    B.append(store.el);
     const upd = () => {
       const p = production(w, this.star, this.idx);
-      prodEl.textContent = pl.spice ? `${p.toFixed(1)}/min ${SPICE[pl.spice].name}` : 'none';
+      prodEl.replaceChildren(...(pl.spice ? [h('span', { class: 'sp-dot', style: `background:${SPICE[pl.spice].hex}` }), ` ${p.toFixed(1)}/min`] : ['none']));
+      prodEl.title = pl.spice ? `${p.toFixed(1)} ${SPICE[pl.spice].name} a minute` : '';
       const hp = happiness(w, ps);
       happyEl.textContent = `${hp >= 3 ? '😄' : hp >= 0 ? '🙂' : '😠'} ${hp}${(ps.unrest ?? 0) > 90 ? ' · on strike!' : ''}`;
       const cap = storageCap(w, this.star, this.idx, ps);
@@ -604,7 +611,7 @@ export class PlanetPanel {
     };
     upd();
     this.dynamic.push(upd);
-    const row = h('div', { class: 'sp-actions' });
+    const row = h('div', { class: 'pp-store' }, store.el);
     row.append(button('🧂 Collect spice', () => {
       const n = collectPlanet(w, this.star, this.idx);
       if (n > 0) { audio.sfx('coin'); this.st.ui.toast(`+${n} spice in your hold.`, '🧂', 'good'); } else this.st.ui.toast(w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'Nothing to collect yet.', '🧂');
@@ -614,50 +621,48 @@ export class PlanetPanel {
       if (!foundColony(w, this.star, this.idx)) { this.st.ui.toast('You need a Colony Pack.', '🏗️'); audio.sfx('error'); return; }
       this.render();
     }));
-    B.append(row);
-    if (tScoreOf(ps.atm, ps.temp) === 0 && !home) B.append(h('div', { class: 'sp-mini' }, 'T0 colonies are outposts: terraform to T1 to start producing spice.'));
-    if (home) { B.append(h('div', { class: 'sp-mini' }, 'Your homeworld produces a little Ember spice on its own.')); return; }
+    const summary = this.box('Colony', null, tiles, row);
+    B.append(summary);
+    if (tScoreOf(ps.atm, ps.temp) === 0 && !home) summary.append(h('div', { class: 'pp-note' }, 'T0 colonies are outposts: terraform to T1 to start producing spice.'));
+    if (home) { summary.append(h('div', { class: 'pp-note' }, 'Your homeworld produces a little Ember spice on its own.')); return; }
     // Buildings
-    B.append(h('div', { class: 'sp-section' }, `Buildings (${used(ps)} / ${slots(ps)} slots)`));
     const grid = h('div', { class: 'sp-grid3' });
     const order: BuildingId[] = [];
     for (const b of ['factory', 'leisure', 'turret'] as BuildingId[]) for (let i = 0; i < ps.bld[b]; i++) order.push(b);
     for (let i = 0; i < slots(ps); i++) {
       const b = order[i];
-      const cell = h('div', { class: 'sp-bld' + (b ? '' : ' empty'), role: 'button' }, h('span', { class: 'sp-bi' }, b ? BUILDINGS[b].icon : '＋'), b ? BUILDINGS[b].name : 'Empty');
+      const cell = h('div', { class: 'sp-bld' + (b ? '' : ' empty'), role: 'button', title: b ? `${BUILDINGS[b].name}: tap to demolish` : 'A free slot: build below' }, h('span', { class: 'sp-bi' }, b ? BUILDINGS[b].icon : '＋'), b ? BUILDINGS[b].name : 'Free slot');
       if (b) cell.addEventListener('click', async () => {
         if (await ui.confirm('Demolish?', `Tear down this ${BUILDINGS[b].name}? You won't get the money back.`, 'Demolish', 'Keep')) { demolish(w, this.star, this.idx, b); this.render(); }
       });
       grid.append(cell);
     }
-    B.append(grid);
     const bb = h('div', { class: 'sp-tools' });
     for (const b of ['factory', 'leisure', 'turret'] as BuildingId[]) {
       const def = BUILDINGS[b];
-      bb.append(button(`${def.icon} ${def.name} ${money(def.price)}`, () => {
+      bb.append(button([`${def.icon} ${def.name}`, h('span', { class: 'pp-price' }, money(def.price))], () => {
         if (!build(w, this.star, this.idx, b)) { this.st.ui.toast(used(ps) >= slots(ps) ? 'No free slots. Add a city to get more.' : 'Not enough money.', '🏗️'); audio.sfx('error'); return; }
         this.render();
       }, { disabled: used(ps) >= slots(ps) || w.s.money < def.price }));
     }
-    B.append(bb);
-    B.append(h('div', { class: 'sp-mini' }, 'Spice Works make spice but lower morale. Leisure Domes keep workers happy. Defence Towers help against raids.'));
+    B.append(this.box('Buildings', h('span', { class: 'pp-tag' + (used(ps) >= slots(ps) ? ' ok' : '') }, `${used(ps)} / ${slots(ps)} slots`), grid, bb,
+      h('div', { class: 'pp-note' }, 'Spice Works make spice but lower morale. Leisure Domes keep workers happy. Defence Towers help against raids. Tap a building to demolish it.')));
     // Upgrades
-    B.append(h('div', { class: 'sp-section' }, 'Upgrades'));
     const up = h('div', { class: 'sp-tools' });
     const inst = (id: 'silo' | 'bioshield' | 'turret', key: 'silo' | 'bioshield' | 'orbTurret', label: string) => {
       const has = !!ps[key];
-      up.append(button(has ? `✓ ${label}` : `${label} (${w.count(id)})`, () => {
+      up.append(button(has ? [`${label}`, h('span', { class: 'pp-price' }, '✓ Installed')] : [`${label}`, h('span', { class: 'pp-price' }, `${w.count(id)} in hold`)], () => {
         if (has) return;
         if (!w.use(id)) { this.st.ui.toast(`Buy a ${label} at your tool shop first.`, '🧰'); audio.sfx('error'); return; }
         w.ps(this.star, this.idx)[key] = true;
         audio.sfx('build');
         this.render();
-      }, { disabled: has }));
+      }, { cls: has ? 'on' : '' }));
     };
     inst('silo', 'silo', '🛢️ Spice Silo');
     inst('bioshield', 'bioshield', '🧬 Bio Shield');
     inst('turret', 'orbTurret', '🗼 Orbital Turret');
-    B.append(up);
+    B.append(this.box('Upgrades', null, up));
   }
 
   // ------------------------------------------------------------------ trade

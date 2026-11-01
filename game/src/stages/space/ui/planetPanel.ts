@@ -7,7 +7,7 @@ import { SCAN_ENERGY, SPICE, SPICE_COLORS, tScoreOf, type SpiceColor } from '../
 import { drawPlanet, SphereSprite, styleFor, type PlanetLook } from '../art/planetArt';
 import { blit, glow } from '../art/sprites';
 import {
-  BUILDINGS, build, buy, buyPrice, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony, sellQuote,
+  BUILDINGS, build, buy, buyPrice, buyQuote, canColonize, canTrade, collectPlanet, demolish, fillSlot, fits, foundColony, maxBuy, sellQuote,
   genesis, happiness, isHomeworld, maxCities, production, sell, sellPrice, slotKind, slots, storageCap, used, type BuildingId,
 } from '../economy';
 import { addMod, breakLaw, relation, stanceInfo, systemPrice } from '../empires';
@@ -48,6 +48,8 @@ export class PlanetPanel {
   private preview: TerraDef | null = null;
   /** What missions want done here (guide.ts): their tabs and buttons glow. */
   private guides: Guide[] = [];
+  /** The trade ticket open under a spice in the Trade tab: which spice, which way, how many. */
+  private ticket: { c: SpiceColor; side: 'sell' | 'buy'; n: number } | null = null;
   readonly pl: Planet;
 
   constructor(private st: SpaceStage, readonly star: number, readonly idx: number) {
@@ -224,6 +226,7 @@ export class PlanetPanel {
     // The tab a mission needs glows, unless you are already on it.
     for (const t of tabs) if (t.id !== this.tab) t.mark = mark(t.id);
     if (!tabs.some((t) => t.id === this.tab)) this.tab = 'overview';
+    if (this.tab !== 'trade') this.ticket = null;
     tabStrip(this.tabsEl, tabs, this.tab, (id) => { this.tab = id as Tab; this.render(); if (id === 'terra') this.terraView(); });
     this.dynamic = [];
     this.chart = null;
@@ -722,33 +725,10 @@ export class PlanetPanel {
     for (const m of deliverables(w, e)) {
       B.append(h('div', { class: 'sp-offer' }, h('b', null, `📦 ${m.title}`), button(`Deliver for ${money(m.reward)}`, () => { deliver(w, m); this.render(); }, { cls: 'gold guide' })));
     }
-    B.append(h('div', { class: 'sp-section' }, 'Spice market'),
-      h('div', { class: 'sp-mini' }, 'Each sale or purchase moves that spice\'s price. It drifts back to normal over a few minutes. Every price also follows the Galactic Spice Exchange, where the news moves the market.'),
-      h('div', { style: 'margin:2px 0 6px' }, button(exchangeOpen(w) ? '📈 Open the Spice Exchange' : '🔒 Spice Exchange (earn a charter)', () => this.st.openExchange(), { cls: 'small ghost' })));
-    for (const c of SPICE_COLORS) {
-      const have = w.s.spice[c];
-      const prod = e.produces.includes(c);
-      // Prices tick live, so their recovery shows as time passes rather than only when the tab is redrawn.
-      const priceEl = h('span', { class: 'sp-price' }), restEl = h('span'), mktEl = h('span', { class: 'sp-mkt' });
-      const upd = () => {
-        const d = e.demand[c];
-        priceEl.textContent = `sells ${money(sellPrice(w, e, c))}`;
-        restEl.textContent = (prod ? ` · buy ${money(buyPrice(w, e, c))}` : demandLabel(d)) + (d < 0.97 ? ' · ↗ recovering' : '');
-        // How far the exchange has pushed this spice from normal.
-        const mk = marketFactor(w, c) - 1;
-        mktEl.textContent = Math.abs(mk) > 0.05 ? ` · ${mk > 0 ? '📈' : '📉'} exchange ${mk > 0 ? '+' : ''}${Math.round(mk * 100)}%` : '';
-        mktEl.className = 'sp-mkt ' + (mk > 0 ? 'up' : 'down');
-      };
-      upd();
-      this.dynamic.push(upd);
-      const row = h('div', { class: 'sp-item', style: 'padding:8px' },
-        h('span', { class: 'sp-dot', style: `background:${SPICE[c].hex};width:16px;height:16px` }),
-        h('div', { class: 'sp-txt' }, h('b', null, `${SPICE[c].name} ×${have}`), priceEl, restEl, mktEl));
-      row.append(button('Sell', () => this.doSell(e, c, 1), { cls: 'small', disabled: have <= 0 }));
-      row.append(button('All', () => this.doSell(e, c, have), { cls: 'small primary', disabled: have <= 0 }));
-      if (prod) row.append(button('Buy', () => { const n = buy(w, e, c, 1); if (!n) { audio.sfx('error'); this.st.ui.toast(w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'Not enough money.', '💱'); } this.render(); }, { cls: 'small' }));
-      B.append(row);
-    }
+    const rows = h('div', { class: 'tr-rows' });
+    for (const c of SPICE_COLORS) rows.append(this.tradeRow(e, c));
+    B.append(this.box('Spice market', button(exchangeOpen(w) ? '📈 Exchange' : '🔒 Exchange', () => this.st.openExchange(), { cls: 'small ghost', title: exchangeOpen(w) ? 'Open the Galactic Spice Exchange' : 'The Spice Exchange opens once you earn a charter' }),
+      rows, h('div', { class: 'pp-note' }, 'Sell at empires that do not make a spice. Every sale lowers its price here and every purchase raises it; both drift back over a few minutes. All prices also follow the Galactic Spice Exchange.')));
     this.specimenMarket(e);
     // Takeover
     const prog = e.takeover[this.star] ?? 0;
@@ -791,24 +771,106 @@ export class PlanetPanel {
     this.st.game.hint('zoo-market', 'Some alien colonies buy specimens, but each zoo wants one kind: plants, herbivores, carnivores, omnivores, or hybrids and rare creatures. Each sale fills them up for a few minutes.', b.icon);
   }
 
-  private async doSell(e: Empire, c: SpiceColor, n: number) {
+  /** One spice: what you hold, how the market feels about it, and its sell and buy prices as buttons. A button
+   *  opens a ticket under the row: pick how many, see the total, and confirm. */
+  private tradeRow(e: Empire, c: SpiceColor): HTMLElement {
     const w = this.w;
-    n = Math.min(n, w.s.spice[c]);
-    if (n <= 0) return;
-    const quote = sellQuote(w, e, c, n);
-    const ok = await ui.confirm(`Sell ${n} × ${SPICE[c].name}?`,
-      `${e.name} will pay ${n > 1 ? 'about ' : ''}${money(quote)}${n > 1 ? ` (${money(Math.round(quote / n))} each on average: every one sold lowers the price a little)` : ''}.`, `Sell for ${money(quote)}`, 'Keep it');
-    if (!ok || !this.el.isConnected) return;
-    const got = sell(w, e, c, n, this.star);
-    if (got > 0) {
-      this.st.ui.toast(`Sold for ${money(got)}`, '💰', 'good');
-      this.st.game.hint('demand', 'Each sale lowers the price a little (supply and demand). Prices recover over time, and differ between empires.', '📉');
+    const have = w.s.spice[c];
+    const prod = e.produces.includes(c);
+    const tk = this.ticket?.c === c ? this.ticket : null;
+    const sellV = h('b'), buyV = h('b'), status = h('div', { class: 'tr-st' });
+    // What your missions still need of this spice, so a sale can warn before it eats into them.
+    const owed = w.s.missions.reduce((a, m) => a + (m.color === c && (m.kind === 'deliver' || m.story?.type === 'cargo') ? m.amount ?? 1 : 0), 0);
+    const open = (side: 'sell' | 'buy') => {
+      audio.sfx('tap');
+      this.ticket = tk?.side === side ? null : { c, side, n: side === 'sell' ? have : 1 };
+      this.render();
+    };
+    const sellB = button([h('span', null, 'Sell'), sellV], () => open('sell'), { cls: 'tr-btn sell' + (tk?.side === 'sell' ? ' on' : ''), disabled: have <= 0, title: have > 0 ? `Sell ${SPICE[c].name}` : 'None in your hold' });
+    const buyB = prod ? button([h('span', null, 'Buy'), buyV], () => open('buy'), { cls: 'tr-btn buy' + (tk?.side === 'buy' ? ' on' : ''), title: `Buy ${SPICE[c].name}` })
+      : h('div', { class: 'tr-btn none', title: `${e.species} do not make ${SPICE[c].name}` }, h('span', null, 'Buy'), h('b', null, '—'));
+    const upd = () => {
+      const d = e.demand[c];
+      sellV.textContent = money(sellPrice(w, e, c));
+      if (prod) buyV.textContent = money(buyPrice(w, e, c));
+      const mk = marketFactor(w, c) - 1;
+      const bits: HTMLElement[] = [h('span', { class: d > 0.85 ? 'hot' : d > 0.55 ? '' : 'cold' }, demandLabel(d))];
+      if (d < 0.97) bits.push(h('span', null, '↗ recovering'));
+      if (Math.abs(mk) > 0.05) bits.push(h('span', { class: mk > 0 ? 'up' : 'down' }, `${mk > 0 ? '📈' : '📉'} exchange ${mk > 0 ? '+' : ''}${Math.round(mk * 100)}%`));
+      status.replaceChildren(...bits);
+    };
+    upd();
+    this.dynamic.push(upd);
+    const row = h('div', { class: 'tr-row' + (tk ? ' open' : '') + (have ? '' : ' empty') },
+      h('span', { class: 'sp-dot', style: `background:${SPICE[c].hex}` }),
+      h('div', { class: 'tr-info' }, h('b', null, SPICE[c].name, h('span', { class: 'tr-have' }, have ? `${have} in hold` : 'none in hold')), status),
+      h('div', { class: 'tr-acts' }, sellB, buyB));
+    if (tk) row.append(this.tradeTicket(e, c, tk, owed));
+    return row;
+  }
+
+  /** The open ticket: how many (−, +, quick picks), the total as it stands, and the button that does it. */
+  private tradeTicket(e: Empire, c: SpiceColor, tk: { c: SpiceColor; side: 'sell' | 'buy'; n: number }, owed: number): HTMLElement {
+    const w = this.w, name = SPICE[c].name, sell = tk.side === 'sell';
+    const max = () => (sell ? w.s.spice[c] : maxBuy(w, e, c));
+    const clamp = () => { tk.n = Math.max(max() > 0 ? 1 : 0, Math.min(max(), Math.round(tk.n) || 0)); };
+    clamp();
+    const nEl = h('b', { class: 'tr-n' });
+    const quote = h('div', { class: 'tr-quote' });
+    const go = button('', () => this.doTrade(e, c, tk), { cls: (sell ? 'primary' : 'gold') + ' tr-go' });
+    const step = (d: number) => button(d > 0 ? '+' : '−', () => { tk.n += d; clamp(); refresh(); }, { cls: 'small tr-step', sound: false });
+    const pick = (label: string, n: () => number) => button(label, () => { tk.n = n(); clamp(); refresh(); }, { cls: 'small ghost tr-pick', sound: false });
+    const refresh = () => {
+      clamp();
+      nEl.textContent = String(tk.n);
+      const m = max();
+      if (m <= 0) {
+        quote.replaceChildren(h('span', { class: 'bad' }, sell ? 'You have none left.' : w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'You cannot afford even one.'));
+        go.disabled = true;
+        go.textContent = sell ? 'Sell' : 'Buy';
+        return;
+      }
+      const total = sell ? sellQuote(w, e, c, tk.n) : buyQuote(w, e, c, tk.n);
+      const each = Math.round(total / tk.n);
+      const bits: (string | HTMLElement)[] = [sell ? 'You receive ' : 'You pay ', h('b', null, money(total)),
+        tk.n > 1 ? ` · ${money(each)} each on average, as every ${sell ? 'sale lowers' : 'purchase raises'} the price` : ''];
+      if (!sell) bits.push(h('div', null, `Hold ${w.cargoUsed} → ${w.cargoUsed + tk.n} / ${w.cargoCap} · credits left ${money(w.s.money - total)}`));
+      else if (owed && w.s.spice[c] - tk.n < owed) bits.push(h('div', { class: 'warn' }, `⚠ Your missions need ${owed} ${name}. This leaves you ${w.s.spice[c] - tk.n}.`));
+      quote.replaceChildren(...bits);
+      go.disabled = false;
+      go.textContent = `${sell ? 'Sell' : 'Buy'} ${tk.n} ${name} · ${money(total)}`;
+    };
+    refresh();
+    this.dynamic.push(refresh);
+    const all = sell ? pick(`All ${w.s.spice[c]}`, max) : pick(`Max ${max()}`, max);
+    return h('div', { class: 'tr-ticket ' + tk.side },
+      h('div', { class: 'tr-qty' }, h('span', { class: 'tr-lbl' }, sell ? `Sell to ${e.name}` : `Buy from ${e.name}`), h('span', { class: 'grow' }),
+        step(-1), nEl, step(1), pick('1', () => 1), pick('5', () => 5), all),
+      quote,
+      h('div', { class: 'tr-go-row' }, button('Cancel', () => { this.ticket = null; this.render(); }, { cls: 'ghost small' }), go));
+  }
+
+  /** Do what the ticket says, at the prices as they stand now. */
+  private doTrade(e: Empire, c: SpiceColor, tk: { side: 'sell' | 'buy'; n: number }) {
+    const w = this.w, name = SPICE[c].name;
+    if (tk.side === 'sell') {
+      const got = sell(w, e, c, Math.min(tk.n, w.s.spice[c]), this.star);
+      if (got > 0) {
+        this.st.ui.toast(`Sold ${tk.n} ${name} for ${money(got)}`, '💰', 'good');
+        this.st.game.hint('demand', 'Each sale lowers the price a little (supply and demand). Prices recover over time, and differ between empires.', '📉');
+      }
+    } else {
+      const before = w.s.money;
+      const n = buy(w, e, c, tk.n);
+      if (!n) { audio.sfx('error'); this.st.ui.toast(w.cargoUsed >= w.cargoCap ? 'Your hold is full.' : 'Not enough credits.', '💱'); return; }
+      this.st.ui.toast(`Bought ${n} ${name} for ${money(before - w.s.money)}`, '📦', 'good');
     }
+    this.ticket = null;
     this.render();
   }
 }
 
 function demandLabel(d: number): string {
-  return d > 0.85 ? ' · in demand' : d > 0.55 ? ' · cooling' : ' · glutted';
+  return d > 0.85 ? 'in demand' : d > 0.55 ? 'cooling' : 'glutted';
 }
 

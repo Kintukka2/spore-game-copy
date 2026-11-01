@@ -311,6 +311,20 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sp-card .sp-sub { color:var(--ink-dim); font-size:13px; margin-top:2px; }
 .sp-kv { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:13px; margin:10px 0; color:var(--ink-dim); }
 .sp-kv b { color:var(--ink); font-weight:600; }
+/* A star behind a veil: just its name, kind and distance, then the gear it takes. */
+.sp-card .sc-lock { font-size:11px; color:#ffcf80; border-color:rgba(255,179,71,.6); }
+.sc-need { display:flex; flex-direction:column; gap:8px; margin:4px 0 10px; padding:10px 12px; border-radius:14px; background:rgba(255,179,71,.07); border:1px solid rgba(255,179,71,.35); }
+.sc-need > b { color:#ffcf80; font-size:13.5px; }
+.sc-veils { display:flex; flex-direction:column; gap:6px; }
+.sc-veil { display:flex; gap:10px; align-items:flex-start; }
+.sc-veil .sc-ic { flex:0 0 30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; background:rgba(255,255,255,.06); border:1px solid var(--line); }
+.sc-veil > div { display:flex; flex-direction:column; min-width:0; line-height:1.3; }
+.sc-veil b { font-size:13px; color:var(--ink); }
+.sc-veil span { font-size:12px; color:var(--ink-dim); }
+.sc-veil i { font-style:normal; font-size:11.5px; color:#ffd166; }
+.sc-veil.ok { opacity:.6; }
+.sc-veil.ok .sc-ic { color:#7fe9a4; border-color:rgba(76,217,123,.5); font-weight:700; }
+.sc-veil.ok i { color:#7fe9a4; }
 .sp-dot { display:inline-block; width:11px; height:11px; border-radius:50%; vertical-align:-1px; border:1px solid rgba(255,255,255,.5); }
 .sp-actions { display:flex; gap:8px; flex-wrap:wrap; }
 .sp-actions .btn { flex:1 1 auto; }
@@ -391,6 +405,42 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .pp-tag.ok { color:#7fe9a4; border-color:rgba(76,217,123,.5); }
 .pp-tag.bad { color:#ffcf80; border-color:rgba(255,179,71,.6); }
 .pp-note.need { color:#ffcf80; }
+/* Trade tab: a row per spice with its sell and buy prices as buttons; a button opens a ticket under the row. */
+.tr-rows { display:flex; flex-direction:column; gap:8px; }
+.tr-row { display:grid; grid-template-columns:auto 1fr auto; gap:6px 12px; align-items:center; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid var(--line); }
+.tr-row.open { border-color:rgba(62,230,196,.45); background:rgba(62,230,196,.05); }
+.tr-row .sp-dot { width:16px; height:16px; }
+.tr-info { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.tr-info > b { font-size:15px; color:var(--ink); display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.tr-have { font-size:12px; font-weight:600; color:var(--ink-dim); }
+.tr-row.empty .tr-have { color:var(--ink-faint); font-weight:500; }
+.tr-st { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12px; color:var(--ink-faint); }
+.tr-st .hot { color:#7fe9a4; } .tr-st .cold { color:#ffb37a; } .tr-st .up { color:#7fe9a4; } .tr-st .down { color:#ff8a7a; }
+.tr-acts { display:flex; gap:6px; }
+.sp-panel .btn.tr-btn, .tr-btn.none { min-width:88px; min-height:50px; padding:4px 10px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; line-height:1.1; }
+.tr-btn > span { font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; opacity:.8; }
+.tr-btn > b { font-size:15px; font-variant-numeric:tabular-nums; }
+.sp-panel .btn.tr-btn.sell { background:rgba(62,230,196,.12); border:1px solid rgba(62,230,196,.5); color:#bff7ea; }
+.sp-panel .btn.tr-btn.buy { background:rgba(255,209,102,.1); border:1px solid rgba(255,209,102,.45); color:#ffe6a8; }
+.sp-panel .btn.tr-btn.on { box-shadow:0 0 0 2px currentColor inset; }
+.sp-panel .btn.tr-btn:disabled { background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.14); color:var(--ink-faint); opacity:1; }
+.tr-btn.none { border:1px dashed rgba(255,255,255,.12); color:var(--ink-faint); }
+.tr-ticket { grid-column:1 / -1; display:flex; flex-direction:column; gap:8px; margin-top:4px; padding-top:10px; border-top:1px solid var(--line); }
+.tr-qty { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.tr-lbl { font-size:12.5px; font-weight:700; color:var(--ink-dim); }
+.tr-n { min-width:40px; text-align:center; font-size:20px; font-variant-numeric:tabular-nums; color:var(--ink); }
+.sp-panel .btn.tr-step { min-width:40px; min-height:40px; padding:0; font-size:20px; border-radius:10px; }
+.sp-panel .btn.tr-pick { min-height:40px; padding:0 10px; font-size:13px; }
+.tr-quote { font-size:13px; color:var(--ink-dim); line-height:1.45; }
+.tr-quote b { color:var(--ink); font-size:15px; }
+.tr-quote .bad, .tr-quote .warn { color:#ffcf80; }
+.tr-go-row { display:flex; gap:8px; justify-content:flex-end; }
+.sp-panel .btn.tr-go { flex:1; max-width:420px; min-height:46px; }
+@media (max-width:520px) {
+  .tr-row { grid-template-columns:auto 1fr; }
+  .tr-acts { grid-column:1 / -1; }
+  .tr-acts > * { flex:1; }
+}
 /* Mission guidance (guide.ts): the tab, button and slots a mission wants glow gold. */
 @keyframes ppGlow { 0%,100% { box-shadow:0 0 0 2px rgba(255,209,102,.9), 0 0 16px rgba(255,209,102,.45); } 50% { box-shadow:0 0 0 2px rgba(255,209,102,.35), 0 0 4px rgba(255,209,102,.1); } }
 .sp-tab.guide { position:relative; color:#ffe2a0; border-color:rgba(255,209,102,.8); animation:ppGlow 1.6s ease-in-out infinite; }

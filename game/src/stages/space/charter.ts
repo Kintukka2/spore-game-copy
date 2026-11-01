@@ -88,7 +88,7 @@ export const STEPS: Step[] = [
       return true;
     },
     goal: (w, s) => ({
-      goal: { type: 'fight', ch: 1, line: 'charter', foes: { n: 3, hp: 150, dmg: 11, pirates: true, boss: { name: 'Hoard Barge', hp: 950, dmg: 15 } } },
+      goal: { type: 'fight', ch: 1, line: 'charter', foes: { n: 4, hp: 210, dmg: 13, pirates: true, boss: { name: 'Hoard Barge', hp: 1500, dmg: 19 } } },
       star: s.tg.hoard[0], reward: 40000,
       title: `Break the ${S(s.cB)} hoard`,
       desc: `The Cinder Syndicate is sitting on stolen ${S(s.cB)} at ${w.star(s.tg.hoard[0]).name}, waiting for the price to climb. Destroy the Hoard Barge and its escorts.`,

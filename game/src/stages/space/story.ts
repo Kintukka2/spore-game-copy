@@ -20,15 +20,18 @@ import type { World } from './world';
 import type { Design } from '../../design/types';
 
 // ------------------------------------------------------------------ the veils around the core
-export interface Veil { r: number; gear: string; name: string; desc: string }
+export interface Veil { r: number; gear: string; name: string; desc: string; /** The chapter whose closing call fits the gear. */ from: string }
 
 /** Outermost first. A star closer to the centre than `r` can only be reached with the gear. */
 export const VEILS: Veil[] = [
-  { r: 262, gear: 'lens', name: 'The Static', desc: 'A storm of Hollow jamming hides the inner ring. Your ship needs a Static Lens to see a way through.' },
-  { r: 150, gear: 'anchor', name: 'The Shear', desc: 'Gravity tears at every ship near the inner bastions. Your ship needs a Null Anchor to hold its course.' },
-  { r: 105, gear: 'choirkey', name: 'The Silent Gate', desc: 'The last bastions sit behind a gate that opens only to the Choir\'s song. Your ship needs the Choir Key.' },
-  { r: 30, gear: 'lampwick', name: 'The Lamp', desc: 'The light at the middle of everything burns too bright to fly into. Your ship needs a Lampwick Sail.' },
+  { r: 262, gear: 'lens', name: 'The Static', from: 'siphon', desc: 'A storm of Hollow jamming hides the inner ring. Your ship needs a Static Lens to see a way through.' },
+  { r: 150, gear: 'anchor', name: 'The Shear', from: 'echo', desc: 'Gravity tears at every ship near the inner bastions. Your ship needs a Null Anchor to hold its course.' },
+  { r: 105, gear: 'choirkey', name: 'The Silent Gate', from: 'gate', desc: 'The last bastions sit behind a gate that opens only to the Choir\'s song. Your ship needs the Choir Key.' },
+  { r: 30, gear: 'lampwick', name: 'The Lamp', from: 'spire', desc: 'The light at the middle of everything burns too bright to fly into. Your ship needs a Lampwick Sail.' },
 ];
+
+/** Every veil between you and a star, outermost first (whether or not you can already pass it). */
+export const veilsAround = (w: World, star: number) => VEILS.filter((v) => w.star(star).r < v.r);
 
 /** The veil that keeps you out of a system, if any. */
 export function veilBlock(w: World, star: number): Veil | null {

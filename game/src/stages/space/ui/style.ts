@@ -28,6 +28,8 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sp-alert { display:inline-flex; gap:6px; align-items:center; background:rgba(120,10,16,.75); border:1px solid rgba(255,90,90,.8); color:#fff; border-radius:999px; padding:0 14px; font-size:13px; font-weight:600; min-height:44px; cursor:pointer; animation: spPulse 1.2s ease-in-out infinite; }
 .sp-alert.eco { background:rgba(20,80,30,.8); border-color:rgba(120,240,140,.8); }
 .sp-alert.sig { background:rgba(40,22,70,.86); border-color:rgba(255,194,122,.95); box-shadow:0 0 14px rgba(255,194,122,.45); letter-spacing:.02em; }
+.sp-alert.sig.zix { background:rgba(36,24,64,.88); border-color:rgba(180,140,255,.95); box-shadow:0 0 14px rgba(180,140,255,.45); }
+.sp-track .sp-next { color:#ffd166; font-weight:600; }
 .sp-tools .sp-wide { grid-column:1 / -1; }
 .btn.sp-toxic { background:linear-gradient(180deg, #8dff6a, #3fbf3a); color:#062006; border-color:transparent; box-shadow:0 0 18px rgba(125,255,106,.35); }
 /* Focused full-screen views (outbreak, trader) */
@@ -125,7 +127,10 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 @media (hover:none) { .tf-key { display:none; } }
 .tf-hint { min-height:3.4em; }
 .tf .ob-banner { top:14%; font-size:clamp(28px, 5vw, 40px); }
-.tf-warn { color:#ffcf80; margin-top:3px; }
+.tf-warn { color:#ffcf80; margin-top:3px; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+.tf-warn .btn { min-height:34px; padding:0 12px; font-size:13px; }
+.tf-goal { align-self:center; margin:2px auto 4px; padding:5px 14px; border-radius:999px; font-weight:700; font-size:13px; color:#ffd166; background:rgba(60,44,8,.6); border:1px solid rgba(255,209,102,.7); box-shadow:0 0 14px rgba(255,209,102,.25); animation:ppGlow 1.6s ease-in-out infinite; text-align:center; max-width:calc(100% - 24px); }
+.tf-goal.done { color:#9dff8a; border-color:rgba(157,255,138,.7); background:rgba(20,60,20,.55); box-shadow:none; animation:none; }
 .tf-good { color:#9dff8a; margin-top:3px; }
 .sp-tools .tf-tag { white-space:nowrap; }
 .sp-tools .tf-tag[style] { font-weight:700; }
@@ -362,6 +367,7 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sp-eco-row { display:flex; gap:6px; align-items:center; }
 .sp-eco-row .sp-rl { width:34px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; font-weight:700; color:var(--ink-dim); font-size:13px; line-height:1.1; }
 .sp-eco-row .sp-rl.ok { color:#7fe9a4; }
+.sp-eco-row .sp-rl.need { color:#ffb347; }
 .sp-eco-row .sp-rl i { font-style:normal; font-size:11px; }
 .sp-slot { flex:1; min-width:0; min-height:62px; border-radius:12px; border:2px dashed rgba(255,255,255,.2); background:rgba(255,255,255,.04); display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:11px; color:var(--ink-faint); cursor:pointer; padding:2px; overflow:hidden; }
 .sp-slot canvas { width:100%; height:40px; pointer-events:none; }
@@ -383,6 +389,26 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .pp-box-h .btn { letter-spacing:normal; text-transform:none; border-radius:12px; }
 .pp-tag { font-size:12px; letter-spacing:normal; text-transform:none; font-weight:600; color:var(--ink-dim); background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:999px; padding:3px 10px; white-space:nowrap; }
 .pp-tag.ok { color:#7fe9a4; border-color:rgba(76,217,123,.5); }
+.pp-tag.bad { color:#ffcf80; border-color:rgba(255,179,71,.6); }
+.pp-note.need { color:#ffcf80; }
+/* Mission guidance (guide.ts): the tab, button and slots a mission wants glow gold. */
+@keyframes ppGlow { 0%,100% { box-shadow:0 0 0 2px rgba(255,209,102,.9), 0 0 16px rgba(255,209,102,.45); } 50% { box-shadow:0 0 0 2px rgba(255,209,102,.35), 0 0 4px rgba(255,209,102,.1); } }
+.sp-tab.guide { position:relative; color:#ffe2a0; border-color:rgba(255,209,102,.8); animation:ppGlow 1.6s ease-in-out infinite; }
+.sp-tab.guide::after { content:'★'; position:absolute; top:-6px; right:-6px; width:17px; height:17px; border-radius:50%; background:#ffd166; color:#3a2400; font-size:10px; line-height:17px; text-align:center; }
+.btn.guide { animation:ppGlow 1.6s ease-in-out infinite; }
+.pp-guide { display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; border-radius:14px; background:linear-gradient(90deg, rgba(255,209,102,.16), rgba(255,209,102,.04)); border:1px solid rgba(255,209,102,.55); }
+.pp-guide.go { cursor:pointer; }
+.pp-guide.go:hover { background:linear-gradient(90deg, rgba(255,209,102,.24), rgba(255,209,102,.08)); }
+.pp-guide.warn { background:linear-gradient(90deg, rgba(255,179,71,.16), rgba(255,179,71,.04)); border-color:rgba(255,179,71,.6); }
+.pp-guide-ic { font-size:20px; flex:0 0 auto; }
+.pp-guide > div { flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.25; }
+.pp-guide b { color:#ffe2a0; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pp-guide.warn b { color:#ffcf80; }
+.pp-guide > div span { color:var(--ink-dim); font-size:12.5px; }
+.pp-guide-go { flex:0 0 auto; font-weight:700; font-size:13px; color:#ffd166; white-space:nowrap; }
+.pp-goal { margin-top:4px; color:#ffd166; font-weight:600; }
+.sp-slot.need { border-style:solid; border-color:rgba(255,179,71,.85); background:rgba(255,179,71,.1); color:#ffcf80; animation:ppNeed 1.5s ease-in-out infinite; }
+@keyframes ppNeed { 0%,100% { box-shadow:0 0 0 0 rgba(255,179,71,0), inset 0 0 0 0 rgba(255,179,71,0); } 50% { box-shadow:0 0 12px rgba(255,179,71,.45), inset 0 0 10px rgba(255,179,71,.18); } }
 .pp-chips { display:flex; flex-wrap:wrap; gap:6px; }
 .pp-note { font-size:12px; color:var(--ink-faint); line-height:1.4; }
 .pp-kv { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:13px; color:var(--ink-dim); align-items:baseline; }
@@ -507,6 +533,7 @@ body.sp-active:has(.sp-sheet-wrap) .toasts { z-index:35; top:calc(14px + var(--s
 .sp-mktbtn { position:relative; }
 .sp-mktdot { position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; border-radius:9px; background:#ff5a6e; color:#fff; font-size:11px; font-weight:700; font-style:normal; display:flex; align-items:center; justify-content:center; padding:0 4px; box-shadow:0 0 0 2px rgba(4,10,22,.9); }
 .sp-mktdot.job { background:#f2b532; color:#3a2400; }
+.sp-mktdot.lock { background:rgba(20,26,40,.95); font-size:9px; min-width:16px; height:16px; padding:0 2px; box-shadow:0 0 0 1px rgba(255,209,102,.6); }
 .sp-mkt { font-weight:600; }
 .sp-mkt.up { color:#7dffb0; }
 .sp-mkt.down { color:#ff9aa5; }

@@ -188,7 +188,11 @@ export class SystemView {
       const ally = echoShip(w);
       if (m.story?.ally && ally) c.spawnAlly(ally, 'echo', 900, slot++);
     }
-    if (story.length) { this.st.ui.toast(`${story[0].title}: the Hollow are here.`, '⭐', 'gold'); this.updateMusic(); }
+    if (story.length) {
+      const pir = story[0].story?.foes?.pirates;
+      this.st.ui.toast(`${story[0].title}: ${pir ? 'the Syndicate\'s ships are here.' : 'the Hollow are here.'}`, pir ? '🏴‍☠️' : '⭐', 'gold');
+      this.updateMusic();
+    }
     return story;
   }
 

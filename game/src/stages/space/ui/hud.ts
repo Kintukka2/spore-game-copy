@@ -7,6 +7,8 @@ import { pauseMenu } from '../../common';
 import { RANKS } from '../data';
 import { EVENT_INFO, eventInfo } from '../events';
 import { storyPending } from '../story';
+import { charterPending, exchangeOpen } from '../charter';
+import { missionIcon, nextStep } from '../guide';
 import { gsi } from '../market';
 import { trackedMission } from './nbData';
 import type { SpaceStage } from '../stage';
@@ -168,6 +170,8 @@ export class SpaceHud {
       ...(['meteor', 'distress', 'relic', 'rare', 'trader', 'refugees'] as const).map((k) => button(`${EVENT_INFO[k].icon} ${k}`, () => st.debug(k), { cls: 'small' })),
       button('Jump near core', () => st.debug('core'), { cls: 'small' }),
       button('Story signal', () => st.debug('signal'), { cls: 'small' }),
+      button('Charter step', () => st.debug('charter'), { cls: 'small' }),
+      button('Open exchange', () => st.debug('exchange'), { cls: 'small' }),
       button('Story ▶', () => st.debug('story'), { cls: 'small' }),
       button('Core gear', () => st.debug('gear'), { cls: 'small' }),
     );
@@ -225,21 +229,26 @@ export class SpaceHud {
     this.set('rank', String(rk), () => { this.rankIcon.textContent = RANKS[rk].icon; this.rankName.textContent = RANKS[rk].name; });
     // Mission tracker: the one you track on the Nav-Boy, else the first main mission, else the first.
     const m = trackedMission(w);
-    const tkey = m ? m.id + ':' + (m.deadline ? Math.ceil(m.deadline - s.t) : '') : 'none';
+    const tkey = m ? m.id + ':' + (m.deadline ? Math.ceil(m.deadline - s.t) : '') + ':' + (st.mode === 'warp' ? -1 : s.loc) + ':' + nextStep(w, m, s.loc) : 'none';
     this.set('track', tkey, () => {
       if (!m) { this.trackIcon.textContent = '📜'; this.trackTitle.textContent = 'Free flight'; this.trackDesc.textContent = 'Explore, trade, or ask empires for work.'; return; }
-      this.trackIcon.textContent = m.kind === 'story' ? '⭐' : '📜';
+      this.trackIcon.textContent = missionIcon(m);
       this.trackTitle.textContent = m.title;
       const tl = m.deadline ? ` · ⏱ ${fmtTime(m.deadline - s.t)}` : '';
-      this.trackDesc.textContent = m.desc + tl;
+      // The next thing to do, where it can be worked out (open this world, use that tab), before the brief.
+      const next = nextStep(w, m, st.mode === 'warp' ? -1 : s.loc);
+      this.trackDesc.replaceChildren(...(next ? [h('b', { class: 'sp-next' }, `▸ ${next}`), ' '] : []), m.desc + tl);
+      this.track.title = m.desc;
     });
     // Alerts, after a story call waiting to be answered (📡)
-    const call = storyPending(w);
+    const call = storyPending(w) ? 'story' : charterPending(w) ? 'charter' : null;
     const akey = (call ?? '') + '|' + s.events.map((e) => e.id + ':' + (e.storyGoal !== undefined ? '' : Math.ceil(e.until - s.t))).join(',');
     this.set('alerts', akey, () => {
       this.alerts.innerHTML = '';
       if (call) {
-        const chip = h('div', { class: 'sp-alert sig', role: 'button', title: 'A signal is breaking through the static. Tap to answer.' }, '📡', ' Incoming signal');
+        const chip = call === 'story'
+          ? h('div', { class: 'sp-alert sig', role: 'button', title: 'A signal is breaking through the static. Tap to answer.' }, '📡', ' Incoming signal')
+          : h('div', { class: 'sp-alert sig zix', role: 'button', title: 'Zix the Whisper, from the Spice Exchange. Tap to answer.' }, '📈', ' Call from the Exchange');
         chip.addEventListener('click', () => st.answerStory());
         this.alerts.append(chip);
       }
@@ -255,11 +264,15 @@ export class SpaceHud {
     if (mk) {
       const up = gsi(w) >= gsi(w, 60);
       const unread = mk.news.filter((n) => n.at > mk.seen).length;
-      this.set('mkt', `${up}/${unread}/${mk.opps.some((o) => !o.taken)}`, () => {
+      const open = exchangeOpen(w);
+      this.set('mkt', `${up}/${unread}/${mk.opps.some((o) => !o.taken)}/${open}`, () => {
         this.mktIcon.textContent = up ? '📈' : '📉';
-        this.mktDot.textContent = unread ? String(Math.min(9, unread)) : '';
-        this.mktDot.style.display = unread ? '' : 'none';
-        this.mktDot.classList.toggle('job', mk.opps.some((o) => !o.taken));
+        // Until you hold a charter, the button wears a lock instead of the news count.
+        this.mktDot.textContent = !open ? '🔒' : unread ? String(Math.min(9, unread)) : '';
+        this.mktDot.style.display = !open || unread ? '' : 'none';
+        this.mktDot.classList.toggle('job', open && mk.opps.some((o) => !o.taken));
+        this.mktDot.classList.toggle('lock', !open);
+        this.mktIcon.parentElement!.title = open ? 'Galactic Spice Exchange' : 'Galactic Spice Exchange (locked: earn a charter)';
       });
     }
     // The Xeno-Lab building: its button appears in the home system.

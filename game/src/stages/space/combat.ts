@@ -141,11 +141,24 @@ export class Combat {
     }
   }
 
-  /** A story fight (story.ts): Hollow ships, and the thing they guard, tagged with the mission. */
+  /** A story fight (story.ts): Hollow ships (or a side line's pirates), and the thing they guard, tagged with the mission. */
   spawnStory(m: Mission, x: number, y: number) {
     const g = m.story?.foes;
     if (!g) return;
     const k = this.st.game.diff(0.7, 1, 1.35);
+    if (g.pirates) {
+      const o = { speed: 240, range: 380, rate: 1.1, size: 0.5, color: '#ff7a4a', engine: '#ff8a3a' };
+      for (let i = 0; i < g.n; i++) {
+        const a = Math.random() * TAU, d = 90 + Math.random() * 160;
+        this.make('pirate', 1, pirateShip(), x + Math.cos(a) * d, y + Math.sin(a) * d, { ...o, hp: g.hp * k, dmg: g.dmg * k }).mission = m.id;
+      }
+      if (g.boss) {
+        const c = this.make('pirate', 1, pirateShip(), x, y, { ...o, hp: g.boss.hp * k, dmg: g.boss.dmg * k, speed: 90, range: 460, rate: 1.3, size: 1.15, color: '#ffb347' });
+        c.mission = m.id;
+        c.boss = true;
+      }
+      return;
+    }
     const ship = this.st.w.emap.get('hollow')?.ship ?? null;
     const o = { speed: 205, range: 450, rate: 1.35, size: 0.62, empire: 'hollow', color: '#ff3b4a', engine: '#ff3b4a' };
     for (let i = 0; i < g.n; i++) {

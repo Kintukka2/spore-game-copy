@@ -404,6 +404,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   - Every empire's spice prices also follow the **Galactic Spice Exchange** index for that spice. A trade row shows "📈 exchange +12%" when the exchange has pushed it more than 5% from normal, and the tab has an **Open the Spice Exchange** button.
 
 **Galactic Spice Exchange** (`market.ts`, screen in `ui/exchange.ts`)
+- **Locked until you earn a charter.** The floor has been closed to independent captains since "the Crash". Prices still follow the index everywhere, headlines still reach you, and contracts you already hold still sell from the Nav-Boy, but the trading floor, its jobs and Zix's tips open only once "A Seat on the Floor" is done (`SpaceSave.flags.exchangeOpen`). Until then the 📈 button wears a 🔒; pressing it brings Zix's call, or tracks the line's current mission. Headline toasts skip "a job is up".
 - A live price index per spice (around 1.0, held between 0.35 and 3). Every 5 seconds of market time it moves by momentum, noise (rarer spices swing harder) and a pull back to normal. 30 minutes of history are kept (360 ticks), and a new game starts with 30 minutes of made-up history so the charts have a past.
 - **What moves prices:**
   - **News**: a headline every 60–120 s, built from real names nearby (worlds that grow the spice, met empires, nearby systems). It jumps the price at once, then pulls it toward a new level that fades over about 2½–4 minutes.
@@ -538,11 +539,11 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - **DATA** (header: where you are, and the stardate and time: one game second is a minute; `ui/nbData.ts`):
   - **Local Map**: this system in phosphor: the star, dotted orbits, worlds (squares for your colonies, rings for empire worlds), a solid ▼ quest marker over mission targets, a blinking ! for alerts, and your ship as a ▲. Pick a world for its T-score, owner, spice and missions; [E] flies there, [O] opens it.
   - **World Map**: the whole galaxy (drag to pan, wheel or + / − to zoom): visited stars bright, the rest dim, ⌂ home, ■ yours, rings for met empires, × for the Hollow, ✦ the core, ▼ missions and ! alerts. [E] sets course, [H] jumps to home, [C] back to you.
-  - **Quests**: missions (main ones first) and alerts. [E] Track makes a mission the one the HUD follows (`SpaceSave.tracked`), [L] locates it, [X] abandons it (asked first); alerts have [E] Go there.
+  - **Quests**: grouped by quest line or kind of work (`guide.ts` FAMILIES), each heading with its progress: ⭐ The Lamplight (CH 3/10), 📈 A Seat on the Floor (2/4), 🏠 Homeworld orders, 🤝 Empire contracts, 💹 Exchange jobs, then ⚠️ Alerts. A story relic sits under its mission; a call waiting on a line is its first row ([E] Answer). Each mission shows a **Next** line (see Mission guidance). [E] Track makes a mission the one the HUD follows (`SpaceSave.tracked`), [L] locates it, [X] abandons it (asked first); alerts have [E] Go there.
   - **Contacts**: every empire you have met, its species in full colour, relation, systems, trade route, the feeling bar and their strongest reasons. [E] Hail, [L] Locate their home.
   - **Notes**: your species' whole history, from the tide pool on, newest first.
   - **Radio**: stations that change the music, with a live waveform when one is on air: Deep Space Ambient, Exchange Wire (lounge music and the latest headlines), Primordial Soup FM, Wild Frontier Radio, Drum Circle 104, Civic Broadcast, Victory Hall, or off. The choice is saved (`SpaceSave.radio`); combat still brings in the danger music.
-  - **Market**: the Galactic Spice Index and every spice's contract price and move, with a price line and the latest story about it. [E] opens the trading floor.
+  - **Market**: the Galactic Spice Index and every spice's contract price and move, with a price line and the latest story about it. [E] opens the trading floor (🔒 until you hold a charter).
 
 **Progression**
 - A **badges and ranks** system: counters for exploring, trading, colonizing, fighting and terraforming. Ranks unlock tools to buy (better weapons, drives 1–5, more cargo, terraform tools, Colony Pack upgrades).
@@ -638,6 +639,23 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
   10. **The Middle of Everything**: fly to the core.
 - Fights: their Hollow ships are tagged with the mission and take the place of the system's usual defenders; a boss (Null Engine, Hollowing Vat, Null Spire) is big, slow and tough. Leaving and coming back starts the fight over.
 - Relics are ordinary ancient-signal events with the relic's name and no timer: land, sweep with life scans and beam it up. They leave room for the usual random happenings.
+
+**Side line: "A Seat on the Floor"** (`charter.ts`, calls in `ui/charterTalk.ts`)
+- Opens the Galactic Spice Exchange. Zix the Whisper, the broker from its back room, calls about 100 s after the onboarding (or at once, when you press the locked 📈). The floor has been shut since the Crash, when fake headlines sent every price mad; the Guild of Weights will only seat a captain who proves themselves.
+- Four missions (story missions with `story.line: 'charter'`, so the story's hooks finish them), each offered on its own call, which reacts to the last:
+  1. **The assay**: bring 4 of the spice you can most easily get (what your colonies grow, else what a met empire sells) to the Guild's Assay House, an unclaimed star a few jumps from home. Delivered on arrival when it is in your hold. §15,000.
+  2. **Break the hoard**: the Cinder Syndicate is cornering a mid-price spice at a nearby empty system: three escorts and a slow, tough **Hoard Barge** (pirates, tagged with the mission). Breaking it runs a headline that knocks that spice down 20%. §40,000.
+  3. **The ledger**: the barge's transmitter points to the Syndicate's **Rumour Mill**: land on that world, sweep with life scans and beam up the Syndicate Ledger (a relic). §25,000.
+  4. **Ring the opening bell**: Cinder calls to threaten you first; then take the ledger to the Guild Hall (the assay star).
+- The Chair of the Guild of Weights closes it: the ledger proves the Crash was rigged ("eleven fake blights, four invented wars and one very busy parrot"). The floor reopens with a headline that lifts every spice, and you get the charter, §50,000 and 5 contracts of the hoarded spice.
+
+**Mission guidance** (`guide.ts`)
+- Each mission knows what it wants next and where: the HUD tracker leads its brief with a gold **▸ next step** ("Travel to Lainbuk", "Open Vaiztup IV › 🌍 Terraform: raise it to T2", "Destroy the ships here", "Get 3 more Ember", "Fit the Static Lens to pass The Static"), and the Nav-Boy shows the same as **Next**.
+- In a planet's panel, what missions want there:
+  - A gold ribbon at the top of every tab names the mission and what to do; tap it to jump to the tab.
+  - The tab glows with a ★, and the button glows too (Scan, Terraform, Land, Colonise, Trade / Deliver, Land and search for relics).
+  - Terraforming: the panel's chart and the terraforming view draw the wanted T ring in dashed gold ("★ GOAL"), and the view's header says "★ Bring Vaiztup IV back: reach T2 (inside the gold ring)", turning green once reached. With no tools, the step says to buy pods first.
+- **Unstable worlds** (yours or nobody's, T above their full ecosystem rows): the ribbon reads "Unstable world: fill the T1 ecosystem row…", Life glows, Overview gains a gold 🌿 Stabilise button, and in the Life tab every empty slot that would steady it glows amber as "+ Plant", "+ Herbivore" or "+ Predator". The terraforming view's unstable warning has a 🌿 Stabilise it button that closes the view on the Life tab.
 
 **Endgame**
 1. The story's last chapter takes you through the four veils to the core.

@@ -170,7 +170,7 @@ export function itemsTab(ctx: NbCtx): NbTab {
         };
       },
     }));
-  }, 'No spice contracts. Buy them on the 📈 Spice Exchange: paper spice that never takes hold space.');
+  }, 'No spice contracts. Buy them on the 📈 Spice Exchange (it opens once you earn a charter): paper spice that never takes hold space.');
 
   return {
     id: 'items', label: 'ITEMS',

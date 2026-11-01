@@ -53,10 +53,11 @@ export function anySheetOpen(): boolean {
 }
 
 /** Simple tab strip helper. */
-export function tabStrip(el: HTMLElement, tabs: { id: string; label: string; badge?: number }[], cur: string, onPick: (id: string) => void) {
+/** A row of tabs. A tab with `mark` is where a mission wants you: it glows, with the reason as its tooltip. */
+export function tabStrip(el: HTMLElement, tabs: { id: string; label: string; badge?: number; mark?: string }[], cur: string, onPick: (id: string) => void) {
   el.innerHTML = '';
   for (const t of tabs) {
-    const b = h('button', { class: 'sp-tab' + (t.id === cur ? ' on' : '') }, t.label, t.badge ? h('span', { class: 'sp-badge' }, String(t.badge)) : null);
+    const b = h('button', { class: 'sp-tab' + (t.id === cur ? ' on' : '') + (t.mark ? ' guide' : ''), title: t.mark }, t.label, t.badge ? h('span', { class: 'sp-badge' }, String(t.badge)) : null);
     b.addEventListener('click', () => { audio.sfx('tap'); onPick(t.id); });
     el.append(b);
   }

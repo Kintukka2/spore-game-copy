@@ -209,14 +209,16 @@ export interface GEvent {
   label?: string;
 }
 
-export type StoryGoalType = 'visit' | 'scan' | 'terraform' | 'fight' | 'relic' | 'core';
+export type StoryGoalType = 'visit' | 'scan' | 'terraform' | 'fight' | 'relic' | 'core' | 'cargo';
 
 export interface StoryGoal {
   type: StoryGoalType;
-  /** Chapter index. */
+  /** Chapter index (or step, in a side line). */
   ch: number;
-  /** Fights: how many Hollow ships, their hull and damage, and an optional boss (the thing to break). */
-  foes?: { n: number; hp: number; dmg: number; boss?: { name: string; hp: number; dmg: number } };
+  /** A side line (charter.ts) instead of the main story. */
+  line?: 'charter';
+  /** Fights: how many ships (Hollow, or pirates), their hull and damage, and an optional boss (the thing to break). */
+  foes?: { n: number; hp: number; dmg: number; pirates?: boolean; boss?: { name: string; hp: number; dmg: number } };
   /** Relics: what is buried there. */
   label?: string;
   /** A friend flies with you in this fight (Echo). */
@@ -284,4 +286,6 @@ export interface SpaceSave {
   radio?: string;
   tracked?: number;
   story?: StoryState;
+  /** The quest line that opens the Spice Exchange (charter.ts). */
+  charter?: import('./charter').CharterState;
 }

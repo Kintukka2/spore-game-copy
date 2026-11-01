@@ -9,7 +9,9 @@ import { SPICE, SPICE_COLORS, STAR_INFO, type SpiceColor } from '../data';
 import { archName, relation, stanceInfo } from '../empires';
 import { abandon } from '../missions';
 import { EVENT_INFO, eventInfo } from '../events';
-import { chapterIndex, storyGiver } from '../story';
+import { CHAPTERS, chapterIndex, storyGiver, storyPending } from '../story';
+import { charterPending, charterProgress, exchangeOpen } from '../charter';
+import { FAMILIES, missionFamily, missionIcon, nextStep, type Family } from '../guide';
 import { drawOri } from '../art/ori';
 import { change, CODE, contractPrice, gsi, nextIn } from '../market';
 import type { Mission } from '../types';
@@ -51,50 +53,85 @@ export function dataTab(ctx: NbCtx): NbTab {
   const world = { id: 'world', label: 'World Map', custom: (host: HTMLElement): NbCustom => worldMap(host, ctx) };
 
   // ---------------------------------------------------------------- Quests
-  const giverName = (m: Mission) => (m.giver === 'home' ? 'Homeworld' : m.giver === 'exchange' ? 'Spice Exchange' : m.giver === 'story' ? storyGiver(w) : w.emap.get(m.giver)?.name ?? 'Unknown');
+  const giverName = (m: Mission) => (m.giver === 'home' ? 'Homeworld' : m.giver === 'exchange' ? 'Spice Exchange' : m.giver === 'charter' ? 'Zix the Whisper' : m.giver === 'story' ? storyGiver(w) : w.emap.get(m.giver)?.name ?? 'Unknown');
+  /** How far along a quest line is, shown on its heading. */
+  const lineTag = (f: Family): string => {
+    if (f === 'lamp') { const sto = w.s.story; return sto ? `CH ${Math.min(sto.ch + 1, CHAPTERS.length)}/${CHAPTERS.length}` : ''; }
+    if (f === 'charter') return charterProgress(w);
+    return '';
+  };
+  /** A call waiting on a quest line: shown as its first row, with a key to answer it. */
+  const callRow = (f: Family): Row | null => {
+    const pend = f === 'lamp' ? storyPending(w) : f === 'charter' ? charterPending(w) : null;
+    if (!pend) return null;
+    const who = f === 'lamp' ? 'A signal is breaking through the static.' : 'Zix the Whisper is calling from the Spice Exchange.';
+    return {
+      icon: '📡', name: f === 'lamp' ? 'Incoming signal' : 'Call from the Exchange', val: 'Call',
+      d: () => ({ big: '📡', title: f === 'lamp' ? 'Incoming signal' : 'Call from the Exchange', desc: `${who} Answer it to carry on with ${FAMILIES[f].name}.`, acts: [{ key: 'E', label: 'Answer', run: () => { ctx.close(); st.answerStory(); } }] }),
+    };
+  };
   const quests = page('quests', 'Quests', () => {
     const rows: Row[] = [];
     const tracked = trackedMission(w);
-    const ms = [...w.s.missions].sort((a, b) => Number(!!b.main) - Number(!!a.main));
-    if (ms.length) rows.push({ name: 'MISSIONS', head: true, d: () => ({}) });
-    for (const m of ms) {
-      rows.push({
-        icon: m.main ? '⭐' : '📜', name: m.title, mark: m === tracked, val: m.deadline ? fmtTime(m.deadline - w.s.t) : undefined,
-        d: () => {
-          const acts: NbAct[] = [
-            { key: 'E', label: m === trackedMission(w) ? 'Tracked' : 'Track', off: m === trackedMission(w) ? 'Already shown on your HUD.' : undefined, run: () => { w.s.tracked = m.id; audio.sfx('tap'); ctx.note(`Tracking: ${m.title}`); } },
-          ];
-          if (m.star !== undefined) acts.push({ key: 'L', label: 'Locate', run: () => { ctx.close(); st.showMissionTarget(m); } });
-          if (!m.main) acts.push({ key: 'X', label: 'Abandon', ask: `Abandon "${m.title}"? ${m.giver === 'home' || m.giver === 'exchange' ? 'The job is gone.' : `${giverName(m)} will be disappointed.`}`, run: () => { abandon(w, m); audio.sfx('remove'); } });
-          return {
-            big: m.main ? '⭐' : '📜',
-            title: m.title,
-            boxes: [['FROM', giverName(m)], ['REWARD', m.reward ? money(m.reward) : '—'], ['TIME', m.deadline ? fmtTime(m.deadline - w.s.t) : '∞']],
-            wide: m.bonus ? [['BONUS', previewSalvage(m.bonus).map((b) => `${b.icon} ${b.text}`).join(', ')]] : undefined,
-            lines: m.star !== undefined ? [['Where', `${w.star(m.star).name}${m.planet !== undefined ? ` · ${w.planet(m.star, m.planet).name}` : ''}`]] : undefined,
-            desc: m.desc,
-            acts,
-          };
-        },
-      });
+    const fams = Object.keys(FAMILIES) as Family[];
+    for (const f of fams) {
+      const ms = w.s.missions.filter((m) => missionFamily(m) === f);
+      const call = callRow(f);
+      if (!ms.length && !call) continue;
+      const tag = lineTag(f);
+      rows.push({ name: `${FAMILIES[f].icon} ${FAMILIES[f].name.toUpperCase()}${tag ? ` · ${tag}` : ''}`, head: true, d: () => ({}) });
+      if (call) rows.push(call);
+      for (const m of ms) rows.push(missionRow(m, tracked));
+      // A story relic waiting on one of these missions sits with it.
+      for (const ev of w.s.events) if (ev.storyGoal !== undefined && ms.some((m) => m.id === ev.storyGoal)) rows.push(eventRow(ev));
     }
-    if (w.s.events.length) rows.push({ name: 'ALERTS', head: true, d: () => ({}) });
-    for (const ev of w.s.events) {
-      const pl = w.planet(ev.star, ev.planet), info = eventInfo(ev);
-      const time = () => (ev.storyGoal !== undefined ? '∞' : fmtTime(ev.until - w.s.t));
-      rows.push({
-        icon: info.icon, name: `${info.label}: ${pl.name}`, val: time(),
-        d: () => ({
-          big: info.icon,
-          title: `${info.label}: ${pl.name}`,
-          boxes: [['KIND', ev.storyGoal !== undefined ? 'Story' : info.good ? 'Opportunity' : 'Threat'], ['SYSTEM', w.star(ev.star).name], ['TIME', time()]],
-          desc: info.how,
-          acts: [{ key: 'E', label: 'Go there', run: () => { ctx.close(); st.gotoEvent(ev); } }],
-        }),
-      });
-    }
+    const alerts = w.s.events.filter((e) => e.storyGoal === undefined || !w.s.missions.some((m) => m.id === e.storyGoal));
+    if (alerts.length) rows.push({ name: '⚠️ ALERTS', head: true, d: () => ({}) });
+    for (const ev of alerts) rows.push(eventRow(ev));
     return rows;
-  }, 'No missions. Hail an empire and ask for work, take a job from the Spice Exchange, or simply explore.', () => w.s.missions.length + w.s.events.length);
+  }, 'No missions. Hail an empire and ask for work, or simply explore.', () => w.s.missions.length + w.s.events.length);
+
+  function missionRow(m: Mission, tracked: Mission | undefined): Row {
+    return {
+      icon: missionIcon(m), name: m.title, mark: m === tracked, val: m.deadline ? fmtTime(m.deadline - w.s.t) : undefined,
+      d: () => {
+        const acts: NbAct[] = [
+          { key: 'E', label: m === trackedMission(w) ? 'Tracked' : 'Track', off: m === trackedMission(w) ? 'Already shown on your HUD.' : undefined, run: () => { w.s.tracked = m.id; audio.sfx('tap'); ctx.note(`Tracking: ${m.title}`); } },
+        ];
+        if (m.star !== undefined) acts.push({ key: 'L', label: 'Locate', run: () => { ctx.close(); st.showMissionTarget(m); } });
+        if (!m.main) acts.push({ key: 'X', label: 'Abandon', ask: `Abandon "${m.title}"? ${m.giver === 'home' || m.giver === 'exchange' ? 'The job is gone.' : `${giverName(m)} will be disappointed.`}`, run: () => { abandon(w, m); audio.sfx('remove'); } });
+        const next = nextStep(w, m, st.mode === 'warp' ? -1 : w.s.loc);
+        const lines: [string, string][] = [];
+        if (m.star !== undefined) lines.push(['Where', `${w.star(m.star).name}${m.planet !== undefined ? ` · ${w.planet(m.star, m.planet).name}` : ''}`]);
+        if (next) lines.push(['Next', next]);
+        return {
+          big: missionIcon(m),
+          title: m.title,
+          boxes: [['FROM', giverName(m)], ['REWARD', m.reward ? money(m.reward) : '—'], ['TIME', m.deadline ? fmtTime(m.deadline - w.s.t) : '∞']],
+          wide: m.bonus ? [['BONUS', previewSalvage(m.bonus).map((b) => `${b.icon} ${b.text}`).join(', ')]] : undefined,
+          lines: lines.length ? lines : undefined,
+          desc: m.desc,
+          acts,
+        };
+      },
+    };
+  }
+
+  function eventRow(ev: (typeof w.s.events)[number]): Row {
+    const pl = w.planet(ev.star, ev.planet), info = eventInfo(ev);
+    const time = () => (ev.storyGoal !== undefined ? '∞' : fmtTime(ev.until - w.s.t));
+    const name = ev.label ? `${ev.label}: ${pl.name}` : `${info.label}: ${pl.name}`;
+    return {
+      icon: info.icon, name, val: time(),
+      d: () => ({
+        big: info.icon,
+        title: name,
+        boxes: [['KIND', ev.storyGoal !== undefined ? 'Quest relic' : info.good ? 'Opportunity' : 'Threat'], ['SYSTEM', w.star(ev.star).name], ['TIME', time()]],
+        desc: info.how,
+        acts: [{ key: 'E', label: 'Go there', run: () => { ctx.close(); st.gotoEvent(ev); } }],
+      }),
+    };
+  }
 
   // ---------------------------------------------------------------- Contacts
   /** The story's voices: the one in the static (until you meet it), and Echo. */
@@ -191,7 +228,7 @@ export function dataTab(ctx: NbCtx): NbTab {
         boxes: [['GSI', gsi(w).toFixed(1)], ['5 MIN', `${((gsi(w) / gsi(w, 60) - 1) * 100).toFixed(2)}%`], ['NEWS', fmtTime(nextIn(w))]],
         lines: m.news.slice(0, 3).map((n) => [`${n.icon} ${n.head}`, n.tag]),
         desc: 'Every spice, weighted by value. Every empire\'s spice prices follow the exchange, so a rising index means better sales everywhere.',
-        acts: [{ key: 'E', label: 'Trading floor', run: () => { ctx.close(); st.openExchange(); } }],
+        acts: [{ key: 'E', label: exchangeOpen(w) ? 'Trading floor' : '🔒 Trading floor', run: () => { ctx.close(); st.openExchange(); } }],
       }),
     }];
     for (const c of SPICE_COLORS) {
@@ -205,7 +242,7 @@ export function dataTab(ctx: NbCtx): NbTab {
             boxes: [['PRICE', money(contractPrice(w, c))], ['5 MIN', `${ch >= 0 ? '+' : '−'}${Math.abs(ch * 100).toFixed(1)}%`], ['HELD', String(m.hold[c].n)]],
             lines: n ? [[`${n.icon} ${n.head}`, n.tag]] : [['No recent news', '—']],
             desc: `${SPICE[c].name} contracts on the exchange. Empire prices for ${SPICE[c].name} move with this index.`,
-            acts: [{ key: 'E', label: 'Trading floor', run: () => { ctx.close(); st.openExchange(c as SpiceColor); } }],
+            acts: [{ key: 'E', label: exchangeOpen(w) ? 'Trading floor' : '🔒 Trading floor', run: () => { ctx.close(); st.openExchange(c as SpiceColor); } }],
           };
         },
       });

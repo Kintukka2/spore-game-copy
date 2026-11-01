@@ -48,6 +48,8 @@ import type { MarketNews } from './market';
 import { playEnding } from './ending';
 import { finishChapter, sealedHollow, storyAtCore, storyDebug, storyPending, veilBlock } from './story';
 import { storyCall } from './ui/storyTalk';
+import { charterDebug, charterKnock, charterPending, CHARTER_TITLE, exchangeOpen } from './charter';
+import { charterCall } from './ui/charterTalk';
 import { TOOL_MAP } from './data';
 
 export type ViewMode = 'galaxy' | 'system' | 'warp';
@@ -231,16 +233,17 @@ export class SpaceStage implements Scene, WorldHooks {
   private calling = false;
   /** A waiting call opens once things are calm: no fight, no warp, no planet open. */
   private maybeStoryCall() {
-    if (this.calling || !storyPending(this.w) || performance.now() < this.callAt) return;
+    if (this.calling || !(storyPending(this.w) || charterPending(this.w)) || performance.now() < this.callAt) return;
     if (this.mode === 'warp' || this.w.inCombat || this.panel || this.dead) return;
     this.answerStory();
   }
-  /** Answer the story call that is waiting (the 📡 alert). */
+  /** Answer the call that is waiting (the 📡 alert): the story's first, then Zix's. */
   answerStory() {
-    if (this.calling || !storyPending(this.w)) return;
+    const story = !!storyPending(this.w);
+    if (this.calling || !(story || charterPending(this.w))) return;
     this.calling = true;
     void this.dialog(async () => {
-      const answered = await storyCall(this);
+      const answered = await (story ? storyCall(this) : charterCall(this));
       this.calling = false;
       // A fight that starts where you already are begins now.
       if (this.mode !== 'warp') this.sv.spawnStory(3);
@@ -249,9 +252,9 @@ export class SpaceStage implements Scene, WorldHooks {
       this.hud.refresh(true);
     });
   }
-  storyCall() {
+  storyCall(line?: 'charter') {
     this.callAt = performance.now() + 2500;
-    if (!this.w.s.flags.storyHint) {
+    if (!line && !this.w.s.flags.storyHint) {
       this.w.s.flags.storyHint = true;
       this.game.hint('signal', 'A signal is breaking through the static. Answer it from the 📡 alert under your mission.', '📡');
     }
@@ -558,7 +561,18 @@ export class SpaceStage implements Scene, WorldHooks {
     if (!this.w.inCombat && !this.cinematic) audio.music(this.music);
   }
   /** The Galactic Spice Exchange: live spice prices, news, contracts, tips and market jobs. */
-  openExchange(focus?: SpiceColor) { if (!document.querySelector('.mkt')) openExchange(this, focus); }
+  openExchange(focus?: SpiceColor) {
+    if (document.querySelector('.mkt')) return;
+    if (exchangeOpen(this.w)) { openExchange(this, focus); return; }
+    // The floor is closed to you until you earn a charter: knocking brings Zix's call, or points at the next step.
+    closeAllSheets();
+    if (!this.w.s.flags.tutDone) { this.ui.toast('The Spice Exchange only deals with captains. Finish your onboarding first.', '🔒'); audio.sfx('error'); return; }
+    if (charterKnock(this.w)) { this.callAt = 0; this.answerStory(); return; }
+    const m = this.w.s.missions.find((x) => x.story?.line === 'charter');
+    if (m) { this.w.s.tracked = m.id; this.hud.refresh(true); }
+    this.ui.toast(`🔒 The Exchange floor is closed to you. ${CHARTER_TITLE}${m ? `: ${m.title}` : ''}`, '📈', 'gold');
+    audio.sfx('error');
+  }
   /** The Xeno-Lab on your homeworld (only while you are home). */
   openLab() { openLab(this); }
   openMissions() { openNavBoy(this, 'data', 'quests'); }
@@ -631,8 +645,10 @@ export class SpaceStage implements Scene, WorldHooks {
     if (!(mine || big || n.opp || n.tag === 'YOU')) return;
     const f = n.fx.find((x) => x.shock) ?? n.fx[0];
     const arrow = !f || !f.shock ? '' : f.shock > 0 ? ' 📈' : ' 📉';
-    this.ui.toast(`${n.tag === 'RUMOUR' ? 'Rumour: ' : ''}${n.head}${arrow}${n.opp ? ' · a job is up on the 📈 exchange' : ''}`, n.icon, n.opp ? 'gold' : 'info');
-    this.game.hint('exchange-news', 'Headlines move spice prices everywhere. Open the 📈 Spice Exchange in the top bar to see the charts, trade contracts and take jobs from the news.', '📈');
+    const open = exchangeOpen(this.w);
+    if (!open && !(mine || big || n.tag === 'YOU')) return;
+    this.ui.toast(`${n.tag === 'RUMOUR' ? 'Rumour: ' : ''}${n.head}${arrow}${n.opp && open ? ' · a job is up on the 📈 exchange' : ''}`, n.icon, n.opp && open ? 'gold' : 'info');
+    if (open) this.game.hint('exchange-news', 'Headlines move spice prices everywhere. Open the 📈 Spice Exchange in the top bar to see the charts, trade contracts and take jobs from the news.', '📈');
   }
 
   floatText(x: number, y: number, text: string, color: string) { this.sv.floatText(x, y, text, color); }
@@ -876,6 +892,8 @@ export class SpaceStage implements Scene, WorldHooks {
         break;
       }
       case 'story': storyDebug(w, 'skip'); break;
+      case 'charter': charterDebug(w, 'skip'); this.callAt = 0; break;
+      case 'exchange': charterDebug(w, 'open'); break;
       case 'signal': storyDebug(w, 'signal'); break;
       case 'gear':
         for (const g of ['lens', 'anchor', 'choirkey', 'lampwick']) w.s.tools[g] = 1;

@@ -213,7 +213,9 @@ export const CHAPTERS: ChapterDef[] = [
 ];
 
 // ------------------------------------------------------------------ progress
-const storyMissions = (w: World) => w.s.missions.filter((m) => m.kind === 'story' && m.story);
+/** The main story's missions, and every story-kind mission (side lines too, which share its hooks). */
+const storyMissions = (w: World) => w.s.missions.filter((m) => m.kind === 'story' && m.story && !m.story.line);
+const questMissions = (w: World) => w.s.missions.filter((m) => m.kind === 'story' && m.story);
 
 function init(w: World): StoryState {
   // The story replaces the old "Reach the Core" mission.
@@ -292,20 +294,20 @@ function makeGoals(w: World, st: StoryState) {
 
 // Mission hooks (missions.ts calls these).
 export function storyArrive(w: World, star: number) {
-  for (const m of storyMissions(w)) if (m.story!.type === 'visit' && m.star === star) complete(w, m);
+  for (const m of questMissions(w)) if (m.story!.type === 'visit' && m.star === star) complete(w, m);
 }
 export function storyScan(w: World, star: number, idx: number) {
-  for (const m of storyMissions(w)) if (m.story!.type === 'scan' && m.star === star && m.planet === idx) complete(w, m);
+  for (const m of questMissions(w)) if (m.story!.type === 'scan' && m.star === star && m.planet === idx) complete(w, m);
 }
 export function storyTerraformed(w: World, star: number, idx: number, t: number) {
-  for (const m of storyMissions(w)) if (m.story!.type === 'terraform' && m.star === star && m.planet === idx && t >= (m.tscore ?? 3)) complete(w, m);
+  for (const m of questMissions(w)) if (m.story!.type === 'terraform' && m.star === star && m.planet === idx && t >= (m.tscore ?? 3)) complete(w, m);
 }
 export function storyCleared(w: World, star: number, id?: number) {
-  for (const m of storyMissions(w)) if (m.story!.type === 'fight' && m.star === star && (id === undefined || m.id === id)) complete(w, m);
+  for (const m of questMissions(w)) if (m.story!.type === 'fight' && m.star === star && (id === undefined || m.id === id)) complete(w, m);
 }
 /** Story fights waiting in this system. */
 export function storyFightsAt(w: World, star: number): Mission[] {
-  return storyMissions(w).filter((m) => m.story!.type === 'fight' && m.star === star);
+  return questMissions(w).filter((m) => m.story!.type === 'fight' && m.star === star);
 }
 
 /** You reached the core with the last chapter running: its goal is done, and the reveal plays. */

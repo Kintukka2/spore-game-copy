@@ -12,6 +12,7 @@ import { drawShip, shipLength } from '../art/shipArt';
 import { genesis, terraform, type TerraTool } from '../economy';
 import type { World } from '../world';
 import type { SpaceStage } from '../stage';
+import { planetGuides } from '../guide';
 
 export interface TerraDef {
   id: TerraTool | 'genesis';
@@ -71,6 +72,8 @@ export interface ChartOpts {
   from?: { a: number; t: number };
   /** Past positions as [atm, temp, atm, temp, ...]. */
   trail?: number[];
+  /** A mission's target T-score: its ring is drawn in gold. */
+  goal?: number;
 }
 
 /** The climate chart: atmosphere across, temperature up, the T rings in the middle and the world as a dot. */
@@ -103,6 +106,23 @@ export function drawClimate(c: HTMLCanvasElement, atm: number, temp: number, tim
     g.fillStyle = 'rgba(255,255,255,0.6)';
     g.font = `600 ${small ? 9 : 10}px Fredoka, system-ui`;
     g.fillText(`T${i + 1}`, X(0.5), Y(0.5) - T_RING[i] * A + (small ? 9 : 11));
+  }
+  // The ring a mission wants the world inside: gold, dashed, marching.
+  if (o.goal && o.goal >= 1 && o.goal <= 3 && tScoreOf(atm, temp) < o.goal) {
+    const rr = T_RING[o.goal - 1] * A;
+    g.strokeStyle = '#ffd166';
+    g.lineWidth = 2.5;
+    g.setLineDash([6, 4]);
+    g.lineDashOffset = -time * 14;
+    g.globalAlpha = 0.75 + 0.25 * Math.sin(time * 4);
+    g.beginPath(); g.arc(X(0.5), Y(0.5), rr, 0, TAU); g.stroke();
+    g.setLineDash([]);
+    g.globalAlpha = 1;
+    g.font = `700 ${small ? 9 : 11}px Fredoka, system-ui`;
+    const ly = Y(0.5) + rr - (small ? 4 : 6);
+    g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.strokeText('★ GOAL', X(0.5), ly);
+    g.fillStyle = '#ffd166';
+    g.fillText('★ GOAL', X(0.5), ly);
   }
   g.fillStyle = 'rgba(200,220,240,0.75)';
   g.font = `600 ${small ? 10 : 11}px Fredoka, system-ui`;
@@ -186,10 +206,14 @@ const airWord = (v: number) => v < 0.2 ? 'Thin' : v > 0.8 ? 'Dense' : 'Fair';
 const heatWord = (v: number) => v < 0.2 ? 'Frozen' : v < 0.38 ? 'Cold' : v > 0.8 ? 'Scorching' : v > 0.62 ? 'Hot' : 'Mild';
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-/** Open the terraforming view for a world. `fire` starts with that tool. */
-export function openTerraform(st: SpaceStage, star: number, idx: number, onClose?: () => void, fire?: TerraDef['id']) {
+/** Open the terraforming view for a world. `fire` starts with that tool; `onLife` (if given) is where its
+ *  "Stabilise" button goes: the planet's Life tab, once the view closes. */
+export function openTerraform(st: SpaceStage, star: number, idx: number, onClose?: () => void, fire?: TerraDef['id'], onLife?: () => void) {
   const w = st.w;
   const pl = w.planet(star, idx);
+  // A mission that wants this world raised (guide.ts): its ring glows gold, and the header says so.
+  const goal = planetGuides(w, star, idx).find((g) => g.act === 'terraform');
+  const goalEl = h('div', { class: 'tf-goal' });
   const PS = () => w.peekPS(star, idx);
   const sprite = new SphereSprite(448, 256);
   const cv = h('canvas', { class: 'ob-cv tf-cv', 'aria-label': pl.name }) as HTMLCanvasElement;
@@ -216,6 +240,7 @@ export function openTerraform(st: SpaceStage, star: number, idx: number, onClose
   };
   const root = h('div', { class: 'sp-focus tf' },
     h('div', { class: 'sp-focus-head' }, h('h2', null, `🌍 Terraforming ${pl.name}`), button('✕', () => { audio.sfx('click'); close(); }, { cls: 'icon', title: 'Leave' })),
+    goal ? goalEl : null,
     h('div', { class: 'ob-stats tf-stats' },
       h('div', { class: 'ob-stat tf-t' }, h('div', null, tEl, tStars), tSub),
       h('div', { class: 'ob-stat tf-ax' }, h('span', null, '💨 ', h('i', { class: 'tf-long' }, 'Atmosphere'), h('i', { class: 'tf-short' }, 'Air'), ' · ', airV), track(airMk, 'air')),
@@ -338,12 +363,19 @@ export function openTerraform(st: SpaceStage, star: number, idx: number, onClose
       c.el.classList.toggle('queued', queued === c.d);
     }
   };
+  /** Off to the Life tab to fill the row that steadies the world (when the view was opened from a planet). */
+  const stabilise = () => (onLife ? button('🌿 Stabilise it', () => { onLife(); close(); }, { cls: 'gold small' }) : null);
+
   const idleHint = () => {
     hint.innerHTML = '';
     const any = cards.some((c) => terraState(w, c.d).ok);
     hint.append(any
-      ? 'Each tool\'s arrow is the way it pushes the world on the climate chart. Hover a tool to preview it, then steer the dot into the green rings.'
+      ? goal ? 'Each tool\'s arrow is the way it pushes the world on the climate chart. Hover a tool to preview it, then steer the dot inside the gold ring.'
+        : 'Each tool\'s arrow is the way it pushes the world on the climate chart. Hover a tool to preview it, then steer the dot into the green rings.'
       : 'You have no terraforming tools left. Buy pods at your tool shop (rank Captain).');
+    // Already unstable when you open it: say so, with the way to fix it.
+    const ps = PS(), T = tScoreOf(ps.atm, ps.temp), rows = w.ecoRows(ps);
+    if (T > rows) hint.append(h('div', { class: 'tf-warn' }, `⚠ Unstable: fill the T${rows + 1} ecosystem row in the Life tab, or the climate drifts back.`, stabilise()));
   };
   idleHint();
 
@@ -585,7 +617,7 @@ export function openTerraform(st: SpaceStage, star: number, idx: number, onClose
     else if (d.dt) bits.push(`Temperature ${pct(A.fromT)} → ${pct(ps.temp)}`);
     else bits.push('The world blooms.');
     bits.push(' · ', h('b', { style: `color:${T > A.before ? '#9dff8a' : T < A.before ? '#ff8a7a' : 'var(--ink)'}` }, T === A.before ? `still T${T}` : `T${A.before} → T${T}`));
-    if (T > rows) bits.push(h('div', { class: 'tf-warn' }, `⚠ Unstable: fill the T${rows + 1} ecosystem row in the Life tab, or the climate drifts back.`));
+    if (T > rows) bits.push(h('div', { class: 'tf-warn' }, `⚠ Unstable: fill the T${rows + 1} ecosystem row in the Life tab, or the climate drifts back.`, stabilise()));
     else if (T === 3) bits.push(h('div', { class: 'tf-good' }, 'A paradise, and it is stable.'));
     hint.append(...bits);
     if (T >= 1) st.game.hint('terra-eco', 'Higher T-scores need life: fill the matching ecosystem row in the Life tab to make it stable.', '🌿');
@@ -613,6 +645,11 @@ export function openTerraform(st: SpaceStage, star: number, idx: number, onClose
   };
 
   const updateStats = () => {
+    if (goal) {
+      const reached = tScoreOf(PS().atm, PS().temp) >= (goal.goal ?? 3);
+      const txt = reached ? `✓ ${goal.m?.title ?? 'Goal'}: T${goal.goal} reached` : `★ ${goal.m?.title ?? 'Mission'}: reach T${goal.goal} (inside the gold ring)`;
+      if (goalEl.textContent !== txt) { goalEl.textContent = txt; goalEl.classList.toggle('done', reached); }
+    }
     tEl.textContent = `T${shownT} `;
     tStars.textContent = '★'.repeat(shownT) + '☆'.repeat(3 - shownT);
     const rows = w.ecoRows(PS());
@@ -679,7 +716,7 @@ export function openTerraform(st: SpaceStage, star: number, idx: number, onClose
     const pv = anim?.def ?? preview;
     const from = anim ? { a: anim.fromA, t: anim.fromT } : undefined;
     const tgt = pv ? terraTarget(pv, from?.a ?? ps.atm, from?.t ?? ps.temp) : null;
-    drawClimate(chart, disp.a, disp.t, time, { arrow: tgt && pv ? { ...tgt, color: pv.color } : null, from, trail });
+    drawClimate(chart, disp.a, disp.t, time, { arrow: tgt && pv ? { ...tgt, color: pv.color } : null, from, trail, goal: goal?.goal });
     requestAnimationFrame(frame);
   };
 

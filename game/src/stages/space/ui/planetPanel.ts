@@ -25,6 +25,8 @@ import { openOutbreak } from './outbreak';
 import { greetTrader, refugeeTalk } from './encounters';
 import { drawClimate, openTerraform, TERRA_TOOLS, terraState, terraTag, terraTarget, type TerraDef } from './terraformView';
 import { sealedHollow } from '../story';
+import { missionIcon, planetGuides, TAB_LABEL, type Guide, type GuideAct, type GuideTab } from '../guide';
+import { exchangeOpen } from '../charter';
 
 type Tab = 'overview' | 'terra' | 'life' | 'colony' | 'trade';
 
@@ -44,6 +46,8 @@ export class PlanetPanel {
   private bursts: { t: number; color: string }[] = [];
   /** The terraform tool under the pointer, previewed on the chart. */
   private preview: TerraDef | null = null;
+  /** What missions want done here (guide.ts): their tabs and buttons glow. */
+  private guides: Guide[] = [];
   readonly pl: Planet;
 
   constructor(private st: SpaceStage, readonly star: number, readonly idx: number) {
@@ -207,20 +211,25 @@ export class PlanetPanel {
   private render() {
     const w = this.w;
     const e = this.owner();
-    const tabs: { id: Tab; label: string; badge?: number }[] = [
-      { id: 'overview', label: '🔭 Overview' },
-      { id: 'terra', label: '🌍 Terraform' },
-      { id: 'life', label: '🌿 Life', badge: this.ecoEvent() ? 1 : 0 },
-      { id: 'colony', label: '🏠 Colony' },
+    this.guides = planetGuides(w, this.star, this.idx);
+    const mark = (id: GuideTab) => this.guides.filter((g) => g.tab === id).map((g) => g.text).join(' · ') || undefined;
+    const tabs: { id: Tab; label: string; badge?: number; mark?: string }[] = [
+      { id: 'overview', label: TAB_LABEL.overview },
+      { id: 'terra', label: TAB_LABEL.terra },
+      { id: 'life', label: TAB_LABEL.life, badge: this.ecoEvent() ? 1 : 0 },
+      { id: 'colony', label: TAB_LABEL.colony },
     ];
-    if (e && e.arch !== 'hollow') tabs.push({ id: 'trade', label: '💱 Trade' });
+    if (e && e.arch !== 'hollow') tabs.push({ id: 'trade', label: TAB_LABEL.trade });
     if (this.pl.kind === 'gas') tabs.splice(1, 2);
+    // The tab a mission needs glows, unless you are already on it.
+    for (const t of tabs) if (t.id !== this.tab) t.mark = mark(t.id);
     if (!tabs.some((t) => t.id === this.tab)) this.tab = 'overview';
     tabStrip(this.tabsEl, tabs, this.tab, (id) => { this.tab = id as Tab; this.render(); if (id === 'terra') this.terraView(); });
     this.dynamic = [];
     this.chart = null;
     this.body.innerHTML = '';
     this.renderBadge();
+    this.guideBar();
     if (this.tab === 'overview') this.eventBanner();
     switch (this.tab) {
       case 'overview': this.overview(); break;
@@ -230,6 +239,26 @@ export class PlanetPanel {
       case 'trade': this.trade(); break;
     }
     void w;
+  }
+
+  /** What missions want done here, at the top of every tab: tap one to go to its tab. */
+  private guideBar() {
+    const w = this.w;
+    for (const g of this.guides.slice(0, 2)) {
+      const here = g.tab === this.tab;
+      const el = h('div', { class: 'pp-guide' + (g.m ? '' : ' warn') + (here ? '' : ' go'), role: here ? undefined : 'button' },
+        h('span', { class: 'pp-guide-ic' }, g.m ? missionIcon(g.m) : '⚠'),
+        h('div', null, h('b', null, g.m ? g.m.title : 'Unstable world'), h('span', null, g.text)),
+        here ? null : h('span', { class: 'pp-guide-go' }, `${TAB_LABEL[g.tab]} ›`));
+      if (!here) el.addEventListener('click', () => { audio.sfx('tap'); this.tab = g.tab as Tab; this.render(); });
+      if (g.m && g.m.id !== w.s.tracked && g.m.kind !== 'tutorial') el.title = 'A mission wants this. Track it from the 📜 Nav-Boy quests.';
+      this.body.append(el);
+    }
+  }
+
+  /** Whether a mission wants this button pressed: then it glows. */
+  private wants(act: GuideAct): string {
+    return this.guides.some((g) => g.act === act) ? ' guide' : '';
   }
 
   /** What is happening at this world right now, and what you can do about it. */
@@ -252,7 +281,7 @@ export class PlanetPanel {
       if (ev.kind === 'eco') acts.append(button(`☣️ Contain the outbreak (${(ev.marks?.length ?? 0) / 2})`, () => this.contain(ev), { cls: 'sp-wide sp-toxic' }));
       if (ev.kind === 'meteor') acts.append(button('☄️ Man the planetary gun', () => this.st.defend(ev), { cls: 'sp-wide danger' }));
       if (ev.kind === 'refugees') acts.append(button('📡 Hear their plea', () => refugeeTalk(this.st, ev, () => { if (this.el.isConnected) this.render(); }), { cls: 'gold sp-wide' }));
-      if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, sealedHollow(w, this.star, this.idx))) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' }));
+      if ((ev.kind === 'relic' || ev.kind === 'rare') && !landingBlock(this.pl, this.ps, sealedHollow(w, this.star, this.idx))) acts.append(button('🛬 Land and search', () => this.land(), { cls: 'gold' + (ev.storyGoal !== undefined ? this.wants('land') : '') }));
       if (acts.childElementCount) box.append(acts);
       this.body.append(box);
     }
@@ -329,14 +358,15 @@ export class PlanetPanel {
     B.append(card);
     const acts = h('div', { class: 'sp-tools' });
     const wanted = w.s.missions.some((m) => (m.kind === 'scan' || (m.kind === 'tutorial' && m.step === 'scan')) && m.star === this.star && m.planet === this.idx);
-    acts.append(button(`${ps.scanned && !wanted ? '🔍 Re-scan' : '🔍 Scan'} ⚡${SCAN_ENERGY}`, () => this.scan(), { cls: ps.scanned && !wanted ? '' : 'primary', title: `Scanning costs ⚡${SCAN_ENERGY} energy` }));
+    acts.append(button(`${ps.scanned && !wanted ? '🔍 Re-scan' : '🔍 Scan'} ⚡${SCAN_ENERGY}`, () => this.scan(), { cls: (ps.scanned && !wanted ? '' : 'primary') + this.wants('scan'), title: `Scanning costs ⚡${SCAN_ENERGY} energy` }));
     if (pl.kind !== 'gas') {
       const cc = canColonize(w, this.star, this.idx);
-      if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' }));
-      acts.append(button('🌍 Terraform', () => { this.tab = 'terra'; this.render(); this.terraView(); }));
-      if (!landingBlock(pl, ps, sealedHollow(w, this.star, this.idx))) acts.append(button(pl.life ? '🛬 Land & find life' : '🛬 Land', () => this.land(), { cls: pl.life ? 'primary' : '' }));
+      if (cc === null) acts.append(button(ps.owner === 'player' ? '🏗️ Add a city' : '🏗️ Colonise', () => { this.tab = 'colony'; this.render(); }, { cls: 'primary' + this.wants('colonise') }));
+      if (this.canTerraform()) acts.append(button('🌍 Terraform', () => { this.tab = 'terra'; this.render(); this.terraView(); }, { cls: this.wants('terraform') }));
+      if (this.wants('stabilise')) acts.append(button('🌿 Stabilise', () => { this.tab = 'life'; this.render(); }, { cls: 'gold guide', title: 'Fill the ecosystem row it needs in the Life tab' }));
+      if (!landingBlock(pl, ps, sealedHollow(w, this.star, this.idx))) acts.append(button(pl.life ? '🛬 Land & find life' : '🛬 Land', () => this.land(), { cls: (pl.life ? 'primary' : '') + (this.guides.some((g) => g.act === 'land' && g.tab !== 'overview') ? ' guide' : '') }));
     }
-    if (e && e.arch !== 'hollow') acts.append(button('💱 Trade', () => { this.tab = 'trade'; this.render(); }));
+    if (e && e.arch !== 'hollow') acts.append(button('💱 Trade', () => { this.tab = 'trade'; this.render(); }, { cls: this.wants('deliver') }));
     if (e) acts.append(button('📡 Hail', () => this.st.openComm(e)));
     if (e && e.war) acts.append(button('🎯 Attack', () => { this.close(); this.st.sv.combat.planetTarget = this.idx; this.st.ui.toast(w.has('bomb') ? 'Target locked. Tap 💣 to bomb.' : 'You need Planet Bombs to capture worlds.', '🎯'); }, { cls: 'danger' }));
     if (this.shopHere()) acts.append(button('🧰 Tool shop', () => this.st.openShip('shop')));
@@ -420,11 +450,16 @@ export class PlanetPanel {
     return this.pl.kind !== 'gas' && !isHomeworld(this.w, this.star, this.idx) && !this.ps.destroyed;
   }
 
-  /** The focused terraforming view; `fire` starts it with that tool. */
+  /** The T-score a mission wants this world raised to, if any. */
+  private goalT(): number | undefined {
+    return this.guides.find((g) => g.act === 'terraform')?.goal;
+  }
+
+  /** The focused terraforming view; `fire` starts it with that tool. Its "Stabilise" button comes back to Life. */
   private terraView(fire?: TerraDef['id']) {
     if (!this.canTerraform()) return;
     audio.sfx('tap');
-    openTerraform(this.st, this.star, this.idx, () => { this.preview = null; if (this.el.isConnected) this.render(); }, fire);
+    openTerraform(this.st, this.star, this.idx, () => { this.preview = null; if (this.el.isConnected) this.render(); }, fire, () => { this.tab = 'life'; });
   }
 
   private terra() {
@@ -433,14 +468,16 @@ export class PlanetPanel {
     const ps = this.ps;
     if (isHomeworld(w, this.star, this.idx)) { B.append(h('p', { class: 'dim' }, 'Your homeworld is already perfect. Try another planet.')); return; }
     if (ps.destroyed) { B.append(h('p', { class: 'dim' }, 'Nothing left to shape.')); return; }
-    B.append(button('🌍 Open the terraforming view', () => this.terraView(), { cls: 'primary sp-wide' }));
+    B.append(button('🌍 Open the terraforming view', () => this.terraView(), { cls: 'primary sp-wide' + this.wants('terraform') }));
     this.chart = h('canvas', { class: 'sp-chart' }) as HTMLCanvasElement;
     B.append(this.chart);
     const status = h('div', { class: 'tc', style: 'font-size:14px;color:var(--ink-dim)' });
+    const goal = this.goalT();
     const upd = () => {
       const t = tScoreOf(ps.atm, ps.temp), rows = w.ecoRows(ps);
       status.innerHTML = '';
       status.append(h('b', { style: 'color:var(--ink)' }, `T${t}`), ' · ', t > rows ? h('span', { style: 'color:#ffcf80' }, `Unstable: fill the T${rows + 1} ecosystem row (Life tab) or it drifts back.`) : t === 3 ? 'A paradise. It is stable.' : 'Stable. Push the dot toward the centre.');
+      if (goal && t < goal) status.append(h('div', { class: 'pp-goal' }, `⭐ Mission goal: T${goal}. Push the dot inside the gold ring.`));
     };
     upd();
     this.dynamic.push(upd);
@@ -467,7 +504,7 @@ export class PlanetPanel {
     const c = this.chart;
     if (!c || !c.isConnected) return;
     const ps = this.ps, d = this.preview;
-    drawClimate(c, ps.atm, ps.temp, this.t, { arrow: d ? { ...terraTarget(d, ps.atm, ps.temp), color: d.color } : null });
+    drawClimate(c, ps.atm, ps.temp, this.t, { arrow: d ? { ...terraTarget(d, ps.atm, ps.temp), color: d.color } : null, goal: this.goalT() });
   }
 
   // ------------------------------------------------------------------ life
@@ -490,17 +527,22 @@ export class PlanetPanel {
     const t = tScoreOf(ps.atm, ps.temp);
     const foreign = !!this.owner();
     const full = w.ecoRows(ps);
+    // An unstable world (T above its full rows) drifts back: the empty slots that would steady it glow.
+    const shaky = !foreign && t > full;
     const eco = h('div', { class: 'sp-eco' });
     for (let row = 0; row < 3; row++) {
       const done = ps.eco.slice(row * 4, row * 4 + 4).every((x) => !!x);
-      const r = h('div', { class: 'sp-eco-row' }, h('span', { class: 'sp-rl' + (done ? ' ok' : '') }, `T${row + 1}`, done ? h('i', null, '✓') : null));
+      const needRow = shaky && row < t && !done;
+      const r = h('div', { class: 'sp-eco-row' }, h('span', { class: 'sp-rl' + (done ? ' ok' : needRow ? ' need' : '') }, `T${row + 1}`, done ? h('i', null, '✓') : needRow ? h('i', null, '!') : null));
       for (let k = 0; k < 4; k++) {
         const i = row * 4 + k;
         const sp = ps.eco[i];
         const locked = row >= t;
-        const slot = h('div', { class: 'sp-slot' + (sp ? ' full' : '') + (locked && !sp ? ' locked' : ''), role: 'button' });
+        const need = needRow && !sp;
+        const slot = h('div', { class: 'sp-slot' + (sp ? ' full' : '') + (locked && !sp ? ' locked' : '') + (need ? ' need' : ''), role: 'button', title: need ? `Needed to keep ${this.pl.name} at T${t}. Tap to fill it.` : undefined });
+        const kind = slotKind(i) === 'plant' ? 'Plant' : slotKind(i) === 'herb' ? 'Herbivore' : 'Predator';
         if (sp) slot.append(specimenThumb(w, sp, 70, 40), h('span', { class: 'sp-sn' }, sp.name));
-        else slot.append(h('span', { style: 'font-size:20px' }, slotKind(i) === 'plant' ? '🌿' : slotKind(i) === 'herb' ? '🐄' : '🦖'), h('span', null, locked ? `T${row + 1}` : slotKind(i) === 'plant' ? 'Plant' : slotKind(i) === 'herb' ? 'Herbivore' : 'Predator'));
+        else slot.append(h('span', { style: 'font-size:20px' }, slotKind(i) === 'plant' ? '🌿' : slotKind(i) === 'herb' ? '🐄' : '🦖'), h('span', null, locked ? `T${row + 1}` : need ? `+ ${kind}` : kind));
         slot.addEventListener('click', () => {
           if (sp) { audio.sfx('tap'); this.st.ui.toast(`${sp.name} (${sp.diet})`, dietIcon(sp.diet)); return; }
           if (foreign) { this.st.ui.toast('This world belongs to another empire.', '🏳️'); audio.sfx('error'); return; }
@@ -511,8 +553,9 @@ export class PlanetPanel {
       }
       eco.append(r);
     }
-    B.append(this.box('Ecosystem', h('span', { class: 'pp-tag' + (full >= 3 ? ' ok' : '') }, `${full} / 3 rows full`), eco,
-      h('div', { class: 'pp-note' }, 'Each row needs two plants, a herbivore and a predator. A full row keeps that T-level stable.')));
+    B.append(this.box('Ecosystem', h('span', { class: 'pp-tag' + (full >= 3 ? ' ok' : shaky ? ' bad' : '') }, `${full} / 3 rows full`), eco,
+      shaky ? h('div', { class: 'pp-note need' }, `⚠ ${this.pl.name} is T${t} but ${full ? `only ${full} row${full === 1 ? ' is' : 's are'}` : 'no rows are'} full. Fill the glowing slots (seed pods for plants, specimens from your hold for animals) or the climate drifts back.`)
+        : h('div', { class: 'pp-note' }, 'Each row needs two plants, a herbivore and a predator. A full row keeps that T-level stable.')));
     if (pl.life) {
       // Life is collected on the surface: land, find the herds and flora, and beam them up.
       const grid = h('div', { class: 'sp-species' });
@@ -522,7 +565,7 @@ export class PlanetPanel {
         cell.addEventListener('click', () => this.land());
         grid.append(cell);
       }
-      B.append(this.box('Native life', button('🛬 Land and search', () => this.land(), { cls: 'primary small' }), grid,
+      B.append(this.box('Native life', button('🛬 Land and search', () => this.land(), { cls: 'primary small' + (this.guides.some((g) => g.act === 'land' && g.tab === 'life') ? ' guide' : '') }), grid,
         h('div', { class: 'pp-note' }, foreign ? 'This world is not yours: its owners will notice abductions.' : 'Fly low over the surface to find them. Tap a creature to beam it up; fly over flora to gather seeds.')));
     }
     B.append(h('div', { class: 'pp-chips' },
@@ -589,7 +632,7 @@ export class PlanetPanel {
         this.st.ui.toast(`Welcome to ${pl.name}, your newest colony!`, '🏠', 'gold');
         tutorialEvent(w, 'colony');
         this.render();
-      }, { cls: 'primary big block', disabled: !!err }));
+      }, { cls: 'primary big block' + this.wants('colonise'), disabled: !!err }));
       return;
     }
     // Your colony
@@ -677,11 +720,11 @@ export class PlanetPanel {
     if (err) { B.append(h('p', { class: 'dim' }, err)); return; }
     // Missions to deliver
     for (const m of deliverables(w, e)) {
-      B.append(h('div', { class: 'sp-offer' }, h('b', null, `📦 ${m.title}`), button(`Deliver for ${money(m.reward)}`, () => { deliver(w, m); this.render(); }, { cls: 'gold' })));
+      B.append(h('div', { class: 'sp-offer' }, h('b', null, `📦 ${m.title}`), button(`Deliver for ${money(m.reward)}`, () => { deliver(w, m); this.render(); }, { cls: 'gold guide' })));
     }
     B.append(h('div', { class: 'sp-section' }, 'Spice market'),
       h('div', { class: 'sp-mini' }, 'Each sale or purchase moves that spice\'s price. It drifts back to normal over a few minutes. Every price also follows the Galactic Spice Exchange, where the news moves the market.'),
-      h('div', { style: 'margin:2px 0 6px' }, button('📈 Open the Spice Exchange', () => this.st.openExchange(), { cls: 'small ghost' })));
+      h('div', { style: 'margin:2px 0 6px' }, button(exchangeOpen(w) ? '📈 Open the Spice Exchange' : '🔒 Spice Exchange (earn a charter)', () => this.st.openExchange(), { cls: 'small ghost' })));
     for (const c of SPICE_COLORS) {
       const have = w.s.spice[c];
       const prod = e.produces.includes(c);

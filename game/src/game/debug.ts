@@ -8,6 +8,8 @@ import { partsFor } from '../design/registry';
 
 export function debugState(game: Game, stage: StageId, seed: number, cards?: string) {
   const r = new RNG(seed);
+  // Test runs save to their own slot, never over a real game.
+  game.slot = -1;
   const s = game.newState({ planetName: planetName(r), speciesName: speciesName(r), difficulty: 'normal', seed });
   s.stage = stage;
   const diet = r.pick(['herbivore', 'carnivore', 'omnivore'] as const);

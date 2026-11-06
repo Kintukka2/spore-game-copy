@@ -49,7 +49,7 @@ export async function pauseMenu(game: Game, opts: { onPause?: () => void; onResu
   const s = game.state;
   const body = h('div', { class: 'col' },
     s ? h('div', { class: 'dim' }, `${s.speciesName} of ${s.planetName} · ${STAGE_NAMES[s.stage]} stage`) : null,
-    s ? h('div', { class: 'faint', style: 'font-size:13px' }, `Played ${Math.floor(s.playSeconds / 60)} min`) : null,
+    s ? h('div', { class: 'faint', style: 'font-size:13px' }, `Played ${Math.floor(s.playSeconds / 60)} min${game.slot >= 0 ? ` · save slot ${game.slot + 1}` : ''}`) : null,
   );
   const r = await ui.modal({ title: 'Paused', body, buttons: [{ id: 'settings', label: '⚙️ Settings' }, { id: 'quit', label: 'Save & quit' }, { id: 'resume', label: 'Resume', primary: true }], dismissable: true });
   if (r === 'settings') { await openSettings(game); return pauseMenu(game, opts); }

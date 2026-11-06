@@ -10,6 +10,12 @@
 
 **Target session:** cell about 6 min, creature about 12, tribal about 10, civilization about 12, then space (open-ended; the core is about 45–90 min in).
 
+**Save slots** (`game/game.ts`, title screen in `screens/title.ts`)
+- Up to 6 games side by side, each in its own storage key (`slotKey`). The old single save is slot 1, so it carries over. A debug run (`?stage=`) saves to its own slot and never touches them.
+- Title screen: **▶ Continue · species** plays the slot played last (else the most recently saved), with its stage, planet and slot under it. **New Game** asks where the new world goes when anything is saved (empty slots, or Overwrite after a confirm); with nothing saved it starts in slot 1. **Load Game (N)** lists every slot: the species as it looks now, its stage and planet, time played, difficulty and when it was saved, marked Last played; tap it or ▶ Play, 🗑 deletes it (asked first). An empty slot starts a new world there.
+- The title holds no game, so nothing autosaves (or counts play time) until a slot is picked. The pause menu names the slot. Settings' "Delete this save" appears only in a game and erases just that slot.
+- If the browser's storage is full, a save says so once (the game is kept for the session) and asks you to delete an old slot.
+
 ---
 
 ## Cards and consequences (implemented in `game/cards.ts`)

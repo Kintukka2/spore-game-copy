@@ -21,6 +21,8 @@ export interface GameState {
   difficulty: Difficulty;
   stage: StageId;
   createdAt: number;
+  /** When it was last saved (older saves lack it). */
+  savedAt?: number;
   playSeconds: number;
   cards: Cards;
   archetype?: ArchetypeId;

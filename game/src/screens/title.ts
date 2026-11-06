@@ -1,4 +1,5 @@
-import type { Game, Scene } from '../game/game';
+import { SLOTS, type Game, type Scene } from '../game/game';
+import type { GameState } from '../game/state';
 import { button, h, ui } from '../engine/ui';
 import { RNG } from '../engine/rng';
 import { generateCell, generateCreature } from '../design/generate';
@@ -7,7 +8,7 @@ import type { Design } from '../design/types';
 import { openEditor } from '../editor/editor';
 import { blankDesign } from '../design/generate';
 import { codexSave } from '../game/codex';
-import { STAGE_NAMES } from '../game/cards';
+import { STAGE_ICONS, STAGE_NAMES } from '../game/cards';
 import { TAU } from '../engine/math';
 import { openSettings } from './settings';
 
@@ -35,34 +36,125 @@ export class TitleScreen implements Scene {
     this.buildMenu();
   }
 
+  private menuEl: HTMLElement | null = null;
+
   private buildMenu() {
     const game = this.game;
     const L = game.layer();
-    const hasSave = game.hasSave();
-    const save = hasSave ? game.loadSave() : null;
-    const menu = h('div', { class: 'menu' });
-    if (save) {
-      menu.append(button([h('span', null, '▶'), `Continue · ${save.speciesName}`], () => { game.state = save; game.startStage(save.stage); }, { cls: 'primary big block' }));
-      menu.append(h('div', { class: 'faint tc', style: 'font-size:12px;margin-top:-4px' }, `${STAGE_NAMES[save.stage]} stage · planet ${save.planetName}`));
+    this.menuEl = h('div', { class: 'menu' });
+    L.append(h('div', { class: 'screen' },
+      h('div', { style: 'flex:1' }),
+      h('div', { class: 'title-logo' }, 'SPORADIUM'),
+      h('div', { class: 'title-tag' }, 'From a single cell to the stars'),
+      this.menuEl,
+      h('div', { style: 'flex:1.2' }),
+      h('div', { class: 'faint', style: 'font-size:11px' }, 'v0.1 · Made with procedural everything'),
+    ));
+    this.showMenu();
+  }
+
+  /** The main menu: Continue (the game played last), New Game, Load Game, and the rest. */
+  private showMenu() {
+    const game = this.game, menu = this.menuEl!;
+    menu.className = 'menu';
+    menu.innerHTML = '';
+    const saves = game.slotSaves();
+    const count = saves.filter(Boolean).length;
+    const last = game.lastSlot();
+    const save = last === null ? null : saves[last];
+    if (save && last !== null) {
+      menu.append(button([h('span', null, '▶'), `Continue · ${save.speciesName}`], () => this.play(last), { cls: 'primary big block' }));
+      menu.append(h('div', { class: 'faint tc', style: 'font-size:12px;margin-top:-4px' }, `${STAGE_NAMES[save.stage]} stage · planet ${save.planetName} · slot ${last + 1}`));
     }
-    menu.append(button('🌱 New Game', async () => {
-      if (save && !(await ui.confirm('Start over?', 'Starting a new game replaces your current save. Your Codex creations are kept.', 'New game', 'Cancel'))) return;
-      game.fade(() => game.setScene(game.screen('newgame')));
+    menu.append(button('🌱 New Game', () => {
+      // With nothing saved yet, the first slot it is; otherwise pick where the new world goes.
+      if (!count) this.newGame(0);
+      else this.showSlots('new');
     }, { cls: (save ? '' : 'primary big ') + 'block' }));
+    if (count) menu.append(button(`💾 Load Game (${count})`, () => this.showSlots('load'), { cls: 'block' }));
     menu.append(button('🧬 Creature Creator', () => this.freeEditor('creature'), { cls: 'block' }));
     const row = h('div', { class: 'row' });
     row.append(button('📚 Codex', () => game.fade(() => game.setScene(game.screen('codex'))), { cls: 'grow' }));
     row.append(button('🏆', () => game.fade(() => game.setScene(game.screen('achievements'))), { cls: 'icon', title: 'Achievements' }));
     row.append(button('⚙️', () => openSettings(game), { cls: 'icon', title: 'Settings' }));
     menu.append(row);
-    L.append(h('div', { class: 'screen' },
-      h('div', { style: 'flex:1' }),
-      h('div', { class: 'title-logo' }, 'SPORADIUM'),
-      h('div', { class: 'title-tag' }, 'From a single cell to the stars'),
-      menu,
-      h('div', { style: 'flex:1.2' }),
-      h('div', { class: 'faint', style: 'font-size:11px' }, 'v0.1 · Made with procedural everything'),
-    ));
+  }
+
+  /** The save slots. `load` plays a game (or starts one in an empty slot); `new` picks where a new game goes. */
+  private showSlots(mode: 'load' | 'new') {
+    const game = this.game, menu = this.menuEl!;
+    menu.className = 'menu slots';
+    menu.innerHTML = '';
+    const saves = game.slotSaves();
+    const last = game.lastSlot();
+    menu.append(h('div', { class: 'slots-head' }, h('b', null, mode === 'new' ? 'Where should your new world go?' : 'Your worlds'),
+      h('span', null, `${saves.filter(Boolean).length} of ${SLOTS} slots used`)));
+    const list = h('div', { class: 'slot-list' });
+    saves.forEach((sv, i) => list.append(sv ? this.slotCard(i, sv, mode, i === last) : this.emptyCard(i, mode)));
+    menu.append(list, button('Back', () => this.showMenu(), { cls: 'ghost block' }));
+  }
+
+  private emptyCard(i: number, mode: 'load' | 'new'): HTMLElement {
+    const card = h('div', { class: 'slot empty', role: 'button', tabindex: '0' },
+      h('div', { class: 'slot-pic' }, '＋'),
+      h('div', { class: 'slot-txt' }, h('b', null, 'Empty slot'), h('span', null, mode === 'new' ? 'Start your new world here' : 'Start a new world here')),
+      h('span', { class: 'slot-n' }, String(i + 1)));
+    card.addEventListener('click', () => this.newGame(i));
+    return card;
+  }
+
+  private slotCard(i: number, sv: GameState, mode: 'load' | 'new', isLast: boolean): HTMLElement {
+    const pic = h('canvas', { class: 'slot-pic', width: '128', height: '128' }) as HTMLCanvasElement;
+    this.drawSpecies(pic, sv);
+    const diff = sv.difficulty === 'easy' ? 'Relaxed' : sv.difficulty === 'hard' ? 'Brutal' : 'Normal';
+    const acts = h('div', { class: 'slot-acts' });
+    if (mode === 'load') {
+      acts.append(button('▶ Play', () => this.play(i), { cls: 'primary small' }));
+      acts.append(button('🗑', async () => {
+        const ok = await ui.confirm(`Delete ${sv.speciesName}?`, `This erases slot ${i + 1}: ${sv.speciesName} of ${sv.planetName} (${STAGE_NAMES[sv.stage]} stage, ${playTime(sv.playSeconds)} played). Codex creations and achievements are kept.`, 'Delete', 'Keep it');
+        if (!ok) return;
+        this.game.deleteSave(i);
+        ui.toast(`Slot ${i + 1} is empty now.`, { icon: '🗑' });
+        if (this.game.hasSave()) this.showSlots('load'); else this.showMenu();
+      }, { cls: 'small ghost', title: 'Delete this save' }));
+    } else {
+      acts.append(button('Overwrite', async () => {
+        const ok = await ui.confirm(`Replace ${sv.speciesName}?`, `Slot ${i + 1} holds ${sv.speciesName} of ${sv.planetName} (${STAGE_NAMES[sv.stage]} stage, ${playTime(sv.playSeconds)} played). A new world here erases it.`, 'Replace it', 'Cancel');
+        if (ok) this.newGame(i);
+      }, { cls: 'small danger' }));
+    }
+    const card = h('div', { class: 'slot' + (isLast ? ' last' : '') },
+      pic,
+      h('div', { class: 'slot-txt' },
+        h('b', null, sv.speciesName, isLast ? h('i', { class: 'slot-tag' }, 'Last played') : null),
+        h('span', null, `${STAGE_ICONS[sv.stage]} ${STAGE_NAMES[sv.stage]} stage · planet ${sv.planetName}`),
+        h('span', { class: 'faint' }, `${playTime(sv.playSeconds)} played · ${diff} · saved ${ago(sv.savedAt ?? sv.createdAt)}`)),
+      h('span', { class: 'slot-n' }, String(i + 1)),
+      acts);
+    // Tapping the card itself plays it (in the load list).
+    if (mode === 'load') card.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest('button')) this.play(i); });
+    return card;
+  }
+
+  /** The species as it looks now: its creature, or its cell before that. */
+  private drawSpecies(c: HTMLCanvasElement, sv: GameState) {
+    const g = c.getContext('2d');
+    if (!g) return;
+    try {
+      if (sv.creature) renderDesign(g, sv.creature, 64, 104, 1.05, { t: 0, facing: 1 });
+      else if (sv.cell) renderCell(g, sv.cell, 64, 64, -Math.PI / 2, 1.5, { t: 0 });
+    } catch { /* a design from an older version: leave the tile blank */ }
+  }
+
+  private play(i: number) {
+    const s = this.game.loadSlot(i);
+    if (s) this.game.startStage(s.stage);
+  }
+
+  private newGame(i: number) {
+    this.game.slot = i;
+    this.game.state = null;
+    this.game.fade(() => this.game.setScene(this.game.screen('newgame')));
   }
 
   private async freeEditor(kind: 'creature') {
@@ -130,4 +222,18 @@ export class TitleScreen implements Scene {
       renderDesign(g, this.walker, x, hh - 30, 0.9, { t: this.t, walk: 1, phase: this.t * 1.6, facing: 1 });
     }
   }
+}
+
+function playTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+}
+
+function ago(t: number): string {
+  const s = (Date.now() - t) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  if (s < 86400 * 7) return `${Math.round(s / 86400)} day${Math.round(s / 86400) === 1 ? '' : 's'} ago`;
+  return new Date(t).toLocaleDateString();
 }

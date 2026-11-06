@@ -10,6 +10,12 @@
 
 **Target session:** cell about 6 min, creature about 12, tribal about 10, civilization about 12, then space (open-ended; the core is about 45–90 min in).
 
+**Save slots** (`game/game.ts`, title screen in `screens/title.ts`)
+- Up to 6 games side by side, each in its own storage key (`slotKey`). The old single save is slot 1, so it carries over. A debug run (`?stage=`) saves to its own slot and never touches them.
+- Title screen: **▶ Continue · species** plays the slot played last (else the most recently saved), with its stage, planet and slot under it. **New Game** asks where the new world goes when anything is saved (empty slots, or Overwrite after a confirm); with nothing saved it starts in slot 1. **Load Game (N)** lists every slot: the species as it looks now, its stage and planet, time played, difficulty and when it was saved, marked Last played; tap it or ▶ Play, 🗑 deletes it (asked first). An empty slot starts a new world there.
+- The title holds no game, so nothing autosaves (or counts play time) until a slot is picked. The pause menu names the slot. Settings' "Delete this save" appears only in a game and erases just that slot.
+- If the browser's storage is full, a save says so once (the game is kept for the session) and asks you to delete an old slot.
+
 ---
 
 ## Cards and consequences (implemented in `game/cards.ts`)
@@ -300,7 +306,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - The **galactic core** is surrounded by a dense ring of **Hollow** systems (the cybernetic antagonist, an original stand-in for the Grox):
   - They live only on dead (T0) worlds, distrust everyone (−70), and attack intruders.
   - They are extremely hard to ally (allying them angers everyone else).
-- **The veils** (`VEILS` in `story.ts`): four barriers ring the core, and each needs a piece of core gear from the story before you can enter a system inside it. Travel and routes refuse them, the star card reads 🔒 Sealed with what is needed, and the galaxy map draws each veil as a crackling violet ring with its name (a faint gold one once you can pass).
+- **The veils** (`VEILS` in `story.ts`): four barriers ring the core, and each needs a piece of core gear from the story before you can enter a system inside it. Travel and routes refuse them. A sealed star's card hides everything but its name, its kind and its distance, then lists every veil on the way in with the gear it takes: ✓ Fitted, or which chapter of the story gives it (named once you have reached that chapter). The galaxy map draws each veil as a crackling violet ring with its name (a faint gold one once you can pass).
   - **The Static** (inside 262 ly of the centre, the inner half of the Hollow ring): Hollow jamming. Needs the 🔭 Static Lens.
   - **The Shear** (inside 150 ly, the inner bastions): a gravity storm. Needs the ⚓ Null Anchor.
   - **The Silent Gate** (inside 105 ly, the last bastions): opens only to the Choir's song. Needs the 🎶 Choir Key.
@@ -398,7 +404,8 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - A colony produces spice per minute (by planet richness, its colour rarity and the number of buildings). Spice is collected by visiting or automatically into storage.
 - Every colony is a shipyard like home: its planet panel has the Tool shop and 🛠️ Redesign ship, your hull repairs itself in your systems, and energy recharges there. Only the Xeno-Lab is the homeworld's alone.
 - Sell spice at empires. Prices vary per empire, per spice colour, and by **supply and demand**.
-  - Selling asks first. "Sell 5 × Verdance?" quotes the total (about §X, with the average each, since every sale lowers the price); [Keep it] backs out.
+  - The Trade tab lists every spice as a row: what you hold, how the market feels about it (in demand / cooling / glutted, ↗ recovering, the exchange's push), and two price buttons, **SELL §X** and **BUY §Y** (a dashed "—" where they do not make it; Sell is dashed when you hold none).
+  - Either button opens a **ticket** under its row (one at a time): − / + and quick picks (1, 5, All N or Max N, the most your credits and hold allow), the live total with the average each (every sale lowers the price, every purchase raises it), your hold and credits after a purchase, a warning when a sale would eat into spice your missions need, and one button that does it ("Sell 6 Ember · §1,473"). Sell starts at all you hold, Buy at 1. Cancel, or tapping the button again, closes it.
   - Each sale lowers that spice's demand (×0.955) and each purchase lowers it too (×0.97), so selling pays less and buying costs more. Demand drifts back toward normal over a few minutes (about 10% of the gap a minute), never past it.
   - The Trade tab's prices tick live. A spice still recovering shows "↗ recovering", so the change is plainly the clock and not the tab being reopened.
   - Every empire's spice prices also follow the **Galactic Spice Exchange** index for that spice. A trade row shows "📈 exchange +12%" when the exchange has pushed it more than 5% from normal, and the tab has an **Open the Spice Exchange** button.
@@ -644,7 +651,7 @@ Captured cities keep their own type (cosmopolitan nations can mix vehicle roles)
 - Opens the Galactic Spice Exchange. Zix the Whisper, the broker from its back room, calls about 100 s after the onboarding (or at once, when you press the locked 📈). The floor has been shut since the Crash, when fake headlines sent every price mad; the Guild of Weights will only seat a captain who proves themselves.
 - Four missions (story missions with `story.line: 'charter'`, so the story's hooks finish them), each offered on its own call, which reacts to the last:
   1. **The assay**: bring 4 of the spice you can most easily get (what your colonies grow, else what a met empire sells) to the Guild's Assay House, an unclaimed star a few jumps from home. Delivered on arrival when it is in your hold. §15,000.
-  2. **Break the hoard**: the Cinder Syndicate is cornering a mid-price spice at a nearby empty system: three escorts and a slow, tough **Hoard Barge** (pirates, tagged with the mission). Breaking it runs a headline that knocks that spice down 20%. §40,000.
+  2. **Break the hoard**: the Cinder Syndicate is cornering a mid-price spice at a nearby empty system: four escorts and a slow, tough **Hoard Barge** (pirates, tagged with the mission). Breaking it runs a headline that knocks that spice down 20%. §40,000.
   3. **The ledger**: the barge's transmitter points to the Syndicate's **Rumour Mill**: land on that world, sweep with life scans and beam up the Syndicate Ledger (a relic). §25,000.
   4. **Ring the opening bell**: Cinder calls to threaten you first; then take the ledger to the Guild Hall (the assay star).
 - The Chair of the Guild of Weights closes it: the ledger proves the Crash was rigged ("eleven fake blights, four invented wars and one very busy parrot"). The floor reopens with a headline that lifts every spice, and you get the charter, §50,000 and 5 contracts of the hoarded spice.

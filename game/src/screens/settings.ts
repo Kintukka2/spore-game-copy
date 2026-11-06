@@ -20,9 +20,11 @@ export async function openSettings(game: Game) {
     toggle('Mute everything', s.muted, (v) => (s.muted = v)),
     toggle('Show hints', s.hints, (v) => (s.hints = v)),
   );
-  const r = await ui.modal({ title: 'Settings', body, buttons: [{ id: 'reset', label: 'Delete save', danger: true }, { id: 'ok', label: 'Done', primary: true }], dismissable: true });
-  if (r === 'reset') {
-    const ok = await ui.confirm('Delete your save?', 'This erases your current planet. Codex creations and achievements are kept.', 'Delete', 'Cancel');
+  // Deleting is for the game being played; on the title screen, saves are managed from Load Game.
+  const st = game.state;
+  const r = await ui.modal({ title: 'Settings', body, buttons: [...(st ? [{ id: 'reset', label: 'Delete this save', danger: true }] : []), { id: 'ok', label: 'Done', primary: true }], dismissable: true });
+  if (r === 'reset' && st) {
+    const ok = await ui.confirm('Delete this save?', `This erases ${st.speciesName} of ${st.planetName} (slot ${game.slot + 1}). Your other save slots, Codex creations and achievements are kept.`, 'Delete', 'Cancel');
     if (ok) { game.deleteSave(); game.setScene(game.screen('title')); }
   }
 }

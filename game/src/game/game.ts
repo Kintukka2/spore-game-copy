@@ -34,10 +34,17 @@ interface StackEntry {
   input: InputHandler[] | null;
 }
 
-// Storage keys keep the game's first name (Primordia) so existing saves carry over.
+// Storage keys keep the game's first name (Primordia) so existing saves carry over: the old single save is slot 1.
 const SAVE_KEY = 'primordia.save.v1';
 const SETTINGS_KEY = 'primordia.settings.v1';
 const ACH_KEY = 'primordia.achievements.v1';
+/** The slot played last, for Continue. */
+const LAST_KEY = 'primordia.slot.last';
+
+/** How many games can be kept side by side. */
+export const SLOTS = 6;
+/** Where a slot's game is stored. Slot -1 is the debug slot (URL `?stage=`), so test runs never touch real games. */
+export const slotKey = (i: number) => (i < 0 ? 'primordia.save.debug' : i === 0 ? SAVE_KEY : `${SAVE_KEY}.${i + 1}`);
 
 type StageFactory = () => Scene;
 
@@ -57,6 +64,10 @@ export class Game {
   private stack: StackEntry[] = [];
   private last = 0;
   private saveTimer = 0;
+  /** The save slot the current game lives in (see SLOTS). */
+  slot = 0;
+  /** A save failed (storage full): said once, until one works again. */
+  private saveWarned = false;
   private stageFactories: Partial<Record<StageId, StageFactory>> = {};
   private screenFactories: Record<string, (arg?: unknown) => Scene> = {};
   private fadeEl: HTMLElement;
@@ -222,8 +233,39 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ state
+  /** The game in a slot, without loading it. */
+  peekSlot(i: number): GameState | null {
+    const s = loadJSON<GameState | null>(slotKey(i), null);
+    return s && s.v === 1 ? s : null;
+  }
+
+  /** Every slot's game (null where it is empty). */
+  slotSaves(): (GameState | null)[] {
+    return Array.from({ length: SLOTS }, (_, i) => this.peekSlot(i));
+  }
+
   hasSave(): boolean {
-    return !!loadJSON<GameState | null>(SAVE_KEY, null);
+    return this.slotSaves().some((s) => !!s);
+  }
+
+  /** The slot to continue: the one played last, else the most recently saved. */
+  lastSlot(): number | null {
+    const all = this.slotSaves();
+    const last = loadJSON<number>(LAST_KEY, 0);
+    if (all[last]) return last;
+    let best: number | null = null;
+    all.forEach((s, i) => { if (s && (best === null || (s.savedAt ?? s.createdAt) > (all[best]!.savedAt ?? all[best]!.createdAt))) best = i; });
+    return best;
+  }
+
+  /** Load a slot's game and make it the one being played (and saved). */
+  loadSlot(i: number): GameState | null {
+    const s = this.peekSlot(i);
+    if (!s) return null;
+    this.slot = i;
+    this.state = s;
+    saveJSON(LAST_KEY, i);
+    return s;
   }
 
   newState(o: { planetName: string; speciesName: string; difficulty: Difficulty; seed?: number }): GameState {
@@ -245,18 +287,27 @@ export class Game {
         try { this.state.stageData[e.scene.name as StageId] = e.scene.serialize(); } catch (err) { console.error(err); }
       }
     }
-    saveJSON(SAVE_KEY, this.state);
+    this.state.savedAt = Date.now();
+    if (saveJSON(slotKey(this.slot), this.state)) {
+      this.saveWarned = false;
+      if (this.slot >= 0) saveJSON(LAST_KEY, this.slot);
+    } else if (!this.saveWarned) {
+      // The browser kept it for this session only.
+      this.saveWarned = true;
+      ui.toast('Could not save: your browser\'s storage is full. Delete an old save slot from the title screen.', { icon: '💾', kind: 'bad', ms: 6000 });
+    }
   }
 
+  /** Load the game to continue (see lastSlot). */
   loadSave(): GameState | null {
-    const s = loadJSON<GameState | null>(SAVE_KEY, null);
-    if (s && s.v === 1) { this.state = s; return s; }
-    return null;
+    const i = this.lastSlot();
+    return i === null ? null : this.loadSlot(i);
   }
 
-  deleteSave() {
-    removeKey(SAVE_KEY);
-    this.state = null;
+  /** Erase a slot (the current game's, by default). */
+  deleteSave(i = this.slot) {
+    removeKey(slotKey(i));
+    if (i === this.slot) this.state = null;
   }
 
   saveSettings() {
@@ -357,7 +408,8 @@ export class Game {
 
   goTitle() {
     this.save();
-    this.fade(() => this.setScene(this.screen('title')));
+    // The title holds no game: nothing autosaves (or counts play time) until a slot is picked.
+    this.fade(() => { this.state = null; this.setScene(this.screen('title')); });
   }
 
   /** Set a species design and keep the codex copy current. */

@@ -186,6 +186,34 @@ export function sellQuote(w: World, e: Empire, c: SpiceColor, n: number): number
   return total;
 }
 
+/** What buying `n` of a spice would cost right now, each purchase nudging the price up as `buy` does. */
+export function buyQuote(w: World, e: Empire, c: SpiceColor, n: number): number {
+  const d0 = e.demand[c];
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    total += buyPrice(w, e, c);
+    e.demand[c] = Math.max(0.3, e.demand[c] * 0.97);
+  }
+  e.demand[c] = d0;
+  return total;
+}
+
+/** The most of a spice you could buy here: limited by your credits and the room in your hold. */
+export function maxBuy(w: World, e: Empire, c: SpiceColor): number {
+  const room = Math.max(0, w.cargoCap - w.cargoUsed);
+  const d0 = e.demand[c];
+  let n = 0, spent = 0;
+  while (n < room) {
+    const p = buyPrice(w, e, c);
+    if (spent + p > w.s.money) break;
+    spent += p;
+    n++;
+    e.demand[c] = Math.max(0.3, e.demand[c] * 0.97);
+  }
+  e.demand[c] = d0;
+  return n;
+}
+
 export function sell(w: World, e: Empire, c: SpiceColor, n: number, star: number): number {
   let earned = 0;
   for (let i = 0; i < n && w.s.spice[c] > 0; i++) {

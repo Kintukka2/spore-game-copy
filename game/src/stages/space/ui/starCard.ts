@@ -3,7 +3,8 @@ import { button, h } from '../../../engine/ui';
 import { SPICE, STAR_INFO } from '../data';
 import { stanceInfo } from '../empires';
 import { eventInfo } from '../events';
-import { veilBlock } from '../story';
+import { CHAPTERS, chapterIndex, veilBlock, veilsAround } from '../story';
+import { TOOL_MAP } from '../data';
 import type { SpaceStage } from '../stage';
 
 const TYPE_ICON: Record<string, string> = { red: '🔴', yellow: '🟡', white: '⚪', blue: '🔵', binary: '♊', proto: '💫', blackhole: '⚫', core: '✦' };
@@ -40,6 +41,7 @@ export class StarCard {
     const isCore = this.id === w.gal.coreId;
     // The veils around the core (story.ts) keep you out until you carry the right gear.
     const veil = veilBlock(w, this.id);
+    if (veil) { this.locked(); return; }
     el.append(h('h3', null, TYPE_ICON[s.type] ?? '⭐', s.name, this.id === w.gal.homeStar ? h('span', { class: 'chip', style: 'font-size:11px' }, '🏠 Home') : null));
     el.append(h('div', { class: 'sp-sub' }, isCore ? 'The heart of the galaxy. Something bright waits inside.' : STAR_INFO[s.type].name + (s.hollow ? ' · Hollow space' : '')));
     const kv = h('div', { class: 'sp-kv' });
@@ -83,7 +85,7 @@ export class StarCard {
       kv.append(h('span', null, 'Status'), h('b', null, 'You are here'));
       actions.append(button('🪐 Enter system', () => st.showSystem(), { cls: 'primary' }));
     } else {
-      const route = veil ? null : st.planRoute(this.id);
+      const route = st.planRoute(this.id);
       const d = w.gal.dist(here, this.id);
       kv.append(h('span', null, 'Distance'), h('b', null, `${Math.round(d)} ly`));
       if (route) {
@@ -91,15 +93,38 @@ export class StarCard {
         for (let i = 1; i < route.length; i++) cost += st.hopCost(route[i - 1], route[i]);
         st.gv.route = route;
         kv.append(h('span', null, 'Trip'), h('b', null, `${route.length - 1} jump${route.length > 2 ? 's' : ''} · ⚡ ${cost}${cost > w.s.energy ? ' (not enough!)' : ''}`));
-        actions.append(button(veil ? '🔒 Sealed' : route.length > 2 ? `🚀 Travel (${route.length - 1} jumps)` : '🚀 Travel', () => st.travelTo(this.id), { cls: 'primary', disabled: !!veil }));
+        actions.append(button(route.length > 2 ? `🚀 Travel (${route.length - 1} jumps)` : '🚀 Travel', () => st.travelTo(this.id), { cls: 'primary' }));
       } else {
-        kv.append(h('span', null, 'Trip'), h('b', { style: 'color:#ff8a7a' }, veil ? `Behind ${veil.name}` : isCore ? 'Gravity too strong for your drive' : 'Out of reach for your drive'));
+        kv.append(h('span', null, 'Trip'), h('b', { style: 'color:#ff8a7a' }, isCore ? 'Gravity too strong for your drive' : 'Out of reach for your drive'));
       }
     }
     if (e && e.met && e.arch !== 'hollow') actions.append(button('📡 Hail', () => st.openComm(e), {}));
     if (e && e.arch === 'hollow' && e.met) actions.append(button('📡 Hail', () => st.openComm(e), {}));
     actions.append(button('Close', () => { st.selectStar(null); }, { cls: 'ghost' }));
     el.append(kv, actions);
-    if (veil) el.append(h('div', { class: 'sp-mini' }, `🔒 ${veil.name}. ${veil.desc}`));
+  }
+
+  /** A star behind a veil you cannot pass yet: only its name, what it is and how far, then what it takes to get in. */
+  private locked() {
+    const st = this.st, w = st.w, s = w.star(this.id), el = this.el;
+    const isCore = this.id === w.gal.coreId;
+    el.append(h('h3', null, TYPE_ICON[s.type] ?? '⭐', s.name, h('span', { class: 'chip sc-lock' }, '🔒 Sealed')));
+    el.append(h('div', { class: 'sp-sub' }, isCore ? 'The heart of the galaxy.' : STAR_INFO[s.type].name));
+    const kv = h('div', { class: 'sp-kv' }, h('span', null, 'Distance'), h('b', null, `${Math.round(w.gal.dist(w.s.loc, this.id))} ly`));
+    el.append(kv);
+    // Every veil on the way in, with the gear it takes and where that comes from.
+    const sto = w.s.story;
+    const list = h('div', { class: 'sc-veils' });
+    for (const v of veilsAround(w, this.id)) {
+      const g = TOOL_MAP[v.gear], has = w.has(v.gear);
+      const ci = chapterIndex(v.from), reached = !!sto && sto.ch >= ci;
+      const where = has ? 'Fitted' : `From ⭐ The Lamplight, chapter ${ci + 1}${reached ? `: ${CHAPTERS[ci].title}` : ''}`;
+      list.append(h('div', { class: 'sc-veil' + (has ? ' ok' : '') },
+        h('span', { class: 'sc-ic' }, has ? '✓' : g.icon),
+        h('div', null, h('b', null, `${v.name}: ${g.name}`), h('span', null, has ? 'You can pass it.' : v.desc.split('. ')[0] + '.'), h('i', null, where))));
+    }
+    el.append(h('div', { class: 'sc-need' }, h('b', null, '🔒 To get in, your ship needs:'), list,
+      h('div', { class: 'sp-mini' }, sto && sto.phase !== 'done' ? 'Follow the ⭐ story missions: each piece of gear is a chapter\'s reward.' : 'Each piece of gear is a reward from the ⭐ story.')));
+    el.append(h('div', { class: 'sp-actions' }, button('Close', () => { st.selectStar(null); }, { cls: 'ghost' })));
   }
 }
